@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Akemat Foundation — Layanan Perawat &amp; Donasi Kemanusiaan</title>
+  <meta name="description" content="Akemat Foundation — Temukan perawat jiwa, lansia, maternitas, luka, dan paliatif yang hadir ke rumah Anda. Donasi untuk bantu keluarga yang membutuhkan." />
+  <meta name="theme-color" content="#1F4D3F" />
+
+  <!-- Favicon SVG -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%231F4D3F'/%3E%3Cpath d='M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z' fill='%23F2A541'/%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- JS runs immediately to avoid FOUC on dark mode (if added later) -->
+  <script>document.documentElement.className='js-on';</script>
+
+  <style>
+    /* ── Floating WhatsApp Button ───────────────────────────── */
+    .wa-fab {
+      position: fixed;
+      bottom: 28px;
+      right: 24px;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #25D366;
+      color: #fff;
+      font-family: "Sora", sans-serif;
+      font-weight: 700;
+      font-size: .84rem;
+      padding: 12px 18px 12px 14px;
+      border-radius: 999px;
+      text-decoration: none;
+      box-shadow: 0 6px 24px rgba(37,211,102,.45);
+      transition: transform .2s ease, box-shadow .2s ease;
+      white-space: nowrap;
+    }
+    .wa-fab:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 32px rgba(37,211,102,.55);
+      color: #fff;
+    }
+    .wa-fab svg { width: 22px; height: 22px; flex-shrink: 0; }
+    .wa-fab-label { display: flex; flex-direction: column; line-height: 1.2; }
+    .wa-fab-label .wa-title { font-size: .78rem; font-weight: 800; }
+    .wa-fab-label .wa-sub   { font-size: .68rem; font-weight: 500; opacity: .88; }
+
+    /* pulse ring */
+    .wa-fab::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 999px;
+      border: 3px solid #25D366;
+      animation: waPulse 2.2s ease-out infinite;
+      opacity: 0;
+    }
+    @keyframes waPulse {
+      0%   { transform: scale(.95); opacity: .7; }
+      70%  { transform: scale(1.08); opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    /* hide pulse on hover */
+    .wa-fab:hover::before { animation: none; }
+
+    /* ── App loading placeholder ────────────────────────────── */
+    #app:empty::after {
+      content: '';
+      display: block;
+      height: 60vh;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Skip link ──────────────────────────────────────── -->
+  <a class="skip-link" href="#main-content">Lewati ke konten utama</a>
+
+  <!-- ─── Header ────────────────────────────────────────── -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#" class="logo" aria-label="Akemat Foundation, kembali ke beranda">
+        <svg class="logo-mark" viewBox="0 0 48 48" aria-hidden="true">
+          <rect width="48" height="48" rx="10" fill="#1F4D3F"/>
+          <path d="M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z" fill="#F2A541"/>
+          <path d="M20 22h8M24 18v8" stroke="#1F4D3F" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+        <span>Akemat <strong>Foundation</strong></span>
+      </a>
+
+      <nav class="nav" id="mainNav" data-open="false" role="navigation" aria-label="Navigasi utama">
+        <!-- Diisi dinamis oleh app.js → renderHeader() -->
+      </nav>
+
+      <button class="nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false" aria-controls="mainNav">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ─── Main SPA Container ────────────────────────────── -->
+  <main id="main-content">
+    <div id="app" role="main"></div>
+  </main>
+
+  <!-- ─── Floating WhatsApp Call Center Button ─────────── -->
+  <a
+    href="https://wa.me/6285196407117?text=Halo%20Akemat%20Foundation%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20Anda."
+    target="_blank"
+    rel="noopener noreferrer"
+    class="wa-fab"
+    aria-label="Hubungi Call Center Akemat via WhatsApp"
+    title="Chat WhatsApp — 0851 9640 7117"
+  >
+    <!-- WhatsApp SVG icon -->
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+    <div class="wa-fab-label">
+      <span class="wa-title">Call Center</span>
+      <span class="wa-sub">0851 9640 7117</span>
+    </div>
+  </a>
+
+  <!-- ─── Toast Notification ────────────────────────────── -->
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MODALS
+  ═══════════════════════════════════════════════════════ -->
+
+  <!-- ── Modal: Donasi Campaign ─────────────────────────── -->
+  <div class="modal-overlay" id="modalDonate" role="dialog" aria-modal="true" aria-labelledby="donModalTitle">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <h3 id="donModalTitle">💙 Donasi untuk Campaign</h3>
+        <button class="modal-x" aria-label="Tutup">✕</button>
+      </div>
+
+      <!-- Campaign summary -->
+      <div style="background:var(--bg-alt);border-radius:10px;padding:14px;margin-bottom:18px">
+        <p id="donModalCamTitle" style="font-family:'Sora',sans-serif;font-weight:700;font-size:.9rem;margin:0 0 8px;color:var(--primary)">—</p>
+        <div class="progress-bar" style="height:6px;margin-bottom:5px">
+          <div class="progress-fill" id="donModalCamPct" style="width:0%"></div>
+        </div>
+        <div id="donModalCamRaised" style="font-size:.76rem;color:var(--soft)"></div>
+      </div>
+
+      <!-- Pilih nominal -->
+      <div class="modal-section">
+        <label>Pilih nominal donasi</label>
+        <div class="amount-grid">
+          <button class="amount-btn d-amt-btn" data-amt="25000">Rp 25.000</button>
+          <button class="amount-btn d-amt-btn" data-amt="50000">Rp 50.000</button>
+          <button class="amount-btn d-amt-btn" data-amt="100000">Rp 100.000</button>
+          <button class="amount-btn d-amt-btn" data-amt="250000">Rp 250.000</button>
+          <button class="amount-btn d-amt-btn" data-amt="500000">Rp 500.000</button>
+          <button class="amount-btn d-amt-btn" data-amt="1000000">Rp 1 Juta</button>
+        </div>
+        <div class="ff" style="margin-top:8px">
+          <label for="donCustomAmt">Atau masukkan nominal lain (min. Rp 1.000)</label>
+          <input type="number" id="donCustomAmt" min="1000" step="1000" placeholder="Contoh: 75000" />
+        </div>
+      </div>
+
+      <!-- Data pembayar -->
+      <div class="modal-section">
+        <label>Data Anda</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="ff">
+            <label for="donBuyerName">Nama</label>
+            <input type="text" id="donBuyerName" placeholder="Nama Anda" autocomplete="name" />
+          </div>
+          <div class="ff">
+            <label for="donBuyerPhone">No. HP</label>
+            <input type="tel" id="donBuyerPhone" placeholder="0812…" autocomplete="tel" />
+          </div>
+        </div>
+        <div class="ff" style="margin-top:8px">
+          <label for="donBuyerEmail">Email</label>
+          <input type="email" id="donBuyerEmail" placeholder="email@anda.com" autocomplete="email" />
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--soft);margin-top:8px;cursor:pointer">
+          <input type="checkbox" id="donAnon" /> Sembunyikan nama saya (donasi anonim)
+        </label>
+      </div>
+
+      <!-- Rincian biaya -->
+      <div class="fee-box">
+        <div class="fee-row fee-total">
+          <span>Donasi Anda</span>
+          <span id="donTotalDisp">Rp 0</span>
+        </div>
+        <div class="fee-row fee-platform">
+          <span class="fee-label">Biaya layanan platform (5%)</span>
+          <span id="donFeeDisp">Rp 0</span>
+        </div>
+        <div class="fee-row fee-net">
+          <span class="fee-label">Diterima campaign (95%)</span>
+          <span id="donNetDisp">Rp 0</span>
+        </div>
+      </div>
+
+      <!-- Info pembayaran -->
+      <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:.78rem;color:#92400E">
+        💳 Setelah konfirmasi, Anda akan diarahkan untuk menyelesaikan pembayaran via transfer atau metode lain yang tersedia. Butuh bantuan? WA <a href="https://wa.me/6285196407117" target="_blank" style="color:#92400E;font-weight:700">0851 9640 7117</a>.
+      </div>
+
+      <input type="hidden" id="donCamId" />
+      <button class="btn btn-accent btn-full" id="btnSubmitDonation" style="font-size:.95rem;padding:14px">
+        ❤️ Konfirmasi Donasi
+      </button>
+      <p style="text-align:center;font-size:.72rem;color:var(--soft);margin-top:8px">
+        Dengan berdonasi, Anda menyetujui <a href="#tnc" onclick="closeModal('modalDonate')">Syarat &amp; Ketentuan</a> kami.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Modal: Buat Campaign ───────────────────────────── -->
+  <div class="modal-overlay" id="modalCreateCampaign" role="dialog" aria-modal="true" aria-labelledby="ccModalTitle">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <h3 id="ccModalTitle">📢 Buat Campaign Donasi Baru</h3>
+        <button class="modal-x" aria-label="Tutup">✕</button>
+      </div>
+
+      <div class="ff">
+        <label for="ccTitle">Judul campaign <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="ccTitle" placeholder="Contoh: Bantu Perawatan Nenek Mariam Pasca Stroke" maxlength="100" />
+      </div>
+
+      <div class="ff">
+        <label for="ccStory">Cerita &amp; latar belakang <span style="color:var(--danger)">*</span></label>
+        <textarea id="ccStory" rows="5" placeholder="Ceritakan kondisi pasien, kebutuhan perawatan, dan mengapa membutuhkan bantuan. Semakin detail, semakin dipercaya donatur."></textarea>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="ff">
+          <label for="ccTarget">Target dana (Rp) <span style="color:var(--danger)">*</span></label>
+          <input type="number" id="ccTarget" placeholder="5000000" min="100000" step="100000" />
+        </div>
+        <div class="ff">
+          <label for="ccDeadline">Deadline <span style="color:var(--danger)">*</span></label>
+          <input type="date" id="ccDeadline" />
+        </div>
+        <div class="ff">
+          <label for="ccCategory">Kategori</label>
+          <select id="ccCategory">
+            <option value="">Pilih kategori</option>
+            <option value="Perawat Jiwa">🧠 Perawat Jiwa</option>
+            <option value="Perawat Anak &amp; Bayi">👶 Perawat Anak &amp; Bayi</option>
+            <option value="Perawat Lansia">👴 Perawat Lansia</option>
+            <option value="Perawat Medical Bedah">🏥 Medical Bedah</option>
+            <option value="Perawat Luka">🩹 Perawat Luka</option>
+            <option value="Perawat Maternitas">🤱 Perawat Maternitas</option>
+            <option value="Perawat Paliatif">🕊️ Perawat Paliatif</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Rekening penerima campaign — WAJIB -->
+      <div style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px;margin-top:4px">
+        <h4 style="font-family:'Sora',sans-serif;font-weight:700;font-size:.88rem;margin:0 0 6px;color:var(--primary)">🏦 Rekening Penerima Dana Campaign <span style="color:var(--danger)">*</span></h4>
+        <p style="font-size:.76rem;color:var(--soft);margin:0 0 12px">Rekening ini akan digunakan untuk mencairkan donasi yang terkumpul. Pastikan data rekening valid dan atas nama pemilik resmi.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div class="ff">
+            <label for="ccBankName">Nama bank</label>
+            <select id="ccBankName">
+              <option value="">Pilih bank…</option>
+              <option>BCA</option><option>BNI</option><option>BRI</option>
+              <option>Mandiri</option><option>CIMB Niaga</option><option>BSI</option>
+              <option>Permata</option><option>Danamon</option><option>BTN</option>
+              <option>Jenius / SMBC</option><option>SeaBank</option>
+              <option>OVO</option><option>GoPay</option><option>Jago</option>
+            </select>
+          </div>
+          <div class="ff">
+            <label for="ccAccNum">Nomor rekening</label>
+            <input type="text" id="ccAccNum" placeholder="1234567890" />
+          </div>
+          <div class="ff">
+            <label for="ccAccOwner">Atas nama</label>
+            <input type="text" id="ccAccOwner" placeholder="Nama pemilik rekening" />
+          </div>
+        </div>
+        <p style="font-size:.74rem;color:var(--accent2);margin:6px 0 0">⚠️ Rekening akan diverifikasi oleh tim Akemat sebelum pencairan. Campaign tetap tayang selama proses verifikasi.</p>
+      </div>
+
+      <div class="bank-warning" style="margin-top:10px">
+        ℹ️ <strong>Transparansi biaya:</strong> 95% dari setiap donasi yang masuk akan dicairkan ke rekening di atas. 5% adalah biaya layanan platform Akemat Foundation.
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-accent" id="btnCreateCampaign" style="flex:2">Buat Campaign</button>
+        <button class="btn btn-ghost" onclick="closeModal('modalCreateCampaign')" style="flex:1">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Edit Rekening Campaign ─────────────────── -->
+  <div class="modal-overlay" id="modalEditCampaign" role="dialog" aria-modal="true" aria-labelledby="ecModalTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="ecModalTitle">🏦 Edit Rekening Campaign</h3>
+        <button class="modal-x" aria-label="Tutup">✕</button>
+      </div>
+      <p style="font-size:.84rem;color:var(--soft);margin-bottom:18px">Update rekening tujuan pencairan donasi untuk campaign ini. Perubahan akan melalui verifikasi ulang.</p>
+      <input type="hidden" id="ecCamId" />
+      <div class="ff">
+        <label for="ecBankName">Nama bank</label>
+        <select id="ecBankName">
+          <option value="">Pilih bank…</option>
+          <option>BCA</option><option>BNI</option><option>BRI</option>
+          <option>Mandiri</option><option>CIMB Niaga</option><option>BSI</option>
+          <option>Permata</option><option>Danamon</option><option>BTN</option>
+          <option>Jenius / SMBC</option><option>SeaBank</option>
+          <option>OVO</option><option>GoPay</option><option>Jago</option>
+        </select>
+      </div>
+      <div class="ff">
+        <label for="ecAccNum">Nomor rekening</label>
+        <input type="text" id="ecAccNum" placeholder="1234567890" />
+      </div>
+      <div class="ff">
+        <label for="ecAccOwner">Atas nama pemilik rekening</label>
+        <input type="text" id="ecAccOwner" placeholder="Nama sesuai buku tabungan" />
+      </div>
+      <p style="font-size:.74rem;color:var(--soft);margin:4px 0 14px">Verifikasi oleh tim Akemat dalam 1×24 jam kerja.</p>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" id="btnSaveEditCampaign" style="flex:2">Simpan Rekening</button>
+        <button class="btn btn-ghost" onclick="closeModal('modalEditCampaign')" style="flex:1">Batal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Konfirmasi Booking (dari nurse detail) ── -->
+  <!-- Booking langsung diproses di halaman detail perawat, tidak butuh modal terpisah -->
+
+  <!-- ─── Data & App Scripts ────────────────────────────── -->
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
