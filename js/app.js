@@ -102,8 +102,8 @@ function renderHeader(){
            <a href="#dashboard" class="btn btn-sm btn-outline">Dashboard</a>
          </div>`
       : `<div style="display:flex;gap:8px">
-           <a href="#login" class="btn btn-sm btn-ghost">Masuk</a>
-           <a href="#register" class="btn btn-sm btn-accent">Daftar</a>
+           <a href="#login" class="btn btn-sm btn-outline" style="padding:7px 16px;font-size:.82rem">Masuk</a>
+           <a href="#register" class="btn btn-sm btn-primary" style="padding:7px 16px;font-size:.82rem">Daftar</a>
          </div>`
     }
   `;
@@ -120,7 +120,7 @@ function renderHome(){
   <section class="hero">
     <div class="container hero-grid">
       <div>
-        <p class="eyebrow">Yayasan kemanusiaan · melayani sejak 2019</p>
+        <p class="eyebrow">Yayasan kemanusiaan · melayani sejak 2026</p>
         <h1>Perawat tepercaya, hadir di rumah karena kepedulian Anda</h1>
         <p class="lead">Akemat Foundation mempertemukan keluarga dengan perawat jiwa, lansia, maternitas, dan berbagai spesialisasi lainnya. Seluruh layanan didukung oleh donasi masyarakat.</p>
         <div class="hero-cta">
@@ -222,39 +222,7 @@ function renderHome(){
     </div>
   </section>
 
-  <!-- Fee transparency section -->
-  <section class="pub-section alt">
-    <div class="container">
-      <div class="section-head">
-        <p class="eyebrow">Transparansi biaya</p>
-        <h2>Kami terbuka tentang struktur biaya platform</h2>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:680px">
-        <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:22px">
-          <div style="font-size:1.8rem;margin-bottom:10px">🩺</div>
-          <h3 style="margin-bottom:8px">Booking Perawat</h3>
-          <div class="fee-box" style="margin-top:0">
-            <div class="fee-row"><span class="fee-label">Perawat terima</span><span class="fee-value" style="color:var(--success)">80%</span></div>
-            <div class="fee-row fee-platform"><span class="fee-label">Platform fee Akemat</span><span class="fee-value">20%</span></div>
-            <div class="fee-row fee-total"><span>Total bayar pasien</span><span>100%</span></div>
-          </div>
-          <p style="font-size:.8rem;margin:0">Fee platform digunakan untuk operasional, verifikasi, dan pengembangan platform.</p>
-        </div>
-        <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:22px">
-          <div style="font-size:1.8rem;margin-bottom:10px">❤️</div>
-          <h3 style="margin-bottom:8px">Donasi Campaign</h3>
-          <div class="fee-box" style="margin-top:0">
-            <div class="fee-row"><span class="fee-label">Campaign terima</span><span class="fee-value" style="color:var(--success)">95%</span></div>
-            <div class="fee-row fee-platform"><span class="fee-label">Biaya layanan Akemat</span><span class="fee-value">5%</span></div>
-            <div class="fee-row fee-total"><span>Total donasi masuk</span><span>100%</span></div>
-          </div>
-          <p style="font-size:.8rem;margin:0">5% digunakan untuk verifikasi campaign, operasional, dan dukungan teknis.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  ${renderFooterSection()}`;
+    ${renderFooterSection()}`;
 }
 
 // ── Nurse List ─────────────────────────────────────────────
