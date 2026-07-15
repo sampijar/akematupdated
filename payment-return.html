@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Status Pembayaran — Akemat Foundation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Work+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{--green:#1F4D3F;--amber:#F2A541;--bg:#FBF7F1;--card:#fff;--border:#DDD3C4;--soft:#50645C;--success:#16A34A;--danger:#DC2626}
+*{box-sizing:border-box}body{margin:0;font-family:'Work Sans',sans-serif;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+a.logo{display:inline-flex;align-items:center;gap:9px;font-family:'Sora',sans-serif;font-weight:700;font-size:1rem;color:var(--green);text-decoration:none;margin-bottom:24px}
+.logo svg{width:34px;height:34px}
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:24px;padding:36px;width:100%;max-width:480px;text-align:center;box-shadow:0 12px 32px rgba(31,77,63,.1)}
+.icon{font-size:3.5rem;margin-bottom:14px}
+h1{font-family:'Sora',sans-serif;font-size:1.5rem;font-weight:800;margin:0 0 8px;color:var(--green)}
+p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
+.detail{background:var(--bg);border-radius:10px;padding:14px 18px;margin:18px 0;text-align:left}
+.dr{display:flex;justify-content:space-between;padding:5px 0;font-size:.85rem;border-bottom:1px solid var(--border)}
+.dr:last-child{border:none}.dr .lbl{color:var(--soft)}.dr .val{font-family:'Sora',sans-serif;font-weight:700;color:#20302A}
+.acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:700;font-size:.88rem;padding:12px 22px;border-radius:999px;border:2px solid transparent;text-decoration:none;cursor:pointer;transition:.2s}
+.btn:hover{transform:translateY(-2px)}
+.btn-p{background:var(--green);color:#fff}.btn-o{background:transparent;border-color:var(--green);color:var(--green)}
+.note{background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:.8rem;color:#92400E;margin-top:14px}
+#chk{font-size:.78rem;color:var(--soft);margin-top:10px}
+</style>
+</head>
+<body>
+<a href="/" class="logo">
+  <svg viewBox="0 0 48 48"><rect width="48" height="48" rx="10" fill="#1F4D3F"/><path d="M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z" fill="#F2A541"/></svg>
+  Akemat Foundation
+</a>
+<div class="card">
+  <div class="icon" id="ico">⏳</div>
+  <h1 id="ttl">Memeriksa pembayaran…</h1>
+  <p id="dsc">Mohon tunggu sebentar.</p>
+  <div class="detail" id="det" style="display:none"></div>
+  <div class="note" id="note" style="display:none">ℹ️ Jika sudah bayar, konfirmasi akan masuk dalam beberapa menit. Anda tidak perlu menunggu di halaman ini.</div>
+  <div class="acts" id="acts"></div>
+  <p id="chk"></p>
+</div>
+<script>
+(async()=>{
+  const params = new URLSearchParams(location.search);
+  const stored = JSON.parse(sessionStorage.getItem('akemat_tx')||'{}');
+  const trxId  = params.get('trx_id') || stored.transactionId || '';
+  const urlSt  = params.get('status')  || '';
+  const ref    = params.get('reference_id') || stored.referenceId || '';
+  const amt    = stored.amount || params.get('amount') || '';
+  const buyer  = stored.buyerName || '';
+  const prod   = stored.productName || 'Pembayaran';
+
+  const ico=document.getElementById('ico'), ttl=document.getElementById('ttl'),
+        dsc=document.getElementById('dsc'), det=document.getElementById('det'),
+        acts=document.getElementById('acts'), note=document.getElementById('note'),
+        chk=document.getElementById('chk');
+
+  function detail(rows){
+    det.style.display='block';
+    det.innerHTML=rows.map(([l,v])=>`<div class="dr"><span class="lbl">${l}</span><span class="val">${v||'—'}</span></div>`).join('');
+  }
+  function ok(tid,a){ ico.textContent='✅'; ttl.textContent='Pembayaran Berhasil!'; dsc.textContent='Terima kasih atas pembayaran Anda. Tim Akemat akan segera menindaklanjuti.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',a?'Rp '+Number(a).toLocaleString('id-ID'):'—'],['Pembayar',buyer]]); acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a><a href="/#dashboard" class="btn btn-o">Dashboard</a>'; sessionStorage.removeItem('akemat_tx'); }
+  function fail(){ ico.textContent='❌'; ttl.textContent='Pembayaran Gagal / Dibatalkan'; dsc.textContent='Transaksi tidak berhasil. Silakan coba lagi atau hubungi kami.'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali</a><a href="https://wa.me/6285196407117" target="_blank" class="btn btn-o">Hubungi WA</a>'; sessionStorage.removeItem('akemat_tx'); }
+  function pend(tid){ ico.textContent='⏳'; ttl.textContent='Menunggu Pembayaran'; dsc.textContent='Transaksi menunggu konfirmasi pembayaran.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',amt?'Rp '+Number(amt).toLocaleString('id-ID'):'—']]); note.style.display='block'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a>'; }
+
+  const ok_st = ['berhasil','success','paid','1'];
+  const fail_st= ['gagal','failed','cancel','cancelled','-1'];
+
+  if(ok_st.includes(urlSt.toLowerCase()))  return ok(trxId, amt);
+  if(fail_st.includes(urlSt.toLowerCase())) return fail();
+
+  if(trxId){
+    chk.textContent='Mengonfirmasi status ke iPaymu…';
+    try{
+      const r=await fetch('/api/ipaymu-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',transactionId:trxId})});
+      const d=await r.json();
+      const st=String(d?.data?.Status||d?.data?.status||'').toLowerCase();
+      if(ok_st.includes(st)) return ok(trxId, d?.data?.Amount||amt);
+      if(fail_st.includes(st)) return fail();
+      pend(trxId);
+    }catch{ pend(trxId); }
+  } else {
+    pend('');
+    dsc.textContent='Jika sudah transfer, konfirmasi via WhatsApp ke 0851 9640 7117.';
+  }
+})();
+</script>
+</body>
+</html>

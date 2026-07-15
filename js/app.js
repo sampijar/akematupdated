@@ -8,6 +8,23 @@ function rpFmt(n)     { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
 function initials(name){ return (name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function esc(s)       { return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+// ── HTML building helpers (avoid nested template literals) ──
+function optionHTML(val, label, selected){
+  return '<option value="'+val+'"'+(selected?' selected':'')+'>'+label+'</option>';
+}
+function chipHTML(val, label, active){
+  return '<button class="f-chip'+(active?' active':'')+'" data-cat="'+val+'">'+label+'</button>';
+}
+
+// ── Helper: render pay button without nested template literals ──
+function payBtnHTML(status, id){
+  if(status==='pending' || status==='confirmed'){
+    var lbl = status==='pending' ? '💳 Bayar' : '💳 Lunasi';
+    return '<button class="btn btn-xs btn-accent" style="color:#1F4D3F;white-space:nowrap" data-pay="'+id+'">'+lbl+'</button>';
+  }
+  return '<span style="color:#9CA3AF">—</span>';
+}
+
 function toast(msg, type=''){
   const t = document.getElementById('toast');
   if(!t) return;
@@ -45,7 +62,7 @@ const SPECIALTY_COLORS = {
 };
 
 function specBadge(spec){
-  return `<span class="badge ${SPECIALTY_COLORS[spec]||'badge-blue'}">${SPECIALTY_ICONS[spec]||'🩺'} ${esc(spec)}</span>`;
+  return '<span class="badge '+(SPECIALTY_COLORS[spec]||'badge-blue')+'">'+(SPECIALTY_ICONS[spec]||'🩺')+' '+esc(spec)+'</span>';
 }
 
 const CAM_COLORS = {
@@ -96,15 +113,8 @@ function renderHeader(){
       <li><a href="#tnc">Syarat & Ketentuan</a></li>
     </ul>
     ${u
-      ? `<div class="header-user">
-           <div class="header-avatar">${initials(u.name)}</div>
-           <span class="header-name">${esc(u.name.split(' ')[0])}</span>
-           <a href="#dashboard" class="btn btn-sm btn-outline">Dashboard</a>
-         </div>`
-      : `<div style="display:flex;gap:8px">
-           <a href="#login" class="btn btn-sm btn-outline" style="padding:7px 16px;font-size:.82rem">Masuk</a>
-           <a href="#register" class="btn btn-sm btn-primary" style="padding:7px 16px;font-size:.82rem">Daftar</a>
-         </div>`
+      ? '<div class="header-user"><div class="header-avatar">'+initials(u.name)+'</div><span class="header-name">'+esc(u.name.split(' ')[0])+'</span><a href="#dashboard" class="btn btn-sm btn-outline">Dashboard</a></div>'
+      : '<div style="display:flex;gap:8px"><a href="#login" class="btn btn-sm btn-outline" style="padding:7px 16px;font-size:.82rem">Masuk</a><a href="#register" class="btn btn-sm btn-accent" style="padding:7px 16px;font-size:.82rem;color:#1F4D3F">Daftar</a></div>'
     }
   `;
 }
@@ -192,17 +202,9 @@ function renderHome(){
         <p class="eyebrow">Spesialisasi perawat</p>
         <h2>7 bidang keahlian tersedia</h2>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px">
-        ${SPECIALTIES.map(s=>`
-          <a href="#perawat?specialty=${encodeURIComponent(s)}" 
-             style="background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;transition:var(--tr)" 
-             onmouseover="this.style.borderColor='var(--primary-lt)';this.style.transform='translateY(-3px)'" 
-             onmouseout="this.style.borderColor='var(--border)';this.style.transform='translateY(0)'">
-            <span style="font-size:1.8rem">${SPECIALTY_ICONS[s]||'🩺'}</span>
-            <span style="font-family:var(--font-d);font-weight:700;font-size:.8rem;color:var(--primary);line-height:1.3">${esc(s)}</span>
-          </a>
-        `).join('')}
-      </div>
+      <div class="spec-grid" id="specGrid">
+        ${SPECIALTIES.map(s=>'<a href="#perawat" data-spec="'+s+'" class="spec-card"><span class="spec-icon">'+SPECIALTY_ICONS[s]+'</span><span class="spec-label">'+esc(s)+'</span></a>').join('')}
+      </div>      </div>
     </div>
   </section>
 
@@ -243,11 +245,11 @@ function renderNurseList(){
         </div>
         <select id="nurseSpec" style="max-width:200px">
           <option value="">Semua spesialisasi</option>
-          ${SPECIALTIES.map(s=>`<option value="${s}">${s}</option>`).join('')}
+          ${SPECIALTIES.map(s=>'<option value="'+s+'">'+s+'</option>').join('')}
         </select>
         <select id="nurseEdu" style="max-width:190px">
           <option value="">Semua pendidikan</option>
-          ${EDUCATION_LEVELS.map(e=>`<option value="${e}">${e}</option>`).join('')}
+          ${EDUCATION_LEVELS.map(e=>'<option value="'+e+'">'+e+'</option>').join('')}
         </select>
         <button class="f-chip active" id="availFilter" data-avail="0">Semua</button>
         <button class="f-chip" id="availFilterOn" data-avail="1">Tersedia sekarang</button>
@@ -306,11 +308,11 @@ function nurseCard(n){
       <span class="nc-stat">📍 ${esc(p.loc)}</span>
       <span class="nc-stat">🏥 ${p.exp} tahun</span>
     </div>
-    <div class="nc-svcs">${(p.services||[]).slice(0,3).map(s=>`<span class="svc-chip">${esc(s)}</span>`).join('')}</div>
+    <div class="nc-svcs">${(p.services||[]).slice(0,3).map(s=>'<span class="svc-chip">'+esc(s)+'</span>').join('')}</div>
     <div class="nc-price">${rpFmt(p.price)} <small>/ jam</small></div>
     <div class="nc-actions">
       <a href="#perawat/${n.id}" class="btn btn-outline btn-sm">Lihat profil</a>
-      ${p.avail?`<button class="btn btn-primary btn-sm" onclick="openBookingModal('${n.id}')">Pesan</button>`:'<button class="btn btn-ghost btn-sm" disabled>Tidak tersedia</button>'}
+      ${p.avail?'<button class="btn btn-primary btn-sm" onclick="openBookingModal(\''+n.id+'\')">Pesan</button>':'<button class="btn btn-ghost btn-sm" disabled>Tidak tersedia</button>'}
     </div>
   </div>`;
 }
@@ -357,20 +359,13 @@ function renderNurseDetail(id){
         </div>
         <div class="tab-pane" id="tab-svc">
           <div style="display:flex;flex-direction:column;gap:8px">
-            ${(p.services||[]).map(s=>`
-              <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-alt);border-radius:8px">
-                <span style="color:var(--success);font-size:1rem">✓</span>
-                <span style="font-weight:600;font-size:.9rem">${esc(s)}</span>
-              </div>`).join('')}
+            ${(p.services||[]).map(s=>'<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-alt);border-radius:8px"><span style="color:var(--success)">✓</span><span style="font-weight:600;font-size:.9rem">'+esc(s)+'</span></div>').join('')}
           </div>
         </div>
         <div class="tab-pane" id="tab-jadwal">
           <p style="margin-bottom:10px;font-size:.88rem;color:var(--soft)">Hari-hari perawat tersedia untuk kunjungan:</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            ${['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'].map(d=>`
-              <span style="padding:8px 14px;border-radius:8px;font-size:.82rem;font-weight:600;font-family:var(--font-d);background:${(p.schedule||[]).includes(d)?'var(--primary)':'var(--bg-alt)'};color:${(p.schedule||[]).includes(d)?'#fff':'var(--soft)'}">
-                ${d}
-              </span>`).join('')}
+            ${['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'].map(d=>{var on=(p.schedule||[]).includes(d);return '<span style="padding:8px 14px;border-radius:8px;font-size:.82rem;font-weight:600;font-family:var(--font-d);background:'+(on?'var(--primary)':'var(--bg-alt)')+';color:'+(on?'#fff':'var(--soft)')+'">'+d+'</span>';}).join('')}
           </div>
         </div>
         <div class="tab-pane" id="tab-ulasan">
@@ -379,15 +374,15 @@ function renderNurseDetail(id){
               {name:'Keluarga Bapak Hendra', rating:5, date:'3 hari lalu', text:'Sangat profesional dan sabar. Ibu saya merasa nyaman dan perkembangannya baik.'},
               {name:'Ibu Rini Hartati', rating:5, date:'2 minggu lalu', text:'Perawat yang sangat telaten. Selalu tepat waktu dan berkomunikasi baik dengan keluarga.'},
               {name:'Anonim', rating:4, date:'1 bulan lalu', text:'Baik dan terampil. Sangat membantu di masa pemulihan ibu saya.'},
-            ].map(r=>`
-              <div style="padding:14px;background:var(--bg-alt);border-radius:10px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                  <span style="font-weight:700;font-size:.86rem">${r.name}</span>
-                  <span style="font-size:.76rem;color:var(--soft)">${r.date}</span>
-                </div>
-                <div style="color:#F59E0B;font-size:.84rem;margin-bottom:5px">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
-                <p style="font-size:.88rem;margin:0">${r.text}</p>
-              </div>`).join('')}
+            ].map(function(r){
+              var stars='★'.repeat(r.rating)+'☆'.repeat(5-r.rating);
+              return '<div style="padding:14px;background:var(--bg-alt);border-radius:10px">'+
+                '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'+
+                '<span style="font-weight:700;font-size:.86rem">'+r.name+'</span>'+
+                '<span style="font-size:.76rem;color:var(--soft)">'+r.date+'</span></div>'+
+                '<div style="color:#F59E0B;font-size:.84rem;margin-bottom:5px">'+stars+'</div>'+
+                '<p style="font-size:.88rem;margin:0">'+r.text+'</p></div>';
+            }).join('')}
           </div>
         </div>
       </div>
@@ -408,21 +403,19 @@ function renderNurseDetail(id){
         <div class="ff">
           <label>Jam mulai</label>
           <div class="time-grid">
-            ${['08:00','09:00','10:00','11:00','13:00','14:00','15:00','16:00'].map((t,i)=>`
-              <button class="time-btn${i===0?' active':''}" data-time="${t}">${t}</button>`).join('')}
+            ${['08:00','09:00','10:00','11:00','13:00','14:00','15:00','16:00'].map((t,i)=>'<button class="time-btn'+(i===0?' active':'')+'" data-time="'+t+'">'+t+'</button>').join('')}
           </div>
         </div>
         <div class="ff">
           <label>Durasi</label>
           <div class="dur-row">
-            ${[1,2,3,4,8].map((d,i)=>`
-              <button class="dur-btn${i===1?' active':''}" data-dur="${d}">${d === 8 ? 'Full' : d+'j'}</button>`).join('')}
+            ${[1,2,3,4,8].map((d,i)=>'<button class="dur-btn'+(i===1?' active':'')+'" data-dur="'+d+'">'+(d===8?'Full':d+'j')+'</button>').join('')}
           </div>
         </div>
         <div class="ff">
           <label>Jenis layanan</label>
           <select id="bkService">
-            ${(p.services||[p.specialty]).map(s=>`<option value="${s}">${s}</option>`).join('')}
+            ${(p.services||[p.specialty]).map(s=>'<option value="'+s+'">'+s+'</option>').join('')}
           </select>
         </div>
         <div class="ff">
@@ -496,7 +489,7 @@ function renderNurseDetail(id){
   function updateBookCalc(){
     const total = p.price * selDur;
     const fee   = Math.round(total * FEE.BOOKING);
-    document.getElementById('bkPriceBase').textContent = `${rpFmt(p.price)} × ${selDur} jam`;
+    document.getElementById('bkPriceBase').textContent = rpFmt(p.price)+' × '+selDur+' jam';
     document.getElementById('bkTotal').textContent     = rpFmt(total);
     document.getElementById('bkFee').textContent       = rpFmt(fee);
     document.getElementById('bkNursePay').textContent  = rpFmt(total - fee);
@@ -504,7 +497,7 @@ function renderNurseDetail(id){
   updateBookCalc();
 
   // Book button
-  document.getElementById('btnBook')?.addEventListener('click',()=>{
+  document.getElementById('btnBook')?.addEventListener('click', async ()=>{
     const u = DB.getCurrentUser();
     if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
     if(u.role !== 'patient'){ toast('Hanya pasien yang bisa memesan perawat.','e'); return; }
@@ -524,8 +517,26 @@ function renderNurseDetail(id){
       service, date, time, duration: dur, address, notes,
       totalCost: total,
     });
-    toast('Booking berhasil dibuat! Konfirmasi akan dikirim via WhatsApp.','s');
-    setTimeout(()=>navigate('#dashboard'), 1500);
+    const btn2 = document.getElementById('btnBook');
+    const orig2 = btn2?.textContent;
+    if(btn2){ btn2.disabled=true; btn2.textContent='Memproses pembayaran…'; }
+    try {
+      await Payment.payBooking({
+        bookingId:   booking.id,
+        totalCost:   total,
+        nurseName:   n.name,
+        service,
+        buyerName:   u.name,
+        buyerEmail:  u.email,
+        buyerPhone:  u.phone||'08000000000',
+      });
+    } catch(err){
+      // iPaymu belum connect → simpan booking, redirect ke dashboard
+      toast('Booking dibuat! Lanjutkan pembayaran di dashboard.','s');
+      setTimeout(()=>navigate('#dashboard'), 1500);
+      console.warn('[Payment] iPaymu fallback:', err.message);
+    }
+    if(btn2){ btn2.disabled=false; btn2.textContent=orig2; }
   });
 }
 
@@ -546,12 +557,12 @@ function renderCampaignList(){
           <input type="text" id="camSearch" placeholder="Cari campaign…" />
         </div>
         <button class="f-chip active" data-cat="">Semua</button>
-        ${SPECIALTIES.map(s=>`<button class="f-chip" data-cat="${s}">${SPECIALTY_ICONS[s]} ${s.replace('Perawat ','')}</button>`).join('')}
+        ${SPECIALTIES.map(s=>chipHTML(s,SPECIALTY_ICONS[s]+' '+s.replace('Perawat ',''),false)).join('')}
       </div>
       <div class="campaign-grid" id="camGrid">
         ${campaigns.map(c=>campaignCard(c)).join('') || emptyState('Belum ada campaign.')}
       </div>
-      ${DB.getCurrentUser()?.role==='donor'?`<div style="text-align:center;margin-top:32px"><button class="btn btn-accent" onclick="openCreateCampaignModal()">+ Buat Campaign Baru</button></div>`:''}
+      ${DB.getCurrentUser()?.role==='donor'?'<div style="text-align:center;margin-top:32px"><button class="btn btn-accent" onclick="openCreateCampaignModal()">+ Buat Campaign Baru</button></div>':''}
     </div>
   </section>
   ${renderFooterSection()}`;
@@ -632,12 +643,11 @@ function renderCampaignDetail(id){
         <div style="background:var(--bg-alt);border-radius:var(--r-sm);padding:14px;margin-bottom:18px">
           <h4 style="font-family:var(--font-d);font-weight:700;font-size:.85rem;margin:0 0 8px;color:var(--primary)">🏦 Rekening penerima dana campaign</h4>
           ${c.bankInfo?.accountNumber
-            ? `<div style="display:flex;gap:20px;flex-wrap:wrap">
-                 <div><span style="font-size:.76rem;color:var(--soft);display:block">Bank</span><strong>${esc(c.bankInfo.bankName)}</strong></div>
-                 <div><span style="font-size:.76rem;color:var(--soft);display:block">No. Rekening</span><strong style="font-family:'Courier New',monospace">${esc(c.bankInfo.accountNumber)}</strong></div>
-                 <div><span style="font-size:.76rem;color:var(--soft);display:block">Atas Nama</span><strong>${esc(c.bankInfo.accountName)}</strong></div>
-               </div>
-               ${c.bankInfo.verified?'<span class="bank-status verified" style="margin-top:8px;display:inline-flex">✓ Rekening terverifikasi</span>':'<span class="bank-status pending" style="margin-top:8px;display:inline-flex">⏳ Verifikasi rekening</span>'}`
+            ? '<div style="display:flex;gap:20px;flex-wrap:wrap">'+
+               '<div><span style="font-size:.76rem;color:var(--soft);display:block">Bank</span><strong>'+esc(c.bankInfo.bankName)+'</strong></div>'+
+               '<div><span style="font-size:.76rem;color:var(--soft);display:block">No. Rekening</span><strong style="font-family:Courier New,monospace">'+esc(c.bankInfo.accountNumber)+'</strong></div>'+
+               '<div><span style="font-size:.76rem;color:var(--soft);display:block">Atas Nama</span><strong>'+esc(c.bankInfo.accountName)+'</strong></div></div>'+
+               (c.bankInfo.verified?'<span class="bank-status verified" style="margin-top:8px;display:inline-flex">✓ Rekening terverifikasi</span>':'<span class="bank-status pending" style="margin-top:8px;display:inline-flex">⏳ Verifikasi rekening</span>')
             : '<p style="margin:0;font-size:.84rem;color:var(--soft)">Rekening belum diisi. Dana akan ditransfer setelah pemilik campaign melengkapi data rekening.</p>'}
         </div>
 
@@ -670,16 +680,7 @@ function renderCampaignDetail(id){
           ℹ️ <strong style="color:var(--primary)">Transparansi:</strong> 95% donasi langsung ke campaign. 5% biaya layanan platform.
         </div>
 
-        ${doms.length?`
-        <div class="donors-list">
-          <h4 style="font-family:var(--font-d);font-weight:700;font-size:.84rem;margin:0 0 10px">Donatur terakhir</h4>
-          ${doms.map(d=>`
-            <div class="donor-item">
-              <span class="donor-name">${d.anonymous?'Anonim':esc(d.donorName)}</span>
-              <span class="donor-amount">${rpFmt(d.amount)}</span>
-            </div>`).join('')}
-        </div>`:''}
-      </div>
+        ${doms.length?'<div class="donors-list"><h4 style="font-family:var(--font-d);font-weight:700;font-size:.84rem;margin:0 0 10px">Donatur terakhir</h4>'+doms.map(d=>'<div class="donor-item"><span class="donor-name">'+(d.anonymous?'Anonim':esc(d.donorName))+'</span><span class="donor-amount">'+rpFmt(d.amount)+'</span></div>').join('')+'</div>':''}      </div>
     </div>
   </div>
   ${renderFooterSection()}`;
@@ -691,19 +692,13 @@ function renderLogin(){
   <div class="auth-page">
     <div class="auth-card">
       <h2>Masuk ke Akemat</h2>
-      <p class="lead">Kelola booking, donasi, dan profil Anda.</p>
-      <div class="demo-box">
-        <strong>Akun demo:</strong><br>
-        pasien@test.com / test123 (Pasien)<br>
-        perawat@test.com / test123 (Perawat)<br>
-        donatur@test.com / test123 (Donatur)
-      </div>
+      <p class="lead">Masuk ke akun Akemat Foundation Anda.</p>
       <div class="ff"><label>Email</label><input type="email" id="loginEmail" placeholder="email@anda.com" /></div>
       <div class="ff"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" /></div>
       <div class="form-error" id="loginErr"></div>
       <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:12px">Masuk</button>
       <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
-        Belum punya akun? <a href="#register">Daftar sekarang</a>
+        Belum punya akun? <a href="#register" style="color:var(--accent2);font-weight:700">Daftar sekarang →</a>
       </div>
     </div>
   </div>`;
@@ -765,13 +760,13 @@ function renderRegister(){
         <div class="ff">
           <label>Spesialisasi</label>
           <select id="regSpecialty">
-            ${SPECIALTIES.map(s=>`<option value="${s}">${SPECIALTY_ICONS[s]} ${s}</option>`).join('')}
+            ${SPECIALTIES.map(s=>'<option value="'+s+'">'+SPECIALTY_ICONS[s]+' '+s+'</option>').join('')}
           </select>
         </div>
         <div class="ff">
           <label>Pendidikan</label>
           <select id="regEducation">
-            ${EDUCATION_LEVELS.map(e=>`<option value="${e}">${e}</option>`).join('')}
+            ${EDUCATION_LEVELS.map(e=>'<option value="'+e+'">'+e+'</option>').join('')}
           </select>
         </div>
         <div class="ff"><label>Kota domisili</label><input type="text" id="regLoc" placeholder="Bogor" /></div>
@@ -779,15 +774,15 @@ function renderRegister(){
         <div class="ff"><label>Bio singkat</label><textarea id="regBio" rows="3" placeholder="Pengalaman, sertifikasi, keunggulan Anda…"></textarea></div>
       </div>
 
-      <!-- Bank account -->
-      <div style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px;margin-bottom:14px">
-        <h4 style="font-family:var(--font-d);font-weight:700;font-size:.88rem;margin:0 0 12px;color:var(--primary)">🏦 Rekening untuk pencairan dana</h4>
-        <p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diisi agar donasi/pembayaran dapat dicairkan ke rekening Anda.</p>
+      <!-- Bank account — hanya untuk nurse & donor -->
+      <div id="bankSection" style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px;margin-bottom:14px;display:none">
+        <h4 style="font-family:var(--font-d);font-weight:700;font-size:.88rem;margin:0 0 8px;color:var(--primary)">🏦 Rekening pencairan dana</h4>
+        <p style="font-size:.76rem;color:var(--soft);margin:0 0 12px">Wajib diisi agar pembayaran/donasi dapat dicairkan ke rekening Anda.</p>
         <div class="ff">
           <label>Nama bank</label>
           <select id="regBankName">
             <option value="">Pilih bank…</option>
-            ${BANKS.map(b=>`<option value="${b}">${b}</option>`).join('')}
+            ${BANKS.map(b=>'<option value="'+b+'">'+b+'</option>').join('')}
           </select>
         </div>
         <div class="ff row2">
@@ -796,8 +791,22 @@ function renderRegister(){
         </div>
       </div>
 
+      <!-- Upload KTP / verifikasi identitas -->
+      <div id="ktpSection" style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px;margin-bottom:14px">
+        <h4 style="font-family:var(--font-d);font-weight:700;font-size:.88rem;margin:0 0 6px;color:var(--primary)">📎 Upload KTP untuk verifikasi</h4>
+        <p style="font-size:.76rem;color:var(--soft);margin:0 0 10px">Opsional saat daftar, wajib sebelum melakukan booking pertama. Format JPG/PNG/PDF maks. 2MB.</p>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:var(--bg);transition:border-color var(--tr)" id="ktpLabel" onmouseover="this.style.borderColor='var(--primary-lt)'" onmouseout="this.style.borderColor='var(--border)'">
+          <span style="font-size:1.4rem">🪪</span>
+          <div>
+            <div style="font-family:var(--font-d);font-weight:600;font-size:.84rem;color:var(--primary)" id="ktpFilename">Pilih file KTP</div>
+            <div style="font-size:.74rem;color:var(--soft)">Klik untuk upload</div>
+          </div>
+          <input type="file" id="regKtp" accept="image/jpeg,image/png,image/gif,.pdf" style="display:none" onchange="document.getElementById('ktpFilename').textContent=this.files[0]?.name||'Pilih file KTP'" />
+        </label>
+      </div>
+
       <div class="form-error" id="regErr"></div>
-      <button class="btn btn-primary btn-full" id="btnRegister">Daftar Sekarang</button>
+      <button class="btn btn-primary btn-full" id="btnRegister" style="background:#1F4D3F !important;color:#FFFFFF !important;font-size:1rem;padding:14px;letter-spacing:.03em;font-weight:800;box-shadow:0 2px 8px rgba(31,77,63,.3)">Daftar Sekarang</button>
       <div style="text-align:center;margin-top:12px;font-size:.82rem;color:var(--soft)">
         Sudah punya akun? <a href="#login">Masuk</a>
       </div>
@@ -807,14 +816,19 @@ function renderRegister(){
     </div>
   </div>`;
 
+  function updateRoleUI(){
+    document.getElementById('nurseExtra').style.display  = selRole==='nurse'?'block':'none';
+    document.getElementById('bankSection').style.display = (selRole==='nurse'||selRole==='donor')?'block':'none';
+  }
   document.querySelectorAll('.role-pick').forEach(btn=>{
     btn.addEventListener('click',()=>{
       document.querySelectorAll('.role-pick').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       selRole = btn.dataset.role;
-      document.getElementById('nurseExtra').style.display = selRole==='nurse'?'block':'none';
+      updateRoleUI();
     });
   });
+  updateRoleUI();
 
   document.getElementById('btnRegister')?.addEventListener('click',()=>{
     const err  = document.getElementById('regErr');
@@ -832,7 +846,10 @@ function renderRegister(){
 
     const userData = {
       name, email, phone, password: pass, role: selRole,
-      bankInfo:{ bankName:bank||'', accountNumber:accN, accountName:accA, verified:false },
+      bankInfo: selRole==='patient'
+        ? { bankName:'', accountNumber:'', accountName:'', verified:false }
+        : { bankName:bank||'', accountNumber:accN||'', accountName:accA||'', verified:false },
+      ktpStatus: document.getElementById('regKtp')?.files?.length ? 'uploaded' : 'pending',
     };
 
     if(selRole === 'nurse'){
@@ -858,6 +875,100 @@ function renderRegister(){
   });
 }
 
+function patientBookingTable(bookings){
+  if(!bookings.length) return emptyState('Belum ada booking. <a href="#perawat">Cari perawat sekarang</a>.');
+  return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Perawat</th><th>Layanan</th><th>Tanggal</th><th>Total</th><th>Status</th></tr></thead><tbody>'+
+    bookings.map(b=>'<tr><td><strong style="font-size:.84rem">'+esc(b.nurseName.split(',')[0])+'</strong><br><span style="font-size:.72rem;color:var(--soft)">'+esc(b.nurseSpecialty)+'</span></td><td style="font-size:.82rem">'+esc(b.service)+'</td><td style="font-size:.82rem;white-space:nowrap">'+esc(b.date)+'<br><span style="font-size:.72rem;color:var(--soft)">'+esc(b.time)+' &middot; '+b.duration+'j</span></td><td style="font-size:.84rem;font-weight:700;white-space:nowrap">'+rpFmt(b.totalCost)+'</td><td>'+statusBadge(b.status)+'</td></tr>').join('')+
+    '</tbody></table></div>';
+}
+
+function patientDonationTable(donations){
+  if(!donations.length) return emptyState('Belum ada donasi. <a href="#donasi">Donasi sekarang</a>.');
+  return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Campaign</th><th>Donasi</th><th>Tanggal</th></tr></thead><tbody>'+
+    donations.map(d=>{
+      var cam=DB.getCampaignById(d.campaignId);
+      return '<tr><td>'+(cam?'<a href="#donasi/'+d.campaignId+'">'+esc(cam.title.slice(0,40))+'…</a>':'Campaign dihapus')+'</td><td><strong>'+rpFmt(d.amount)+'</strong></td><td style="white-space:nowrap">'+esc(d.date)+'</td></tr>';
+    }).join('')+
+    '</tbody></table></div>';
+}
+
+function statusBadge(status){
+  var labels={pending:'Menunggu',confirmed:'Dikonfirmasi',completed:'Selesai',cancelled:'Dibatalkan'};
+  return '<span class="status-badge s-'+status+'">'+(labels[status]||status)+'</span>';
+}
+
+function nurseBookingTable(bookings){
+  if(!bookings.length) return emptyState('Belum ada booking masuk.');
+  return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Layanan &amp; Tanggal</th><th>Durasi</th><th>Anda Terima</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
+    bookings.map(b=>'<tr><td><div style="font-size:.84rem;font-weight:600">'+esc(b.service)+'</div><div style="font-size:.74rem;color:var(--soft);margin-top:2px">'+esc(b.date)+' &middot; '+esc(b.time)+'</div></td><td style="font-size:.82rem">'+b.duration+' jam</td><td style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap">'+rpFmt(b.nursePay||Math.round((b.totalCost||0)*0.8))+'</td><td>'+statusBadge(b.status)+'</td><td style="white-space:nowrap">'+nurseBookingActions(b)+'</td></tr>').join('')+
+    '</tbody></table></div>';
+}
+
+function nurseBookingActions(b){
+  var id = b.id;
+  if(b.status==='pending'){
+    return '<button class="btn btn-xs btn-primary" onclick="updateBooking(\'' + id + '\',\'confirmed\')">Terima</button>' +
+           ' <button class="btn btn-xs btn-danger" onclick="updateBooking(\'' + id + '\',\'cancelled\')">Tolak</button>';
+  }
+  if(b.status==='confirmed'){
+    return '<button class="btn btn-xs btn-outline" onclick="updateBooking(\'' + id + '\',\'completed\')">Selesai</button>';
+  }
+  return '—';
+}
+
+function sidebarLinks(role, currentHash){
+  var links={patient:[['#dashboard','🏠','Dashboard'],['#perawat','🔍','Cari Perawat'],['#donasi','❤️','Donasi'],['#profil','👤','Profil']],nurse:[['#dashboard','🏠','Dashboard'],['#perawat','🔍','Perawat Lain'],['#profil','👤','Profil & Rekening']],donor:[['#dashboard','🏠','Dashboard'],['#donasi','❤️','Semua Campaign'],['#profil','👤','Profil & Rekening']]};
+  return (links[role]||[]).map(function(l){return '<a href="'+l[0]+'" class="'+(currentHash===l[0]?'active':'')+'"><span>'+l[1]+'</span> '+l[2]+'</a>';}).join('');
+}
+
+// ── Dashboard table helpers (continued) ──────────────────────
+function donorCampaignCards(campaigns){
+  if(!campaigns.length) return '<p style="color:var(--soft);text-align:center;padding:24px 0">Belum ada campaign. Buat campaign pertama Anda!</p>';
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">'+
+    campaigns.map(function(c){
+      var p=pct(c.current,c.target);
+      var bk=c.bankInfo;
+      return '<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px">'+
+        '<div style="font-weight:700;font-size:.9rem;margin-bottom:6px;color:var(--primary)">'+esc(c.title.slice(0,45))+'…</div>'+
+        '<div class="progress-bar" style="margin-bottom:5px"><div class="progress-fill" style="width:'+p+'%"></div></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:8px"><span>'+rpFmt(c.current)+' / '+rpFmt(c.target)+'</span><span>'+p+'%</span></div>'+
+        '<div style="font-size:.76rem;color:var(--soft);margin-bottom:10px">🏦 '+(bk&&bk.accountNumber?bk.bankName+' · '+bk.accountNumber:'<span style=\"color:var(--danger)\">Rekening belum diisi</span>')+'</div>'+
+        '<div style="display:flex;gap:6px"><a href="#donasi/'+c.id+'" class="btn btn-xs btn-outline">Lihat</a> <button class="btn btn-xs btn-primary" onclick="openEditCampaignModal(\''+c.id+'\')">Edit Rekening</button></div>'+
+        '</div>';
+    }).join('')+'</div>';
+}
+
+function nurseProfileSection(u){
+  var np=u.np||{};
+  return '<div class="dash-section"><div class="dash-sh"><h3>Profil Perawat</h3></div>'+
+    '<div class="profile-grid">'+
+    '<div class="ff"><label>Spesialisasi</label><select id="npSpec">'+SPECIALTIES.map(function(s){return optionHTML(s,SPECIALTY_ICONS[s]+' '+s,np.specialty===s);}).join('')+'</select></div>'+
+    '<div class="ff"><label>Pendidikan</label><select id="npEdu">'+EDUCATION_LEVELS.map(function(e){return optionHTML(e,e,np.education===e);}).join('')+'</select></div>'+
+    '<div class="ff"><label>Kota</label><input type="text" id="npLoc" value="'+esc(np.loc||'')+'" /></div>'+
+    '<div class="ff"><label>Tarif per jam (Rp)</label><input type="number" id="npPrice" value="'+(np.price||0)+'" /></div>'+
+    '<div class="ff full"><label>Bio</label><textarea id="npBio" rows="3">'+esc(np.bio||'')+'</textarea></div>'+
+    '</div>'+
+    '<button class="btn btn-primary btn-sm" id="btnSaveNP" style="margin-top:4px">Simpan Profil Perawat</button></div>';
+}
+
+function bankStatusSection(u){
+  var bank=u.bankInfo||{};
+  var verCls=bank.accountNumber?(bank.verified?'verified':'pending'):'empty';
+  var verLbl=bank.accountNumber?(bank.verified?'✓ Terverifikasi':'⏳ Menunggu verifikasi'):'❌ Belum diisi';
+  var bankDisplay=bank.accountNumber?'<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:18px;margin:14px 0"><div class="bank-display"><span class="bank-display-name">'+esc(bank.bankName)+'</span><span class="bank-display-num">'+esc(bank.accountNumber)+'</span><span class="bank-display-owner">a.n. '+esc(bank.accountName)+'</span></div></div>':'';
+  return '<div class="dash-section">'+
+    '<div class="dash-sh"><h3>🏦 Rekening Pencairan Dana</h3><span class="bank-status '+verCls+'">'+verLbl+'</span></div>'+
+    '<div class="bank-warning">⚠️ <strong>Wajib diisi:</strong> Data rekening diperlukan untuk pencairan pembayaran booking dan donasi.</div>'+
+    bankDisplay+
+    '<div class="profile-grid" style="margin-top:14px">'+
+    '<div class="ff full"><label>Nama Bank</label><select id="bankNameInput">'+optionHTML('','Pilih bank…',!bank.bankName)+BANKS.map(function(b){return optionHTML(b,b,bank.bankName===b);}).join('')+'</select></div>'+
+    '<div class="ff"><label>Nomor Rekening</label><input type="text" id="bankAccNum" value="'+esc(bank.accountNumber||'')+'" placeholder="Nomor rekening" /></div>'+
+    '<div class="ff"><label>Nama Pemilik</label><input type="text" id="bankAccName" value="'+esc(bank.accountName||'')+'" placeholder="Sesuai buku tabungan" /></div>'+
+    '</div>'+
+    '<p style="font-size:.78rem;color:var(--soft);margin:6px 0 12px">Verifikasi dalam 1×24 jam kerja.</p>'+
+    '<button class="btn btn-primary btn-sm" id="btnSaveBank">Simpan Data Rekening</button></div>';
+}
+
 // ── Dashboard ───────────────────────────────────────────────
 function renderDashboard(){
   const u = DB.getCurrentUser();
@@ -873,7 +984,7 @@ function sidebarHTML(u, activePage){
   const bankOk = u.bankInfo?.accountNumber;
   const links = {
     patient: [
-      ['#dashboard','🏠','Dashboard'],['#perawat','🔍','Cari Perawat'],['#donasi','❤️','Donasi'],['#profil','👤','Profil & Rekening'],
+      ['#dashboard','🏠','Dashboard'],['#perawat','🔍','Cari Perawat'],['#donasi','❤️','Donasi'],['#profil','👤','Profil & Dokumen'],
     ],
     nurse: [
       ['#dashboard','🏠','Dashboard'],['#perawat','🔍','Perawat Lain'],['#profil','👤','Profil & Rekening'],
@@ -888,17 +999,10 @@ function sidebarHTML(u, activePage){
       <div class="sb-avatar">${initials(u.name)}</div>
       <div class="sb-name">${esc(u.name)}</div>
       <div class="sb-role">${{patient:'Pasien',nurse:'Perawat',donor:'Donatur'}[u.role]}</div>
-      <div class="sb-bank">
-        <span class="sb-bank-status ${bankOk?'ok':'warn'}">
-          ${bankOk?'✓ Rekening terdaftar':'⚠ Rekening belum diisi'}
-        </span>
-      </div>
+      ${u.role!=='patient'?'<div class="sb-bank"><span class="sb-bank-status '+(bankOk?'ok':'warn')+'">'+(bankOk?'&#10003; Rekening terdaftar':'&#9888; Rekening belum diisi')+'</span></div>':u.ktpStatus==='pending'?'<div class="sb-bank"><span class="sb-bank-status warn">&#128206; KTP belum diverifikasi</span></div>':''}
     </div>
     <nav class="sb-nav">
-      ${(links[u.role]||[]).map(([href,icon,label])=>`
-        <a href="${href}" class="${location.hash===href?'active':''}">
-          <span>${icon}</span> ${label}
-        </a>`).join('')}
+      ${(links[u.role]||[]).map(function([href,icon,label]){return '<a href="'+href+'" class="'+(location.hash===href?'active':'')+'"><span>'+icon+'</span> '+label+'</a>';}).join('')}
     </nav>
     <div class="sb-footer">
       <button class="sb-logout" id="btnLogout">
@@ -923,7 +1027,7 @@ function renderPatientDash(u){
       <div class="dash-head">
         <h2>Selamat datang, ${esc(u.name.split(' ')[0])}!</h2>
         <p>Kelola booking perawat dan riwayat donasi Anda.</p>
-        ${!u.bankInfo?.accountNumber?`<div class="bank-warning" style="margin-top:10px;max-width:500px">⚠️ Lengkapi data rekening di <a href="#profil">halaman Profil</a> untuk kemudahan refund & konfirmasi.</div>`:''}
+        ${u.ktpStatus==='pending'?'<div class="bank-warning" style="margin-top:10px;max-width:500px;border-color:#FDE68A;background:#FFFBEB">&#128206; Upload KTP Anda di <a href="#profil">Profil</a> untuk verifikasi identitas sebelum booking pertama.</div>':''}
       </div>
       <div class="stat-row">
         <div class="stat-card">
@@ -936,54 +1040,20 @@ function renderPatientDash(u){
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#FFF7ED"><svg viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg></div>
-          <div><div class="stat-val">${rpFmt(spent)}</div><div class="stat-lbl">Total bayar booking</div></div>
+          <div><div class="stat-val">${patientBookingTable(bookings)}</div><div class="stat-lbl">Total bayar booking</div></div>
         </div>
       </div>
 
       <!-- Bookings table -->
       <div class="dash-section">
         <div class="dash-sh"><h3>Riwayat Booking Perawat</h3><a href="#perawat" class="btn btn-primary btn-sm">+ Booking Baru</a></div>
-        ${bookings.length?`
-        <div style="overflow-x:auto">
-          <table class="tbl">
-            <thead><tr><th>Perawat</th><th>Layanan</th><th>Tanggal</th><th>Durasi</th><th>Total Bayar</th><th>Platform Fee (20%)</th><th>Status</th></tr></thead>
-            <tbody>
-              ${bookings.map(b=>`
-                <tr>
-                  <td><strong>${esc(b.nurseName)}</strong><br><span style="font-size:.76rem;color:var(--soft)">${esc(b.nurseSpecialty)}</span></td>
-                  <td>${esc(b.service)}</td>
-                  <td>${esc(b.date)} ${esc(b.time)}</td>
-                  <td>${b.duration} jam</td>
-                  <td><strong>${rpFmt(b.totalCost)}</strong></td>
-                  <td style="color:var(--accent2)">${rpFmt(b.platformFee||0)}</td>
-                  <td><span class="status-badge s-${b.status}">${{pending:'Menunggu',confirmed:'Dikonfirmasi',completed:'Selesai',cancelled:'Dibatalkan'}[b.status]||b.status}</span></td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`:emptyState('Belum ada booking. <a href="#perawat">Cari perawat sekarang</a>.')}
-      </div>
+        ${nurseBookingTable(bookings)}
 
       <!-- Donations table -->
       <div class="dash-section">
         <div class="dash-sh"><h3>Riwayat Donasi</h3><a href="#donasi" class="btn btn-outline btn-sm">Lihat Campaign</a></div>
-        ${donations.length?`
-        <div style="overflow-x:auto">
-          <table class="tbl">
-            <thead><tr><th>Campaign</th><th>Donasi</th><th>Biaya Layanan (5%)</th><th>Disalurkan</th><th>Tanggal</th></tr></thead>
-            <tbody>
-              ${donations.map(d=>{
-                const cam = DB.getCampaignById(d.campaignId);
-                return `<tr>
-                  <td>${cam?`<a href="#donasi/${d.campaignId}">${esc(cam.title.slice(0,40))}…</a>`:'Campaign dihapus'}</td>
-                  <td><strong>${rpFmt(d.amount)}</strong></td>
-                  <td style="color:var(--accent2)">${rpFmt(d.platformFee||0)}</td>
-                  <td style="color:var(--success)">${rpFmt(d.netAmount||d.amount)}</td>
-                  <td>${esc(d.date)}</td>
-                </tr>`;}).join('')}
-            </tbody>
-          </table>
-        </div>`:emptyState('Belum ada donasi. <a href="#donasi">Donasi sekarang</a>.')}
-      </div>
+        ${patientDonationTable(donations)}
+
     </div>
   </div>`;
   afterDash();
@@ -1001,7 +1071,7 @@ function renderNurseDash(u){
       <div class="dash-head">
         <h2>Dashboard Perawat</h2>
         <p>Kelola profil, jadwal, dan penghasilan Anda.</p>
-        ${!u.bankInfo?.accountNumber?`<div class="bank-warning" style="margin-top:10px;max-width:500px">⚠️ <strong>Penting!</strong> Isi data rekening di <a href="#profil">Profil</a> agar penghasilan bisa dicairkan.</div>`:''}
+        ${!u.bankInfo?.accountNumber?'<div class="bank-warning" style="margin-top:10px;max-width:500px">&#9888;&#65039; <strong>Penting!</strong> Isi data rekening di <a href="#profil">Profil</a> agar penghasilan bisa dicairkan.</div>':''}
       </div>
       <div class="stat-row">
         <div class="stat-card">
@@ -1026,7 +1096,7 @@ function renderNurseDash(u){
             <input type="checkbox" id="availToggle" ${p.avail?'checked':''}>
             <span class="toggle-track"></span>
           </label>
-          <span class="toggle-label" id="availLabel">${p.avail?'✅ Saya tersedia untuk booking':'⏸ Saya tidak tersedia'}</span>
+          <span class="toggle-label" id="availLabel">${nurseBookingTable(bookings)}</span>
         </div>
         <p style="font-size:.82rem;color:var(--soft);margin-top:8px">Nonaktifkan jika sedang cuti atau penuh jadwal.</p>
       </div>
@@ -1034,32 +1104,8 @@ function renderNurseDash(u){
       <!-- Bookings -->
       <div class="dash-section">
         <div class="dash-sh"><h3>Permintaan & Riwayat Booking</h3></div>
-        ${bookings.length?`
-        <div style="overflow-x:auto">
-          <table class="tbl">
-            <thead><tr><th>Pasien</th><th>Layanan</th><th>Tanggal</th><th>Durasi</th><th>Total</th><th>Anda Terima (80%)</th><th>Fee Platform (20%)</th><th>Status</th><th>Aksi</th></tr></thead>
-            <tbody>
-              ${bookings.map(b=>`
-                <tr>
-                  <td>${esc(b.nurseName||'Pasien')}</td>
-                  <td>${esc(b.service)}</td>
-                  <td>${esc(b.date)} ${esc(b.time)}</td>
-                  <td>${b.duration}j</td>
-                  <td>${rpFmt(b.totalCost)}</td>
-                  <td style="color:var(--success);font-weight:700">${rpFmt(b.nursePay||0)}</td>
-                  <td style="color:var(--accent2)">${rpFmt(b.platformFee||0)}</td>
-                  <td><span class="status-badge s-${b.status}">${{pending:'Menunggu',confirmed:'Dikonfirmasi',completed:'Selesai',cancelled:'Dibatalkan'}[b.status]||b.status}</span></td>
-                  <td>
-                    ${b.status==='pending'?`
-                      <button class="btn btn-xs btn-primary" onclick="updateBooking('${b.id}','confirmed')">Terima</button>
-                      <button class="btn btn-xs btn-danger" style="margin-top:3px" onclick="updateBooking('${b.id}','cancelled')">Tolak</button>
-                    `:b.status==='confirmed'?`<button class="btn btn-xs btn-outline" onclick="updateBooking('${b.id}','completed')">Selesai</button>`:'—'}
-                  </td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`:emptyState('Belum ada booking masuk.')}
-      </div>
+        ${nurseBookingTable(bookings)}
+
     </div>
   </div>`;
 
@@ -1102,29 +1148,7 @@ function renderDonorDash(u){
 
       <div class="dash-section">
         <div class="dash-sh"><h3>Campaign Saya</h3><button class="btn btn-accent btn-sm" onclick="openCreateCampaignModal()">+ Buat Campaign</button></div>
-        ${campaigns.length?`
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
-          ${campaigns.map(c=>{
-            const p=pct(c.current,c.target);
-            return `<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px">
-              <div style="font-weight:700;font-size:.9rem;margin-bottom:6px;color:var(--primary)">${esc(c.title.slice(0,45))}…</div>
-              <div class="progress-bar" style="margin-bottom:5px"><div class="progress-fill" style="width:${p}%"></div></div>
-              <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:8px">
-                <span>${rpFmt(c.current)} / ${rpFmt(c.target)}</span>
-                <span>${p}%</span>
-              </div>
-              <!-- Bank info for campaign -->
-              <div style="font-size:.76rem;color:var(--soft);margin-bottom:10px">
-                🏦 ${c.bankInfo?.accountNumber
-                  ? `${c.bankInfo.bankName} · ${c.bankInfo.accountNumber}`
-                  : '<span style="color:var(--danger)">Rekening belum diisi</span>'}
-              </div>
-              <div style="display:flex;gap:6px">
-                <a href="#donasi/${c.id}" class="btn btn-xs btn-outline">Lihat</a>
-                <button class="btn btn-xs btn-primary" onclick="openEditCampaignModal('${c.id}')">Edit Rekening</button>
-              </div>
-            </div>`;}).join('')}
-        </div>`:emptyState('Belum ada campaign. Buat campaign pertama Anda!')}
+        ${donorCampaignCards(campaigns)}
       </div>
     </div>
   </div>`;
@@ -1143,8 +1167,8 @@ function renderProfile(){
     ${sidebarHTML(u)}
     <div class="dash-main">
       <div class="dash-head">
-        <h2>Profil & Rekening</h2>
-        <p>Kelola informasi pribadi dan data rekening pencairan.</p>
+        <h2>${u.role==='patient'?'Profil & Dokumen':'Profil & Rekening'}</h2>
+        <p>Kelola informasi pribadi${u.role!=='patient'?' dan data rekening pencairan':''}.</p>
       </div>
 
       <!-- Profile info -->
@@ -1154,121 +1178,14 @@ function renderProfile(){
           <div class="ff"><label>Nama lengkap</label><input type="text" id="profName" value="${esc(u.name)}" /></div>
           <div class="ff"><label>No. HP</label><input type="tel" id="profPhone" value="${esc(u.phone||'')}" /></div>
           <div class="ff full"><label>Email</label><input type="email" id="profEmail" value="${esc(u.email)}" readonly style="opacity:.6" /></div>
-          ${u.role==='patient'?`<div class="ff full"><label>Alamat</label><input type="text" id="profAddr" value="${esc(u.address||'')}" /></div>`:''}
-          ${u.role==='donor'?`<div class="ff full"><label>Organisasi / Instansi</label><input type="text" id="profOrg" value="${esc(u.organization||'')}" /></div>`:''}
+          ${u.role==='patient'?'<div class="ff full"><label>Alamat</label><input type="text" id="profAddr" value="'+esc(u.address||'')+'" /></div>':''}
+          ${u.role==='donor'?'<div class="ff full"><label>Organisasi / Instansi</label><input type="text" id="profOrg" value="'+esc(u.organization||'')+'" /></div>':''}
         </div>
         <button class="btn btn-primary btn-sm" id="btnSaveProfile" style="margin-top:4px">Simpan Profil</button>
       </div>
 
       <!-- Nurse profile extra -->
-      ${u.role==='nurse'?`
-      <div class="dash-section">
-        <div class="dash-sh"><h3>Profil Perawat</h3></div>
-        <div class="profile-grid">
-          <div class="ff"><label>Spesialisasi</label>
-            <select id="npSpec">
-              ${SPECIALTIES.map(s=>`<option value="${s}" ${np.specialty===s?'selected':''}>${SPECIALTY_ICONS[s]} ${s}</option>`).join('')}
-            </select>
-          </div>
-          <div class="ff"><label>Pendidikan</label>
-            <select id="npEdu">
-              ${EDUCATION_LEVELS.map(e=>`<option value="${e}" ${np.education===e?'selected':''}>${e}</option>`).join('')}
-            </select>
-          </div>
-          <div class="ff"><label>Kota</label><input type="text" id="npLoc" value="${esc(np.loc||'')}" /></div>
-          <div class="ff"><label>Tarif per jam (Rp)</label><input type="number" id="npPrice" value="${np.price||0}" /></div>
-          <div class="ff full"><label>Bio</label><textarea id="npBio" rows="3">${esc(np.bio||'')}</textarea></div>
-          <div class="ff">
-            <label>Jadwal tersedia</label>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              ${['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'].map(d=>`
-                <label style="display:flex;align-items:center;gap:5px;font-size:.82rem;cursor:pointer;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;background:${(np.schedule||[]).includes(d)?'var(--primary)':'var(--bg)'};color:${(np.schedule||[]).includes(d)?'#fff':'var(--ink)'}">
-                  <input type="checkbox" ${(np.schedule||[]).includes(d)?'checked':''} value="${d}" style="display:none" onchange="this.parentElement.style.background=this.checked?'var(--primary)':'var(--bg)';this.parentElement.style.color=this.checked?'#fff':'var(--ink)'">
-                  ${d.slice(0,3)}
-                </label>`).join('')}
-            </div>
-          </div>
-        </div>
-        <button class="btn btn-primary btn-sm" id="btnSaveNP" style="margin-top:4px">Simpan Profil Perawat</button>
-      </div>`:''}
-
-      <!-- Bank account -->
-      <div class="dash-section">
-        <div class="dash-sh">
-          <h3>🏦 Rekening Pencairan Dana</h3>
-          ${bank.accountNumber
-            ?`<span class="bank-status ${bank.verified?'verified':'pending'}">${bank.verified?'✓ Terverifikasi':'⏳ Menunggu verifikasi'}</span>`
-            :`<span class="bank-status empty">❌ Belum diisi</span>`}
-        </div>
-
-        <div class="bank-warning">
-          ⚠️ <strong>Wajib diisi:</strong> Data rekening diperlukan untuk pencairan pembayaran booking (perawat) dan donasi (donatur/campaign). Pastikan nama rekening sesuai dengan nama pemilik akun.
-        </div>
-
-        ${bank.accountNumber?`
-        <div style="background:var(--bg-alt);border-radius:var(--r-md);padding:18px;margin:14px 0">
-          <div class="bank-display">
-            <span class="bank-display-name">${esc(bank.bankName)}</span>
-            <span class="bank-display-num">${esc(bank.accountNumber)}</span>
-            <span class="bank-display-owner">a.n. ${esc(bank.accountName)}</span>
-          </div>
-        </div>`:''}
-
-        <div class="profile-grid" style="margin-top:14px">
-          <div class="ff full"><label>Nama Bank</label>
-            <select id="bankNameInput">
-              <option value="">Pilih bank…</option>
-              ${BANKS.map(b=>`<option value="${b}" ${bank.bankName===b?'selected':''}>${b}</option>`).join('')}
-            </select>
-          </div>
-          <div class="ff"><label>Nomor Rekening</label><input type="text" id="bankAccNum" value="${esc(bank.accountNumber||'')}" placeholder="Nomor rekening" /></div>
-          <div class="ff"><label>Nama Pemilik Rekening</label><input type="text" id="bankAccName" value="${esc(bank.accountName||'')}" placeholder="Sesuai buku tabungan" /></div>
-        </div>
-        <p style="font-size:.78rem;color:var(--soft);margin:6px 0 12px">Verifikasi rekening dilakukan oleh tim Akemat dalam 1×24 jam kerja.</p>
-        <button class="btn btn-primary btn-sm" id="btnSaveBank">Simpan Data Rekening</button>
-      </div>
-    </div>
-  </div>`;
-
-  afterDash();
-
-  document.getElementById('btnSaveProfile')?.addEventListener('click',()=>{
-    const name  = document.getElementById('profName')?.value.trim();
-    const phone = document.getElementById('profPhone')?.value.trim();
-    if(!name){ toast('Nama wajib diisi.','e'); return; }
-    const upd = { name, phone };
-    if(u.role==='patient') upd.address = document.getElementById('profAddr')?.value.trim();
-    if(u.role==='donor')   upd.organization = document.getElementById('profOrg')?.value.trim();
-    DB.updateUser(u.id, upd);
-    toast('Profil berhasil disimpan.','s');
-  });
-
-  document.getElementById('btnSaveNP')?.addEventListener('click',()=>{
-    const schedule = [...document.querySelectorAll('[value] input[type=checkbox]:checked')].map(cb=>cb.value);
-    const spec     = document.getElementById('npSpec')?.value;
-    DB.updateUser(u.id, {np:{
-      ...u.np,
-      specialty:  spec,
-      education:  document.getElementById('npEdu')?.value,
-      loc:        document.getElementById('npLoc')?.value.trim(),
-      price:      parseInt(document.getElementById('npPrice')?.value)||u.np?.price,
-      bio:        document.getElementById('npBio')?.value.trim(),
-      schedule,
-      services:   BOOKING_SERVICES[spec] || u.np?.services,
-    }});
-    toast('Profil perawat berhasil disimpan.','s');
-  });
-
-  document.getElementById('btnSaveBank')?.addEventListener('click',()=>{
-    const bankName = document.getElementById('bankNameInput')?.value;
-    const accNum   = document.getElementById('bankAccNum')?.value.trim();
-    const accName  = document.getElementById('bankAccName')?.value.trim();
-    if(!bankName||!accNum||!accName){ toast('Lengkapi semua data rekening.','e'); return; }
-    DB.updateUser(u.id, { bankInfo:{ bankName, accountNumber:accNum, accountName:accName, verified:false }});
-    toast('Data rekening disimpan. Verifikasi dalam 1×24 jam kerja.','s');
-    setTimeout(()=>renderProfile(), 800);
-  });
-}
+      ${u.role==='nurse'?nurseProfileSection(u):''}
 
 // ── Modals ──────────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; }
@@ -1311,7 +1228,7 @@ function openDonateModal(campaignId){
     document.getElementById('donNetDisp').textContent    = rpFmt(amt-fee);
   }
 
-  document.getElementById('btnSubmitDonation').onclick=()=>{
+  document.getElementById('btnSubmitDonation').onclick=async()=>{
     const amt   = selAmt||parseInt(document.getElementById('donCustomAmt')?.value)||0;
     const name  = document.getElementById('donBuyerName')?.value.trim();
     const email = document.getElementById('donBuyerEmail')?.value.trim();
@@ -1319,12 +1236,27 @@ function openDonateModal(campaignId){
     const anon  = document.getElementById('donAnon')?.checked;
     const cid   = document.getElementById('donCamId')?.value;
     if(amt<1000){ toast('Minimal donasi Rp 1.000.','e'); return; }
-    if(!name||!email){ toast('Nama dan email wajib diisi.','e'); return; }
-    DB.addDonation({ campaignId:cid, donorId:u?.id||'guest', donorName:name, amount:amt, anonymous:anon });
-    closeModal('modalDonate');
-    toast('Terima kasih! Donasi Rp '+amt.toLocaleString('id-ID')+' berhasil dicatat.','s');
-    // re-render page jika di detail campaign
-    if(location.hash.startsWith('#donasi/')) renderCampaignDetail(cid);
+    if(!name||!email||!phone){ toast('Nama, email, dan no HP wajib diisi.','e'); return; }
+    const btn = document.getElementById('btnSubmitDonation');
+    const orig = btn.textContent;
+    btn.disabled=true; btn.textContent='Memproses…';
+    try {
+      await Payment.payDonation({
+        amount: amt, campaignId: cid,
+        campaignTitle: cam.title, buyerName: name,
+        buyerEmail: email, buyerPhone: phone,
+        anonymous: anon, donorId: u?.id||'guest',
+      });
+      // jika sampai sini, redirect belum terjadi (env belum set) → fallback localStorage
+    } catch(err) {
+      // Fallback: simpan ke localStorage dulu, beri tahu user untuk konfirmasi manual
+      DB.addDonation({ campaignId:cid, donorId:u?.id||'guest', donorName:name, amount:amt, anonymous:anon });
+      closeModal('modalDonate');
+      toast('Donasi dicatat. Konfirmasi transfer ke WA kami ya.','s');
+      if(location.hash.startsWith('#donasi/')) renderCampaignDetail(cid);
+      console.warn('[Payment] iPaymu not connected yet:', err.message);
+    }
+    btn.disabled=false; btn.textContent=orig;
   };
 }
 
@@ -1397,268 +1329,125 @@ window.updateBooking = (id, status)=>{
 
 // ── TNC ────────────────────────────────────────────────────
 function renderTNC(){
-  app.innerHTML = `
-  <div class="tnc-faq-page">
-    <p class="eyebrow">Dokumen legal</p>
-    <h1>Syarat &amp; Ketentuan</h1>
-    <p class="lead">Terakhir diperbarui: 1 Juli 2025. Dengan menggunakan platform Akemat Foundation, Anda menyetujui seluruh ketentuan di bawah ini.</p>
-
-    <div class="tnc-section">
-      <h2>1. Tentang Platform</h2>
-      <p>Akemat Foundation adalah platform digital berbasis yayasan yang mempertemukan pasien/keluarga yang membutuhkan layanan perawatan di rumah (<em>home care</em>) dengan tenaga perawat profesional terlatih. Platform ini juga menyediakan fitur kampanye donasi untuk membantu pembiayaan layanan perawatan bagi mereka yang membutuhkan.</p>
-    </div>
-
-    <div class="tnc-section">
-      <h2>2. Akun Pengguna</h2>
-      <h3>2.1 Pendaftaran</h3>
-      <ul>
-        <li>Pengguna wajib mendaftar dengan identitas asli dan data yang benar.</li>
-        <li>Setiap pengguna hanya diperbolehkan memiliki satu akun aktif.</li>
-        <li>Akemat Foundation berhak menonaktifkan akun yang terindikasi melanggar ketentuan.</li>
-      </ul>
-      <h3>2.2 Keamanan Akun</h3>
-      <ul>
-        <li>Pengguna bertanggung jawab penuh atas kerahasiaan kata sandi dan keamanan akun.</li>
-        <li>Segera laporkan ke kami jika terdapat akses tidak sah ke akun Anda.</li>
-      </ul>
-    </div>
-
-    <div class="tnc-section">
-      <h2>3. Layanan Perawat (Home Care)</h2>
-      <h3>3.1 Booking &amp; Pembayaran</h3>
-      <ul>
-        <li>Pasien memesan perawat melalui platform dan melakukan pembayaran sesuai tarif yang tertera.</li>
-        <li><strong>Struktur biaya booking:</strong> 80% diterima perawat; 20% adalah biaya platform Akemat Foundation.</li>
-        <li>Biaya platform digunakan untuk operasional, verifikasi perawat, pengembangan aplikasi, dan layanan pelanggan.</li>
-        <li>Tarif per jam ditetapkan oleh perawat dan ditampilkan secara transparan di profil masing-masing.</li>
-      </ul>
-      <h3>3.2 Verifikasi Perawat</h3>
-      <ul>
-        <li>Perawat yang bergabung wajib menyerahkan dokumen identitas, ijazah keperawatan, dan STR (Surat Tanda Registrasi) untuk proses verifikasi.</li>
-        <li>Perawat yang belum terverifikasi ditandai secara jelas di platform.</li>
-        <li>Akemat Foundation tidak bertanggung jawab atas tindakan perawat yang belum terverifikasi.</li>
-      </ul>
-      <h3>3.3 Pembatalan &amp; Refund</h3>
-      <ul>
-        <li>Pembatalan oleh pasien minimal 24 jam sebelum jadwal: refund 100%.</li>
-        <li>Pembatalan kurang dari 24 jam: dikenakan biaya admin 10% dari total booking.</li>
-        <li>Pembatalan sepihak oleh perawat tanpa alasan valid: refund 100% ke pasien.</li>
-        <li>Proses refund dilakukan dalam 3–5 hari kerja ke rekening yang terdaftar.</li>
-      </ul>
-      <h3>3.4 Rekening Perawat</h3>
-      <ul>
-        <li>Perawat wajib mengisi data rekening bank yang valid untuk pencairan penghasilan.</li>
-        <li>Pencairan dilakukan setiap minggu untuk booking yang berstatus <em>selesai</em>.</li>
-        <li>Verifikasi rekening dilakukan oleh tim Akemat dalam 1×24 jam kerja.</li>
-      </ul>
-    </div>
-
-    <div class="tnc-section">
-      <h2>4. Kampanye Donasi</h2>
-      <h3>4.1 Pembuatan Campaign</h3>
-      <ul>
-        <li>Donatur yang terverifikasi dapat membuat kampanye donasi untuk membantu pembiayaan layanan perawatan.</li>
-        <li>Setiap kampanye wajib menyertakan cerita autentik, target dana, dan tenggat waktu yang realistis.</li>
-        <li>Akemat Foundation berhak menolak atau menghapus kampanye yang tidak sesuai ketentuan atau terindikasi penipuan.</li>
-      </ul>
-      <h3>4.2 Biaya Layanan Donasi</h3>
-      <ul>
-        <li><strong>Dari setiap donasi yang masuk: 95% disalurkan ke kampanye; 5% adalah biaya layanan platform.</strong></li>
-        <li>Biaya layanan ini mencakup: verifikasi kampanye, operasional sistem pembayaran, dukungan teknis, dan akuntabilitas donasi.</li>
-        <li>Rincian biaya ini ditampilkan secara transparan di setiap halaman kampanye sebelum konfirmasi donasi.</li>
-      </ul>
-      <h3>4.3 Rekening Penerima Campaign</h3>
-      <ul>
-        <li>Pemilik kampanye wajib mendaftarkan rekening bank yang valid sebagai tujuan pencairan donasi.</li>
-        <li>Pencairan donasi dilakukan setelah kampanye berakhir atau mencapai target, setelah melalui proses verifikasi.</li>
-        <li>Akemat Foundation tidak bertanggung jawab atas rekening yang didaftarkan dengan data tidak valid.</li>
-      </ul>
-      <h3>4.4 Tanggung Jawab Donatur</h3>
-      <ul>
-        <li>Donasi yang sudah dikirim tidak dapat ditarik kembali kecuali kampanye dibatalkan oleh Akemat Foundation.</li>
-        <li>Donatur bertanggung jawab untuk memverifikasi keabsahan kampanye sebelum berdonasi.</li>
-      </ul>
-    </div>
-
-    <div class="tnc-section">
-      <h2>5. Privasi Data</h2>
-      <ul>
-        <li>Data pribadi pengguna (nama, kontak, rekening) hanya digunakan untuk keperluan layanan platform.</li>
-        <li>Akemat Foundation tidak menjual atau membagikan data pengguna kepada pihak ketiga untuk tujuan komersial.</li>
-        <li>Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan yang berwenang.</li>
-        <li>Pengguna dapat meminta penghapusan data dengan menghubungi tim kami melalui email resmi.</li>
-      </ul>
-    </div>
-
-    <div class="tnc-section">
-      <h2>6. Larangan Penggunaan</h2>
-      <p>Pengguna dilarang keras untuk:</p>
-      <ul>
-        <li>Membuat kampanye donasi palsu atau menyesatkan.</li>
-        <li>Mendaftarkan identitas atau data rekening palsu.</li>
-        <li>Menggunakan platform untuk tujuan yang melanggar hukum Indonesia.</li>
-        <li>Meminta pembayaran di luar platform kepada perawat atau pasien.</li>
-        <li>Membuat beberapa akun dengan tujuan manipulasi sistem.</li>
-      </ul>
-    </div>
-
-    <div class="tnc-section">
-      <h2>7. Perubahan Ketentuan</h2>
-      <p>Akemat Foundation berhak mengubah Syarat &amp; Ketentuan ini sewaktu-waktu. Perubahan signifikan akan diberitahukan melalui email terdaftar dan notifikasi platform minimal 7 hari sebelum berlaku.</p>
-    </div>
-
-    <div class="tnc-section">
-      <h2>8. Kontak &amp; Penyelesaian Sengketa</h2>
-      <p>Untuk pertanyaan atau pengaduan terkait Syarat &amp; Ketentuan ini, hubungi kami di:</p>
-      <ul>
-        <li>Email: customecare@akematfoundation.org</li>
-        <li>WhatsApp: +62 851-9640-7117</li>
-        <li>Alamat: Jl. Contoh Raya No. 123, Bogor, Jawa Barat</li>
-      </ul>
-      <p>Sengketa yang tidak dapat diselesaikan secara musyawarah akan diselesaikan melalui Badan Arbitrase Nasional Indonesia (BANI) sesuai peraturan yang berlaku.</p>
-    </div>
-
-    <div style="margin-top:36px;text-align:center">
-      <a href="#" class="btn btn-primary">Kembali ke Beranda</a>
-      <a href="#faq" class="btn btn-outline" style="margin-left:10px">Lihat FAQ →</a>
-    </div>
-  </div>
-  ${renderFooterSection()}`;
+  var html = '<div class="tnc-faq-page">';
+  html += '<p class="eyebrow">Dokumen legal</p>';
+  html += '<h1>Syarat &amp; Ketentuan</h1>';
+  html += '<p class="lead">Terakhir diperbarui: 1 Juli 2025. Dengan menggunakan platform Akemat Foundation, Anda menyetujui seluruh ketentuan di bawah ini.</p>';
+  html += '<div class="tnc-section"><h2>1. Tentang Platform</h2>';
+  html += '<p>Akemat Foundation adalah platform digital berbasis yayasan yang mempertemukan pasien/keluarga yang membutuhkan layanan perawatan di rumah (<em>home care</em>) dengan tenaga perawat profesional terlatih. Platform ini juga menyediakan fitur kampanye donasi untuk membantu pembiayaan layanan perawatan bagi mereka yang membutuhkan.</p></div>';
+  html += '<div class="tnc-section"><h2>2. Akun Pengguna</h2>';
+  html += '<h3>2.1 Pendaftaran</h3><ul><li>Pengguna wajib mendaftar dengan identitas asli dan data yang benar.</li><li>Setiap pengguna hanya diperbolehkan memiliki satu akun aktif.</li><li>Akemat Foundation berhak menonaktifkan akun yang terindikasi melanggar ketentuan.</li></ul>';
+  html += '<h3>2.2 Keamanan Akun</h3><ul><li>Pengguna bertanggung jawab penuh atas kerahasiaan kata sandi dan keamanan akun.</li><li>Segera laporkan ke kami jika terdapat akses tidak sah ke akun Anda.</li></ul></div>';
+  html += '<div class="tnc-section"><h2>3. Layanan Perawat (Home Care)</h2>';
+  html += '<h3>3.1 Booking &amp; Pembayaran</h3><ul><li>Pasien memesan perawat melalui platform dan melakukan pembayaran sesuai tarif yang tertera.</li><li><strong>Struktur biaya booking:</strong> 80% diterima perawat; 20% adalah biaya platform Akemat Foundation.</li><li>Biaya platform digunakan untuk operasional, verifikasi perawat, pengembangan aplikasi, dan layanan pelanggan.</li><li>Tarif per jam ditetapkan oleh perawat dan ditampilkan secara transparan di profil masing-masing.</li></ul>';
+  html += '<h3>3.2 Verifikasi Perawat</h3><ul><li>Perawat yang bergabung wajib menyerahkan dokumen identitas, ijazah keperawatan, dan STR untuk proses verifikasi.</li><li>Perawat yang belum terverifikasi ditandai secara jelas di platform.</li></ul>';
+  html += '<h3>3.3 Pembatalan &amp; Refund</h3><ul><li>Pembatalan oleh pasien minimal 24 jam sebelum jadwal: refund 100%.</li><li>Pembatalan kurang dari 24 jam: dikenakan biaya admin 10%.</li><li>Pembatalan sepihak oleh perawat tanpa alasan valid: refund 100% ke pasien.</li><li>Proses refund dilakukan dalam 3–5 hari kerja.</li></ul>';
+  html += '<h3>3.4 Rekening Perawat</h3><ul><li>Perawat wajib mengisi data rekening bank yang valid untuk pencairan penghasilan.</li><li>Pencairan dilakukan setiap minggu untuk booking yang berstatus selesai.</li><li>Verifikasi rekening dilakukan oleh tim Akemat dalam 1×24 jam kerja.</li></ul></div>';
+  html += '<div class="tnc-section"><h2>4. Kampanye Donasi</h2>';
+  html += '<h3>4.1 Pembuatan Campaign</h3><ul><li>Donatur yang terverifikasi dapat membuat kampanye donasi untuk membantu pembiayaan layanan perawatan.</li><li>Akemat Foundation berhak menolak atau menghapus kampanye yang tidak sesuai ketentuan.</li></ul>';
+  html += '<h3>4.2 Biaya Layanan Donasi</h3><ul><li><strong>Dari setiap donasi: 95% disalurkan ke kampanye; 5% adalah biaya layanan platform.</strong></li><li>Biaya layanan mencakup verifikasi kampanye, operasional sistem pembayaran, dan akuntabilitas donasi.</li></ul>';
+  html += '<h3>4.3 Rekening Penerima Campaign</h3><ul><li>Pemilik kampanye wajib mendaftarkan rekening bank yang valid sebagai tujuan pencairan donasi.</li><li>Pencairan dilakukan setelah kampanye berakhir atau mencapai target, setelah proses verifikasi.</li></ul>';
+  html += '<h3>4.4 Tanggung Jawab Donatur</h3><ul><li>Donasi yang sudah dikirim tidak dapat ditarik kembali kecuali kampanye dibatalkan oleh Akemat Foundation.</li></ul></div>';
+  html += '<div class="tnc-section"><h2>5. Privasi Data</h2>';
+  html += '<ul><li>Data pribadi pengguna hanya digunakan untuk keperluan layanan platform.</li><li>Akemat Foundation tidak menjual atau membagikan data pengguna kepada pihak ketiga untuk tujuan komersial.</li><li>Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan yang berwenang.</li></ul></div>';
+  html += '<div class="tnc-section"><h2>6. Larangan Penggunaan</h2>';
+  html += '<p>Pengguna dilarang keras untuk:</p><ul><li>Membuat kampanye donasi palsu atau menyesatkan.</li><li>Mendaftarkan identitas atau data rekening palsu.</li><li>Menggunakan platform untuk tujuan yang melanggar hukum Indonesia.</li><li>Meminta pembayaran di luar platform kepada perawat atau pasien.</li></ul></div>';
+  html += '<div class="tnc-section"><h2>7. Perubahan Ketentuan</h2>';
+  html += '<p>Akemat Foundation berhak mengubah Syarat &amp; Ketentuan ini sewaktu-waktu. Perubahan signifikan akan diberitahukan melalui email terdaftar minimal 7 hari sebelum berlaku.</p></div>';
+  html += '<div class="tnc-section"><h2>8. Kontak &amp; Penyelesaian Sengketa</h2>';
+  html += '<ul><li>Email: customecare@akematfoundation.org</li><li>WhatsApp: +62 851-9640-7117</li><li>Jam layanan: Senin–Sabtu, 08.00–17.00 WIB</li></ul></div>';
+  html += '<div style="margin-top:36px;text-align:center"><a href="#" class="btn btn-primary">Kembali ke Beranda</a> <a href="#faq" class="btn btn-outline" style="margin-left:10px">Lihat FAQ →</a></div>';
+  html += '</div>';
+  app.innerHTML = html + renderFooterSection();
 }
 
 // ── FAQ ────────────────────────────────────────────────────
 function renderFAQ(){
   const faqs = [
-    { q:'Apa itu Akemat Foundation?',
-      a:'Akemat Foundation adalah yayasan kemanusiaan yang mempertemukan pasien/keluarga dengan perawat profesional untuk layanan home care (perawatan di rumah). Kami juga menyediakan platform donasi untuk membantu pembiayaan perawatan bagi yang membutuhkan.' },
-    { q:'Bagaimana cara memesan perawat?',
-      a:'Mudah! (1) Daftar atau login sebagai pasien. (2) Klik "Cari Perawat" dan filter berdasarkan spesialisasi, kota, dan ketersediaan. (3) Pilih perawat yang sesuai dan klik "Pesan". (4) Isi detail tanggal, waktu, durasi, dan alamat. (5) Konfirmasi booking — perawat akan menghubungi Anda via WhatsApp untuk konfirmasi.'},
-    { q:'Berapa biaya platform untuk booking perawat?',
-      a:'Platform Akemat mengambil 20% dari total nilai booking. Artinya, jika Anda membayar Rp 300.000, perawat menerima Rp 240.000 (80%) dan Rp 60.000 (20%) masuk ke operasional platform. Rincian ini selalu ditampilkan transparan sebelum Anda konfirmasi booking.',
-      highlight:'Pasien bayar: 100% → Perawat terima: 80% → Platform: 20%' },
-    { q:'Berapa biaya layanan untuk donasi?',
-      a:'Dari setiap donasi yang masuk, 95% langsung disalurkan ke campaign dan 5% adalah biaya layanan platform. Biaya ini mencakup verifikasi campaign, sistem pembayaran, dan operasional. Rincian ini selalu ditampilkan sebelum Anda konfirmasi donasi.',
-      highlight:'Donasi Anda: 100% → Campaign terima: 95% → Platform: 5%' },
-    { q:'Apakah perawat di Akemat sudah terverifikasi?',
-      a:'Perawat dengan lencana "✓ Terverifikasi" telah melalui proses verifikasi dokumen identitas, ijazah keperawatan, dan STR (Surat Tanda Registrasi). Perawat yang belum terverifikasi diberi label jelas. Kami menyarankan untuk memilih perawat yang sudah terverifikasi untuk keamanan maksimal.'},
-    { q:'Apa saja spesialisasi perawat yang tersedia?',
-      a:'Akemat memiliki 7 spesialisasi perawat: (1) Perawat Jiwa – gangguan mental, skizofrenia, depresi; (2) Perawat Anak & Bayi – neonatus, tumbuh kembang, ABK; (3) Perawat Lansia – gerontologi, demensia; (4) Perawat Medical Bedah – pasca operasi, infus, kateter; (5) Perawat Luka – luka diabetik, stoma, pressure ulcer; (6) Perawat Maternitas – pasca melahirkan, laktasi; (7) Perawat Paliatif – kanker terminal, manajemen nyeri.'},
-    { q:'Apa saja jenjang pendidikan perawat di platform ini?',
-      a:'Akemat menerima perawat dengan latar belakang: D3 Keperawatan, D4 Keperawatan, Ners/Profesi Ners (S1+Profesi), dan Spesialis Keperawatan. Jenjang pendidikan ditampilkan transparan di profil setiap perawat.'},
-    { q:'Bagaimana cara berdonasi?',
-      a:'(1) Kunjungi halaman Donasi. (2) Pilih campaign yang ingin Anda dukung. (3) Klik "Donasi". (4) Pilih nominal atau masukkan jumlah sendiri. (5) Isi nama, email, dan nomor HP. (6) Konfirmasi donasi — dana akan langsung tercatat dan disalurkan ke campaign.'},
-    { q:'Kapan donasi saya dicairkan ke penerima?',
-      a:'Pencairan donasi dilakukan setelah kampanye berakhir atau mencapai target dana, setelah melalui proses verifikasi oleh tim Akemat. Pemilik campaign wajib mengisi data rekening bank yang valid di profil mereka. Proses transfer 3–7 hari kerja.'},
-    { q:'Bagaimana cara membuat campaign donasi?',
-      a:'Daftar sebagai Donatur, lengkapi profil termasuk data rekening bank, lalu klik "+ Buat Campaign" di dashboard. Isi judul, cerita, target dana, deadline, dan kategori. Campaign akan melalui proses review oleh tim Akemat (1–2 hari kerja) sebelum tayang.'},
-    { q:'Bagaimana jika perawat tidak datang sesuai jadwal?',
-      a:'Segera hubungi tim Akemat via WhatsApp. Jika perawat membatalkan sepihak tanpa alasan valid, Anda akan mendapat refund 100%. Kami juga akan membantu mencarikan perawat pengganti secepat mungkin.'},
-    { q:'Apa itu rekening pencairan dan mengapa wajib diisi?',
-      a:'Rekening pencairan adalah rekening bank Anda yang digunakan oleh Akemat untuk mentransfer penghasilan (bagi perawat) atau donasi (bagi pemilik campaign). Tanpa data rekening yang valid, pembayaran tidak dapat diproses. Verifikasi rekening dilakukan dalam 1×24 jam kerja oleh tim kami.'},
-    { q:'Apakah data rekening saya aman?',
-      a:'Ya. Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan Akemat yang berwenang. Kami tidak pernah membagikan data rekening kepada pihak ketiga. Jika Anda curiga ada aktivitas mencurigakan, segera hubungi kami.'},
-    { q:'Bagaimana cara daftar sebagai perawat mitra?',
-      a:'Klik "Daftar" dan pilih peran "Perawat". Lengkapi data: nama, kontak, spesialisasi, pendidikan, kota, tarif per jam, bio, dan jadwal ketersediaan. Tambahkan data rekening untuk pencairan. Tim kami akan melakukan verifikasi dokumen (ijazah, STR) dalam 2–3 hari kerja.'},
-    { q:'Berapa perawat menerima dari setiap booking?',
-      a:'Perawat menerima 80% dari total nilai booking. Misalnya: tarif Rp 150.000/jam × 3 jam = Rp 450.000 total. Perawat menerima Rp 360.000 (80%) dan platform mengambil Rp 90.000 (20%). Penghasilan dicairkan setiap minggu.',
-      highlight:'Penghasilan Anda = tarif per jam × durasi × 80%'},
-    { q:'Apakah ada garansi keamanan bertransaksi?',
-      a:'Ya. Semua pembayaran booking diproses melalui iPaymu (payment gateway berlisensi Bank Indonesia). Data transaksi dienkripsi dengan standar industri. Anda akan menerima bukti transaksi via email setiap kali melakukan pembayaran atau donasi.'},
+    { q:'Apa itu Akemat Foundation?', a:'Akemat Foundation adalah yayasan kemanusiaan yang mempertemukan pasien/keluarga dengan perawat profesional untuk layanan home care (perawatan di rumah). Kami juga menyediakan platform donasi untuk membantu pembiayaan perawatan bagi yang membutuhkan.' },
+    { q:'Bagaimana cara memesan perawat?', a:'(1) Daftar atau login sebagai pasien. (2) Klik Cari Perawat dan filter berdasarkan spesialisasi, kota, dan ketersediaan. (3) Pilih perawat dan klik Pesan. (4) Isi detail tanggal, waktu, durasi, dan alamat. (5) Konfirmasi booking — perawat akan menghubungi Anda via WhatsApp.' },
+    { q:'Berapa biaya platform untuk booking perawat?', a:'Platform Akemat mengambil 20% dari total nilai booking. Artinya, jika Anda membayar Rp 300.000, perawat menerima Rp 240.000 (80%) dan Rp 60.000 (20%) masuk ke operasional platform. Rincian ini selalu ditampilkan transparan sebelum Anda konfirmasi booking.', highlight:'Pasien bayar: 100% → Perawat terima: 80% → Platform: 20%' },
+    { q:'Berapa biaya layanan untuk donasi?', a:'Dari setiap donasi yang masuk, 95% langsung disalurkan ke campaign dan 5% adalah biaya layanan platform. Biaya ini mencakup verifikasi campaign, sistem pembayaran, dan operasional.', highlight:'Donasi Anda: 100% → Campaign terima: 95% → Platform: 5%' },
+    { q:'Apakah perawat di Akemat sudah terverifikasi?', a:'Perawat dengan lencana Terverifikasi telah melalui proses verifikasi dokumen identitas, ijazah keperawatan, dan STR (Surat Tanda Registrasi). Perawat yang belum terverifikasi diberi label jelas.' },
+    { q:'Apa saja spesialisasi perawat yang tersedia?', a:'Akemat memiliki 7 spesialisasi: Perawat Jiwa, Perawat Anak & Bayi, Perawat Lansia, Perawat Medical Bedah, Perawat Luka, Perawat Maternitas, dan Perawat Paliatif.' },
+    { q:'Apa saja jenjang pendidikan perawat?', a:'D3 Keperawatan, D4 Keperawatan, Ners/Profesi Ners, dan Spesialis Keperawatan. Jenjang pendidikan ditampilkan transparan di profil setiap perawat.' },
+    { q:'Bagaimana cara berdonasi?', a:'(1) Kunjungi halaman Donasi. (2) Pilih campaign yang ingin Anda dukung. (3) Klik Donasi. (4) Pilih nominal atau masukkan jumlah sendiri. (5) Isi nama, email, dan no HP. (6) Konfirmasi donasi.' },
+    { q:'Kapan donasi saya dicairkan ke penerima?', a:'Pencairan donasi dilakukan setelah kampanye berakhir atau mencapai target, setelah proses verifikasi oleh tim Akemat. Pemilik campaign wajib mengisi data rekening bank yang valid. Proses transfer 3-7 hari kerja.' },
+    { q:'Bagaimana cara membuat campaign donasi?', a:'Daftar sebagai Donatur, lengkapi profil termasuk data rekening bank, lalu klik + Buat Campaign di dashboard. Isi judul, cerita, target dana, deadline, dan kategori. Campaign akan melalui proses review 1-2 hari kerja sebelum tayang.' },
+    { q:'Bagaimana jika perawat tidak datang sesuai jadwal?', a:'Segera hubungi tim Akemat via WhatsApp. Jika perawat membatalkan sepihak tanpa alasan valid, Anda akan mendapat refund 100%. Kami juga akan membantu mencarikan perawat pengganti.' },
+    { q:'Apa itu rekening pencairan dan mengapa wajib diisi?', a:'Rekening pencairan adalah rekening bank yang digunakan Akemat untuk mentransfer penghasilan (perawat) atau donasi (pemilik campaign). Tanpa data rekening yang valid, pembayaran tidak dapat diproses. Verifikasi dalam 1x24 jam kerja.' },
+    { q:'Apakah data rekening saya aman?', a:'Ya. Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan Akemat yang berwenang. Kami tidak pernah membagikan data rekening kepada pihak ketiga.' },
+    { q:'Bagaimana cara daftar sebagai perawat mitra?', a:'Klik Daftar dan pilih peran Perawat. Lengkapi data: nama, kontak, spesialisasi, pendidikan, kota, tarif per jam, bio, dan jadwal ketersediaan. Tambahkan data rekening untuk pencairan. Tim kami akan melakukan verifikasi dalam 2-3 hari kerja.' },
+    { q:'Berapa perawat menerima dari setiap booking?', a:'Perawat menerima 80% dari total nilai booking. Contoh: tarif Rp 150.000/jam x 3 jam = Rp 450.000 total. Perawat menerima Rp 360.000 (80%). Penghasilan dicairkan setiap minggu.', highlight:'Penghasilan Anda = tarif per jam x durasi x 80%' },
+    { q:'Apakah ada garansi keamanan bertransaksi?', a:'Ya. Semua pembayaran booking diproses melalui iPaymu (payment gateway berlisensi Bank Indonesia). Data transaksi dienkripsi dengan standar industri.' },
   ];
 
-  app.innerHTML = `
-  <div class="tnc-faq-page">
-    <p class="eyebrow">Pertanyaan umum</p>
-    <h1>FAQ — Pertanyaan yang Sering Ditanyakan</h1>
-    <p class="lead">Temukan jawaban atas pertanyaan umum seputar Akemat Foundation. Tidak menemukan jawaban yang Anda cari? <a href="#">Hubungi kami</a>.</p>
+  var faqHTML = '<div class="tnc-faq-page">';
+  faqHTML += '<p class="eyebrow">Pertanyaan umum</p>';
+  faqHTML += '<h1>FAQ — Pertanyaan yang Sering Ditanyakan</h1>';
+  faqHTML += '<p class="lead">Temukan jawaban atas pertanyaan umum seputar Akemat Foundation. Tidak menemukan jawaban? <a href="https://wa.me/6285196407117">Hubungi kami</a>.</p>';
+  faqHTML += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">';
+  faqHTML += '<button class="f-chip active" data-faq-cat="Semua">Semua</button>';
+  ['Booking Perawat','Donasi','Rekening','Akun'].forEach(function(cat){
+    faqHTML += '<button class="f-chip" data-faq-cat="'+cat+'">'+cat+'</button>';
+  });
+  faqHTML += '</div><div id="faqList">';
+  faqs.forEach(function(f, i){
+    faqHTML += '<div class="faq-item">';
+    faqHTML += '<button class="faq-q" data-faq="'+i+'">'+esc(f.q)+'<span class="faq-icon">+</span></button>';
+    faqHTML += '<div class="faq-a" id="faq-a-'+i+'">'+esc(f.a);
+    if(f.highlight) faqHTML += '<div class="faq-highlight">&#128161; <strong>'+esc(f.highlight)+'</strong></div>';
+    faqHTML += '</div></div>';
+  });
+  faqHTML += '</div>';
+  faqHTML += '<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:24px;margin-top:32px;text-align:center">';
+  faqHTML += '<h3 style="margin-bottom:8px">Masih ada pertanyaan?</h3>';
+  faqHTML += '<p style="margin-bottom:16px">Tim kami siap membantu Senin-Sabtu, 08.00-17.00 WIB.</p>';
+  faqHTML += '<a href="https://wa.me/6285196407117" target="_blank" class="btn btn-primary">WhatsApp Kami</a> ';
+  faqHTML += '<a href="mailto:customecare@akematfoundation.org" class="btn btn-outline" style="margin-left:8px">Email Kami</a> ';
+  faqHTML += '<a href="#tnc" class="btn btn-ghost" style="margin-left:8px">Syarat &amp; Ketentuan</a>';
+  faqHTML += '</div></div>';
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
-      ${['Semua','Booking Perawat','Donasi','Rekening','Akun'].map((cat,i)=>`
-        <button class="f-chip${i===0?' active':''}" data-faq-cat="${cat}">${cat}</button>`).join('')}
-    </div>
+  app.innerHTML = faqHTML + renderFooterSection();
 
-    <div id="faqList">
-      ${faqs.map((f,i)=>`
-        <div class="faq-item">
-          <button class="faq-q" data-faq="${i}">
-            ${esc(f.q)}
-            <span class="faq-icon">+</span>
-          </button>
-          <div class="faq-a" id="faq-a-${i}">
-            ${esc(f.a)}
-            ${f.highlight?`<div class="faq-highlight">💡 <strong>${esc(f.highlight)}</strong></div>`:''}
-          </div>
-        </div>`).join('')}
-    </div>
-
-    <div style="background:var(--bg-alt);border-radius:var(--r-md);padding:24px;margin-top:32px;text-align:center">
-      <h3 style="margin-bottom:8px">Masih ada pertanyaan?</h3>
-      <p style="margin-bottom:16px">Tim kami siap membantu Anda setiap hari Senin–Sabtu, 08.00–17.00 WIB.</p>
-      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-        <a href="https://wa.me/6285196407117" target="_blank" class="btn btn-primary">WhatsApp Kami</a>
-        <a href="mailto:customecare@akematfoundation.org" class="btn btn-outline">Email Kami</a>
-        <a href="#tnc" class="btn btn-ghost">Syarat &amp; Ketentuan</a>
-      </div>
-    </div>
-  </div>
-  ${renderFooterSection()}`;
-
-  // FAQ accordion
-  document.querySelectorAll('.faq-q').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const idx  = btn.dataset.faq;
-      const ans  = document.getElementById('faq-a-'+idx);
-      const open = btn.classList.toggle('open');
+  document.querySelectorAll('.faq-q').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var idx = btn.dataset.faq;
+      var ans = document.getElementById('faq-a-'+idx);
+      var open = btn.classList.toggle('open');
       ans.classList.toggle('open', open);
     });
   });
 }
 
-// ── Footer (inline) ─────────────────────────────────────────
-function renderFooterSection(){
-  return `
-  <footer class="site-footer">
-    <div class="container footer-inner">
-      <div class="footer-brand">
-        <a href="#" class="logo">
-          <svg class="logo-mark" viewBox="0 0 48 48"><rect width="48" height="48" rx="10" fill="#F2A541"/><path d="M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z" fill="#FBF7F1"/></svg>
-          <span>Akemat <strong>Foundation</strong></span>
-        </a>
-        <p>Menghadirkan perawat tepercaya bagi keluarga yang membutuhkan, didukung oleh donasi masyarakat.</p>
-        <div class="social-links">
-          <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a>
-          <a href="#" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 8h2V5h-2a4 4 0 0 0-4 4v2H9v3h2v6h3v-6h2.2l.8-3H14V9c0-.6.4-1 1-1z"/></svg></a>
-        </div>
-      </div>
-      <nav class="f-nav">
-        <h4>Platform</h4>
-        <ul>
-          <li><a href="#perawat">Cari Perawat</a></li>
-          <li><a href="#donasi">Kampanye Donasi</a></li>
-          <li><a href="#register">Daftar Perawat</a></li>
-          <li><a href="#dashboard">Dashboard</a></li>
-        </ul>
-      </nav>
-      <div class="f-cta">
-        <h4>Informasi</h4>
-        <ul class="f-nav" style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px">
-          <li><a href="#faq" style="color:#C5D8CD;font-size:.84rem">FAQ</a></li>
-          <li><a href="#tnc" style="color:#C5D8CD;font-size:.84rem">Syarat &amp; Ketentuan</a></li>
-          <li><a href="mailto:customecare@akematfoundation.org" style="color:#C5D8CD;font-size:.84rem">customecare@akematfoundation.org</a></li>
-          <li><a href="https://wa.me/6285196407117" style="color:#C5D8CD;font-size:.84rem">WhatsApp</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="container footer-bottom">
-      <p>© ${new Date().getFullYear()} Akemat Foundation. Semua hak cipta dilindungi.</p>
-      <p><a href="#tnc" style="color:#90A89E">Syarat &amp; Ketentuan</a> · <a href="#faq" style="color:#90A89E">FAQ</a></p>
-    </div>
-  </footer>`;
+function emptyState(msg){
+  return '<div class="empty-state"><div class="empty-icon">📭</div><p>' + msg + '</p></div>';
 }
 
-function emptyState(msg){
-  return `<div class="empty-state"><div class="empty-icon">📭</div><p>${msg}</p></div>`;
+// ── openPayBook: trigger iPaymu payment for booking ──────────
+async function openPayBook(bookingId){
+  const u = DB.getCurrentUser();
+  if(!u){ toast('Silakan login terlebih dahulu.','e'); return; }
+  const bookings = DB.getBookingsByPatient(u.id);
+  const bk = bookings.find(b=>b.id===bookingId);
+  if(!bk){ toast('Booking tidak ditemukan.','e'); return; }
+  try {
+    await Payment.payBooking({
+      bookingId:   bk.id,
+      totalCost:   bk.totalCost,
+      nurseName:   bk.nurseName,
+      service:     bk.service,
+      buyerName:   u.name,
+      buyerEmail:  u.email,
+      buyerPhone:  u.phone||'08000000000',
+    });
+  } catch(err) {
+    // Fallback ke WA jika iPaymu belum connect
+    window.open('https://wa.me/6285196407117?text='+encodeURIComponent('Halo Akemat, saya ingin bayar booking '+bk.service+' ('+bk.date+'). Nama: '+u.name),'_blank');
+    console.warn('[Payment] iPaymu not connected, redirecting to WA:', err.message);
+  }
 }
+window.openPayBook = openPayBook;
 
 // ── Init ───────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1675,6 +1464,326 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Close nav on link click (mobile)
   document.getElementById('mainNav')?.addEventListener('click',e=>{
     if(e.target.tagName==='A') document.getElementById('mainNav')?.setAttribute('data-open','false');
+  });
+
+  // Payment buttons (data-pay) — event delegation
+  document.addEventListener('click',e=>{
+    const payBtn = e.target.closest('[data-pay]');
+    if(payBtn){ openPayBook(payBtn.dataset.pay); return; }
+  });
+
+  // Modal close buttons & overlay click
+  document.addEventListener('click',e=>{
+    if(e.target.classList.contains('modal-overlay')) closeModal(e.target.id);
+    if(e.target.classList.contains('modal-x')) closeModal(e.target.closest('.modal-overlay')?.id);
+  });
+  });
+
+
+  </div>`;
+  afterDash();
+}
+
+// ── Profile ─────────────────────────────────────────────────
+function renderProfile(){
+  const u = DB.getCurrentUser();
+  if(!u){ navigate('#login'); return; }
+  const bank = u.bankInfo || {};
+  const np   = u.np || {};
+
+  app.innerHTML = `
+  <div class="dash-wrap">
+    ${sidebarHTML(u)}
+    <div class="dash-main">
+      <div class="dash-head">
+        <h2>${u.role==='patient'?'Profil & Dokumen':'Profil & Rekening'}</h2>
+        <p>Kelola informasi pribadi${u.role!=='patient'?' dan data rekening pencairan':''}.</p>
+      </div>
+
+      <!-- Profile info -->
+      <div class="dash-section">
+        <div class="dash-sh"><h3>Informasi Pribadi</h3></div>
+        <div class="profile-grid">
+          <div class="ff"><label>Nama lengkap</label><input type="text" id="profName" value="${esc(u.name)}" /></div>
+          <div class="ff"><label>No. HP</label><input type="tel" id="profPhone" value="${esc(u.phone||'')}" /></div>
+          <div class="ff full"><label>Email</label><input type="email" id="profEmail" value="${esc(u.email)}" readonly style="opacity:.6" /></div>
+          ${u.role==='patient'?'<div class="ff full"><label>Alamat</label><input type="text" id="profAddr" value="'+esc(u.address||'')+'" /></div>':''}
+          ${u.role==='donor'?'<div class="ff full"><label>Organisasi / Instansi</label><input type="text" id="profOrg" value="'+esc(u.organization||'')+'" /></div>':''}
+        </div>
+        <button class="btn btn-primary btn-sm" id="btnSaveProfile" style="margin-top:4px">Simpan Profil</button>
+      </div>
+
+      <!-- Nurse profile extra -->
+      ${u.role==='nurse'?nurseProfileSection(u):''}
+
+
+      ${u.role!=='patient'?bankStatusSection(u):''}
+    </div>
+  </div>`;
+
+  afterDash();
+
+  // Profile form save handlers
+  document.getElementById('btnSaveProfile')?.addEventListener('click',()=>{
+    const name  = document.getElementById('profName')?.value.trim();
+    const phone = document.getElementById('profPhone')?.value.trim();
+    if(!name){ toast('Nama wajib diisi.','e'); return; }
+    const upd = { name, phone };
+    if(u.role==='patient') upd.address      = document.getElementById('profAddr')?.value.trim();
+    if(u.role==='donor')   upd.organization = document.getElementById('profOrg')?.value.trim();
+    DB.updateUser(u.id, upd);
+    toast('Profil berhasil disimpan.','s');
+  });
+
+  document.getElementById('btnSaveNP')?.addEventListener('click',()=>{
+    const sched = [...document.querySelectorAll('#nurseScheduleWrap input:checked')].map(cb=>cb.value);
+    const spec  = document.getElementById('npSpec')?.value;
+    DB.updateUser(u.id, {np:{...u.np,
+      specialty: spec,
+      education: document.getElementById('npEdu')?.value,
+      loc:       document.getElementById('npLoc')?.value.trim(),
+      price:     parseInt(document.getElementById('npPrice')?.value)||u.np?.price,
+      bio:       document.getElementById('npBio')?.value.trim(),
+      schedule:  sched.length ? sched : u.np?.schedule,
+      services:  BOOKING_SERVICES[spec] || u.np?.services,
+    }});
+    toast('Profil perawat berhasil disimpan.','s');
+  });
+
+  document.getElementById('btnSaveBank')?.addEventListener('click',()=>{
+    const bankName = document.getElementById('bankNameInput')?.value;
+    const accNum   = document.getElementById('bankAccNum')?.value.trim();
+    const accName  = document.getElementById('bankAccName')?.value.trim();
+    if(!bankName||!accNum||!accName){ toast('Lengkapi semua data rekening.','e'); return; }
+    DB.updateUser(u.id, { bankInfo:{ bankName, accountNumber:accNum, accountName:accName, verified:false }});
+    toast('Data rekening disimpan. Verifikasi dalam 1×24 jam kerja.','s');
+    setTimeout(()=>renderProfile(), 800);
+  });
+}
+
+// ── Modals ──────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); document.body.style.overflow=''; }
+
+function openDonateModal(campaignId){
+  const u   = DB.getCurrentUser();
+  const cam = DB.getCampaignById(campaignId);
+  if(!cam) return;
+  let selAmt = 0;
+
+  document.getElementById('donModalCamTitle').textContent = cam.title.slice(0,55)+'…';
+  document.getElementById('donModalCamPct').style.width   = pct(cam.current,cam.target)+'%';
+  document.getElementById('donModalCamRaised').textContent= rpFmt(cam.current)+' / '+rpFmt(cam.target);
+  document.getElementById('donCamId').value = campaignId;
+  if(u){ document.getElementById('donBuyerName').value=u.name; document.getElementById('donBuyerEmail').value=u.email; document.getElementById('donBuyerPhone').value=u.phone||''; }
+  updateDonTotal();
+  openModal('modalDonate');
+
+  document.querySelectorAll('.d-amt-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      document.querySelectorAll('.d-amt-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      selAmt = parseInt(btn.dataset.amt);
+      document.getElementById('donCustomAmt').value='';
+      updateDonTotal();
+    };
+  });
+  document.getElementById('donCustomAmt')?.addEventListener('input',()=>{
+    document.querySelectorAll('.d-amt-btn').forEach(b=>b.classList.remove('active'));
+    selAmt = parseInt(document.getElementById('donCustomAmt')?.value)||0;
+    updateDonTotal();
+  });
+
+  function updateDonTotal(){
+    const amt = selAmt || parseInt(document.getElementById('donCustomAmt')?.value)||0;
+    const fee = Math.round(amt*FEE.DONATION);
+    document.getElementById('donTotalDisp').textContent  = rpFmt(amt);
+    document.getElementById('donFeeDisp').textContent    = rpFmt(fee);
+    document.getElementById('donNetDisp').textContent    = rpFmt(amt-fee);
+  }
+
+  document.getElementById('btnSubmitDonation').onclick=async()=>{
+    const amt   = selAmt||parseInt(document.getElementById('donCustomAmt')?.value)||0;
+    const name  = document.getElementById('donBuyerName')?.value.trim();
+    const email = document.getElementById('donBuyerEmail')?.value.trim();
+    const phone = document.getElementById('donBuyerPhone')?.value.trim();
+    const anon  = document.getElementById('donAnon')?.checked;
+    const cid   = document.getElementById('donCamId')?.value;
+    if(amt<1000){ toast('Minimal donasi Rp 1.000.','e'); return; }
+    if(!name||!email||!phone){ toast('Nama, email, dan no HP wajib diisi.','e'); return; }
+    const btn = document.getElementById('btnSubmitDonation');
+    const orig = btn.textContent;
+    btn.disabled=true; btn.textContent='Memproses…';
+    try {
+      await Payment.payDonation({
+        amount: amt, campaignId: cid,
+        campaignTitle: cam.title, buyerName: name,
+        buyerEmail: email, buyerPhone: phone,
+        anonymous: anon, donorId: u?.id||'guest',
+      });
+      // jika sampai sini, redirect belum terjadi (env belum set) → fallback localStorage
+    } catch(err) {
+      // Fallback: simpan ke localStorage dulu, beri tahu user untuk konfirmasi manual
+      DB.addDonation({ campaignId:cid, donorId:u?.id||'guest', donorName:name, amount:amt, anonymous:anon });
+      closeModal('modalDonate');
+      toast('Donasi dicatat. Konfirmasi transfer ke WA kami ya.','s');
+      if(location.hash.startsWith('#donasi/')) renderCampaignDetail(cid);
+      console.warn('[Payment] iPaymu not connected yet:', err.message);
+    }
+    btn.disabled=false; btn.textContent=orig;
+  };
+}
+
+function openBookingModal(nurseId){
+  const u = DB.getCurrentUser();
+  if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
+  if(u.role!=='patient'){ toast('Hanya pasien yang bisa memesan perawat.','e'); return; }
+  navigate('#perawat/'+nurseId);
+}
+
+function openCreateCampaignModal(){
+  const u = DB.getCurrentUser();
+  if(!u||u.role!=='donor'){ toast('Hanya donatur yang bisa membuat campaign.','e'); return; }
+  openModal('modalCreateCampaign');
+  document.getElementById('btnCreateCampaign').onclick=()=>{
+    const title    = document.getElementById('ccTitle')?.value.trim();
+    const story    = document.getElementById('ccStory')?.value.trim();
+    const target   = parseInt(document.getElementById('ccTarget')?.value)||0;
+    const deadline = document.getElementById('ccDeadline')?.value;
+    const category = document.getElementById('ccCategory')?.value;
+    const bankName = document.getElementById('ccBankName')?.value;
+    const accNum   = document.getElementById('ccAccNum')?.value.trim();
+    const accOwner = document.getElementById('ccAccOwner')?.value.trim();
+    if(!title||!story||!target||!deadline){ toast('Lengkapi semua field wajib.','e'); return; }
+    if(!bankName||!accNum||!accOwner){ toast('Data rekening wajib diisi agar donasi bisa dicairkan.','e'); return; }
+    DB.addCampaign({
+      title, story, target, deadline, category,
+      createdBy: u.id, creatorName: u.name,
+      verified: false,
+      bankInfo: { bankName, accountNumber:accNum, accountName:accOwner, verified:false },
+    });
+    closeModal('modalCreateCampaign');
+    toast('Campaign berhasil dibuat!','s');
+    renderDonorDash(DB.getCurrentUser());
+  };
+}
+
+function openEditCampaignModal(campaignId){
+  const cam = DB.getCampaignById(campaignId);
+  if(!cam) return;
+  const bank = cam.bankInfo||{};
+  document.getElementById('ecCamId').value    = campaignId;
+  document.getElementById('ecBankName').value = bank.bankName||'';
+  document.getElementById('ecAccNum').value   = bank.accountNumber||'';
+  document.getElementById('ecAccOwner').value = bank.accountName||'';
+  openModal('modalEditCampaign');
+  document.getElementById('btnSaveEditCampaign').onclick=()=>{
+    const cid     = document.getElementById('ecCamId')?.value;
+    const bankName= document.getElementById('ecBankName')?.value;
+    const accNum  = document.getElementById('ecAccNum')?.value.trim();
+    const accOwner= document.getElementById('ecAccOwner')?.value.trim();
+    if(!bankName||!accNum||!accOwner){ toast('Lengkapi semua data rekening.','e'); return; }
+    DB.updateCampaign(cid, { bankInfo:{ bankName, accountNumber:accNum, accountName:accOwner, verified:false }});
+    closeModal('modalEditCampaign');
+    toast('Data rekening campaign disimpan.','s');
+    renderDonorDash(DB.getCurrentUser());
+  };
+}
+
+// Global helpers
+window.openDonateModal        = openDonateModal;
+window.openBookingModal       = openBookingModal;
+window.openCreateCampaignModal= openCreateCampaignModal;
+window.openEditCampaignModal  = openEditCampaignModal;
+window.updateBooking = (id, status)=>{
+  DB.updateBooking(id, {status});
+  toast({confirmed:'Booking dikonfirmasi!',cancelled:'Booking ditolak.',completed:'Booking selesai!'}[status]||'Updated','s');
+  renderDashboard();
+};
+
+// ── TNC ────────────────────────────────────────────────────
+
+
+function renderFooterSection(){
+  var html = '<footer class="site-footer">';
+  html += '<div class="container footer-inner">';
+  html += '<div class="footer-brand">';
+  html += '<a href="#" class="logo"><svg class="logo-mark" viewBox="0 0 48 48"><rect width="48" height="48" rx="10" fill="#F2A541"/><path d="M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z" fill="#FBF7F1"/></svg><span>Akemat <strong>Foundation</strong></span></a>';
+  html += '<p>Menghadirkan perawat tepercaya bagi keluarga yang membutuhkan, didukung oleh donasi masyarakat.</p>';
+  html += '<div class="social-links">';
+  html += '<a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a>';
+  html += '<a href="#" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 8h2V5h-2a4 4 0 0 0-4 4v2H9v3h2v6h3v-6h2.2l.8-3H14V9c0-.6.4-1 1-1z"/></svg></a>';
+  html += '</div></div>';
+  html += '<nav class="f-nav"><h4>Platform</h4><ul>';
+  html += '<li><a href="#perawat">Cari Perawat</a></li>';
+  html += '<li><a href="#donasi">Kampanye Donasi</a></li>';
+  html += '<li><a href="#register">Daftar Perawat</a></li>';
+  html += '<li><a href="#dashboard">Dashboard</a></li>';
+  html += '</ul></nav>';
+  html += '<div class="f-cta"><h4>Informasi</h4><ul class="f-nav" style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px">';
+  html += '<li><a href="#faq" style="color:#C5D8CD;font-size:.84rem">FAQ</a></li>';
+  html += '<li><a href="#tnc" style="color:#C5D8CD;font-size:.84rem">Syarat &amp; Ketentuan</a></li>';
+  html += '<li><a href="mailto:customecare@akematfoundation.org" style="color:#C5D8CD;font-size:.84rem">customecare@akematfoundation.org</a></li>';
+  html += '<li><a href="https://wa.me/6285196407117" style="color:#C5D8CD;font-size:.84rem">WhatsApp 0851 9640 7117</a></li>';
+  html += '</ul></div>';
+  html += '</div>';
+  html += '<div class="container footer-bottom">';
+  html += '<p>&copy; '+new Date().getFullYear()+' Akemat Foundation. Semua hak cipta dilindungi.</p>';
+  html += '<p><a href="#tnc" style="color:#90A89E">Syarat &amp; Ketentuan</a> &middot; <a href="#faq" style="color:#90A89E">FAQ</a></p>';
+  html += '</div></footer>';
+  return html;
+}
+
+function emptyState(msg){
+  return '<div class="empty-state"><div class="empty-icon">📭</div><p>' + msg + '</p></div>';
+}
+
+// ── openPayBook: trigger iPaymu payment for booking ──────────
+async function openPayBook(bookingId){
+  const u = DB.getCurrentUser();
+  if(!u){ toast('Silakan login terlebih dahulu.','e'); return; }
+  const bookings = DB.getBookingsByPatient(u.id);
+  const bk = bookings.find(b=>b.id===bookingId);
+  if(!bk){ toast('Booking tidak ditemukan.','e'); return; }
+  try {
+    await Payment.payBooking({
+      bookingId:   bk.id,
+      totalCost:   bk.totalCost,
+      nurseName:   bk.nurseName,
+      service:     bk.service,
+      buyerName:   u.name,
+      buyerEmail:  u.email,
+      buyerPhone:  u.phone||'08000000000',
+    });
+  } catch(err) {
+    // Fallback ke WA jika iPaymu belum connect
+    window.open('https://wa.me/6285196407117?text='+encodeURIComponent('Halo Akemat, saya ingin bayar booking '+bk.service+' ('+bk.date+'). Nama: '+u.name),'_blank');
+    console.warn('[Payment] iPaymu not connected, redirecting to WA:', err.message);
+  }
+}
+window.openPayBook = openPayBook;
+
+// ── Init ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  DB.seed();
+  route();
+
+  // Mobile nav toggle
+  document.getElementById('navToggle')?.addEventListener('click',()=>{
+    const nav = document.getElementById('mainNav');
+    const open= nav?.getAttribute('data-open')==='true';
+    nav?.setAttribute('data-open', open?'false':'true');
+  });
+
+  // Close nav on link click (mobile)
+  document.getElementById('mainNav')?.addEventListener('click',e=>{
+    if(e.target.tagName==='A') document.getElementById('mainNav')?.setAttribute('data-open','false');
+  });
+
+  // Payment buttons (data-pay) — event delegation
+  document.addEventListener('click',e=>{
+    const payBtn = e.target.closest('[data-pay]');
+    if(payBtn){ openPayBook(payBtn.dataset.pay); return; }
   });
 
   // Modal close buttons & overlay click

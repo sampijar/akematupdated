@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Pembayaran Dibatalkan — Akemat Foundation</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Work+Sans:wght@400&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:'Work Sans',sans-serif;background:#FBF7F1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+a.logo{display:inline-flex;align-items:center;gap:9px;font-family:'Sora',sans-serif;font-weight:700;font-size:1rem;color:#1F4D3F;text-decoration:none;margin-bottom:24px}
+.card{background:#fff;border:1.5px solid #DDD3C4;border-radius:24px;padding:36px;width:100%;max-width:460px;text-align:center;box-shadow:0 12px 32px rgba(31,77,63,.1)}
+h1{font-family:'Sora',sans-serif;font-size:1.5rem;font-weight:800;color:#1F4D3F;margin:14px 0 8px}
+p{color:#50645C;font-size:.92rem;line-height:1.6;margin:0 0 20px}
+.acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:700;font-size:.88rem;padding:12px 22px;border-radius:999px;border:2px solid transparent;text-decoration:none;cursor:pointer;transition:.2s}
+.btn:hover{transform:translateY(-2px)}
+.btn-p{background:#1F4D3F;color:#fff}.btn-o{border-color:#1F4D3F;color:#1F4D3F}
+</style>
+</head>
+<body>
+<a href="/" class="logo">
+  <svg width="34" height="34" viewBox="0 0 48 48"><rect width="48" height="48" rx="10" fill="#1F4D3F"/><path d="M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z" fill="#F2A541"/></svg>
+  Akemat Foundation
+</a>
+<div class="card">
+  <div style="font-size:3.5rem">🚫</div>
+  <h1>Pembayaran Dibatalkan</h1>
+  <p>Anda membatalkan proses pembayaran. Tidak ada dana yang ditarik.<br>Ingin mencoba lagi? Kembali ke halaman sebelumnya.</p>
+  <div class="acts">
+    <button class="btn btn-p" onclick="history.back()">← Coba Lagi</button>
+    <a href="/" class="btn btn-o">Beranda</a>
+    <a href="https://wa.me/6285196407117?text=Halo+Akemat,+saya+butuh+bantuan+pembayaran" target="_blank" class="btn btn-o">Hubungi WA</a>
+  </div>
+</div>
+<script>sessionStorage.removeItem('akemat_tx');</script>
+</body>
+</html>
