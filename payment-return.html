@@ -24,6 +24,7 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
 .note{background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:.8rem;color:#92400E;margin-top:14px}
 #chk{font-size:.78rem;color:var(--soft);margin-top:10px}
 </style>
+<script src="/js/data.js"></script>
 </head>
 <body>
 <a href="/" class="logo">
@@ -59,7 +60,28 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
     det.style.display='block';
     det.innerHTML=rows.map(([l,v])=>`<div class="dr"><span class="lbl">${l}</span><span class="val">${v||'—'}</span></div>`).join('');
   }
-  function ok(tid,a){ ico.textContent='✅'; ttl.textContent='Pembayaran Berhasil!'; dsc.textContent='Terima kasih atas pembayaran Anda. Tim Akemat akan segera menindaklanjuti.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',a?'Rp '+Number(a).toLocaleString('id-ID'):'—'],['Pembayar',buyer]]); acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a><a href="/#dashboard" class="btn btn-o">Dashboard</a>'; sessionStorage.removeItem('akemat_tx'); }
+  // Catat pembayaran ke DB lokal HANYA setelah iPaymu mengonfirmasi status berhasil —
+  // ini satu-satunya tempat donasi/booking dianggap lunas & dikreditkan.
+  function finalizePaid(tid, a){
+    if (typeof DB === 'undefined' || !stored) return;
+    try {
+      if (stored.type === 'donation' && stored.campaignId) {
+        DB.addDonation({
+          campaignId: stored.campaignId,
+          donorId: stored.donorId || 'guest',
+          donorName: stored.buyerName || buyer || 'Donatur',
+          amount: Number(stored.amount || a) || 0,
+          anonymous: !!stored.anonymous,
+          referenceId: ref,
+          transactionId: tid,
+          paymentStatus: 'paid',
+        });
+      } else if (stored.type === 'booking' && stored.bookingId) {
+        DB.updateBooking(stored.bookingId, { paymentStatus: 'paid', transactionId: tid });
+      }
+    } catch(e) { console.error('[finalizePaid]', e); }
+  }
+  function ok(tid,a){ finalizePaid(tid,a); ico.textContent='✅'; ttl.textContent='Pembayaran Berhasil!'; dsc.textContent='Terima kasih atas pembayaran Anda. Tim Akemat akan segera menindaklanjuti.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',a?'Rp '+Number(a).toLocaleString('id-ID'):'—'],['Pembayar',buyer]]); acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a><a href="/#dashboard" class="btn btn-o">Dashboard</a>'; sessionStorage.removeItem('akemat_tx'); }
   function fail(){ ico.textContent='❌'; ttl.textContent='Pembayaran Gagal / Dibatalkan'; dsc.textContent='Transaksi tidak berhasil. Silakan coba lagi atau hubungi kami.'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali</a><a href="https://wa.me/6285196407117" target="_blank" class="btn btn-o">Hubungi WA</a>'; sessionStorage.removeItem('akemat_tx'); }
   function pend(tid){ ico.textContent='⏳'; ttl.textContent='Menunggu Pembayaran'; dsc.textContent='Transaksi menunggu konfirmasi pembayaran.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',amt?'Rp '+Number(amt).toLocaleString('id-ID'):'—']]); note.style.display='block'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a>'; }
 
