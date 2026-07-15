@@ -192,6 +192,14 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .pw-field input{padding-right:44px}
 .pw-toggle{position:absolute;top:50%;right:4px;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;font-size:1rem;line-height:1;padding:8px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .pw-toggle:hover{background:var(--bg-alt)}
+/* Ruang aman di bawah supaya tombol WhatsApp mengambang (fixed, bottom:28px)
+   tidak menutupi tombol submit / rincian harga di widget booking & donasi & form auth. */
+.book-widget,.donate-widget,.auth-card{margin-bottom:90px}
+.cc-image-drop{position:relative;display:flex;align-items:center;justify-content:center;text-align:center;min-height:140px;border:2px dashed var(--border);border-radius:var(--r-md);background:var(--bg-alt);overflow:hidden;padding:12px}
+.cc-image-drop:hover{border-color:var(--primary-lt)}
+.cc-image-drop input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.cc-image-drop img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:calc(var(--r-md) - 2px)}
+#ccImagePlaceholder{font-size:.82rem;color:var(--soft);position:relative;z-index:1;pointer-events:none}
 .demo-box{background:var(--bg-alt);border-radius:var(--r-sm);padding:11px 13px;font-size:.78rem;color:var(--soft);margin-bottom:14px}
 .demo-box strong{color:var(--primary)}
 .form-error{color:var(--danger);font-size:.8rem;margin-top:6px;min-height:1em}
@@ -355,6 +363,10 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .cam-detail-wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;padding:36px 0 72px;align-items:start}
 .cam-story-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:26px;margin-bottom:18px}
 .cam-story p{font-size:.93rem;line-height:1.75;color:var(--ink)}
+.cam-cover-img{width:100%;max-height:340px;object-fit:cover;border-radius:var(--r-md);margin-bottom:18px;display:block}
+.cam-share-row{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.share-wa{background:#25D366;color:#fff;border-color:#25D366}
+.share-wa:hover{background:#1FB855;color:#fff}
 .donate-widget{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:22px;position:sticky;top:calc(var(--hh) + 16px)}
 .donate-widget .progress-bar{height:10px;margin-bottom:8px}
 .dw-raised{font-family:var(--font-d);font-weight:800;font-size:1.3rem;color:var(--primary)}

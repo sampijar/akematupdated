@@ -43,6 +43,34 @@ function payBtnHTML(status, id){
   return '<span style="color:#9CA3AF">—</span>';
 }
 
+// ── Kompres foto campaign jadi data URL kecil di browser ────
+// Tidak ada bucket storage terpisah — foto disimpan sebagai data URL di kolom
+// image_url, jadi wajib dikecilkan dulu di sisi klien supaya row-nya tidak bengkak.
+function fileToResizedDataUrl(file, maxDim=1000, quality=0.82){
+  return new Promise((resolve, reject)=>{
+    if(!file.type.startsWith('image/')){ reject(new Error('File harus berupa gambar.')); return; }
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(new Error('Gagal membaca file.'));
+    reader.onload = ()=>{
+      img.onerror = ()=>reject(new Error('File gambar tidak valid.'));
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          const scale = maxDim / Math.max(w,h);
+          w = Math.round(w*scale); h = Math.round(h*scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function toast(msg, type=''){
   const t = document.getElementById('toast');
   if(!t) return;
@@ -627,8 +655,8 @@ function campaignCard(c){
   const cls   = p >= 100 ? 'high' : p >= 80 ? 'urgent' : '';
   return `
   <div class="campaign-card">
-    <div class="cam-banner" style="background:${color}20">
-      <span>${SPECIALTY_ICONS[c.category]||'❤️'}</span>
+    <div class="cam-banner" style="background:${color}20${c.imageUrl?';background-image:url(\''+c.imageUrl+'\');background-size:cover;background-position:center':''}">
+      ${c.imageUrl?'':'<span>'+(SPECIALTY_ICONS[c.category]||'❤️')+'</span>'}
       ${c.verified?'<span class="cam-verified">✓ Terverifikasi</span>':''}
     </div>
     <div class="cam-body">
@@ -665,12 +693,17 @@ async function renderCampaignDetail(id){
   <div class="container cam-detail-wrap">
     <div>
       <div class="cam-story-card">
+        ${c.imageUrl?'<img src="'+c.imageUrl+'" alt="Foto campaign '+esc(c.title)+'" class="cam-cover-img" />':''}
         <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:18px">
           <div>${specBadge(c.category||'Donasi')}</div>
           ${c.verified?'<span class="badge badge-green">✓ Campaign Terverifikasi</span>':'<span class="badge badge-amber">Belum terverifikasi</span>'}
         </div>
         <h2 style="font-size:1.3rem;margin-bottom:16px">${esc(c.title)}</h2>
-        <p style="font-size:.82rem;color:var(--soft);margin-bottom:18px">Campaign oleh <strong>${esc(c.creatorName)}</strong> · Deadline: ${esc(c.deadline)}</p>
+        <p style="font-size:.82rem;color:var(--soft);margin-bottom:6px">Campaign oleh <strong>${esc(c.creatorName)}</strong> · Deadline: ${esc(c.deadline)}</p>
+        <div class="cam-share-row">
+          <button class="btn btn-outline btn-sm" id="btnShareCampaign" type="button">🔗 Bagikan Campaign</button>
+          <a class="btn btn-sm share-wa" id="shareWaLink" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>
+        </div>
 
         <!-- Campaign bank info -->
         <div style="background:var(--bg-alt);border-radius:var(--r-sm);padding:14px;margin-bottom:18px">
@@ -717,6 +750,25 @@ async function renderCampaignDetail(id){
     </div>
   </div>
   ${renderFooterSection()}`;
+
+  // ── Share campaign ──────────────────────────────────────
+  const shareUrl  = location.origin + location.pathname + '#donasi/' + c.id;
+  const shareText = 'Yuk bantu wujudkan "' + c.title + '" di Akemat Foundation. Sudah terkumpul ' + rpFmt(c.current) + ' dari target ' + rpFmt(c.target) + '.';
+  const waLink = document.getElementById('shareWaLink');
+  if(waLink) waLink.href = 'https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + shareUrl);
+  document.getElementById('btnShareCampaign')?.addEventListener('click', async ()=>{
+    if(navigator.share){
+      try { await navigator.share({ title: c.title, text: shareText, url: shareUrl }); }
+      catch(e){ /* pengguna batal share, abaikan */ }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast('Link campaign disalin! Tempel di chat/medsos manapun.','s');
+    } catch {
+      toast('Gagal menyalin link. Salin manual: '+shareUrl,'e');
+    }
+  });
 }
 
 // ── Auth ────────────────────────────────────────────────────
@@ -1693,6 +1745,30 @@ function openCreateCampaignModal(){
   const u = Store.getCurrentUser();
   if(!u||u.role!=='donor'){ toast('Hanya donatur yang bisa membuat campaign.','e'); return; }
   openModal('modalCreateCampaign');
+
+  let imageDataUrl = '';
+  const imgInput = document.getElementById('ccImage');
+  const imgPreview = document.getElementById('ccImagePreview');
+  const imgPlaceholder = document.getElementById('ccImagePlaceholder');
+  if(imgInput) imgInput.value = '';
+  if(imgPreview){ imgPreview.style.display='none'; imgPreview.src=''; }
+  if(imgPlaceholder) imgPlaceholder.style.display='';
+
+  if(imgInput) imgInput.onchange = async ()=>{
+    const file = imgInput.files?.[0];
+    if(!file) return;
+    imgPlaceholder.textContent = 'Memproses foto…';
+    try {
+      imageDataUrl = await fileToResizedDataUrl(file);
+      imgPreview.src = imageDataUrl;
+      imgPreview.style.display = 'block';
+      imgPlaceholder.style.display = 'none';
+    } catch(e){
+      toast(e.message||'Gagal memproses foto.','e');
+      imgPlaceholder.textContent = '📷 Pilih foto (opsional, tapi lebih dipercaya donatur)';
+    }
+  };
+
   document.getElementById('btnCreateCampaign').onclick=async ()=>{
     const title    = document.getElementById('ccTitle')?.value.trim();
     const story    = document.getElementById('ccStory')?.value.trim();
@@ -1707,7 +1783,7 @@ function openCreateCampaignModal(){
     await Store.addCampaign({
       title, story, target, deadline, category,
       createdBy: u.id, creatorName: u.name,
-      verified: false,
+      verified: false, imageUrl: imageDataUrl,
       bankInfo: { bankName, accountNumber:accNum, accountName:accOwner, verified:false },
     });
     closeModal('modalCreateCampaign');

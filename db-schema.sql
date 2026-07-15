@@ -148,6 +148,11 @@ CREATE TABLE IF NOT EXISTS payouts (
 ALTER TABLE users     ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;
 
+-- Foto sampul campaign (disimpan sebagai data URL base64 terkompresi di klien —
+-- tidak ada bucket storage terpisah, jadi kolom TEXT biasa cukup untuk ukuran
+-- yang sudah dikecilkan sebelum diunggah).
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS image_url TEXT;
+
 -- ── Row Level Security (RLS) ───────────────────────────────
 ALTER TABLE users     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nurse_profiles ENABLE ROW LEVEL SECURITY;

@@ -236,6 +236,15 @@
       </div>
 
       <div class="ff">
+        <label for="ccImage">Foto sampul campaign</label>
+        <div class="cc-image-drop" id="ccImageDrop">
+          <img id="ccImagePreview" style="display:none" alt="Pratinjau foto campaign" />
+          <span id="ccImagePlaceholder">📷 Pilih foto (opsional, tapi lebih dipercaya donatur)</span>
+          <input type="file" id="ccImage" accept="image/*" />
+        </div>
+      </div>
+
+      <div class="ff">
         <label for="ccTitle">Judul campaign <span style="color:var(--danger)">*</span></label>
         <input type="text" id="ccTitle" placeholder="Contoh: Bantu Perawatan Nenek Mariam Pasca Stroke" maxlength="100" />
       </div>

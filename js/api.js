@@ -102,7 +102,7 @@ function rowToCampaign(row) {
     id: row.id, title: row.title, story: row.story, category: row.category,
     target: row.target, current: row.current, donorCount: row.donor_count,
     deadline: row.deadline, createdBy: row.created_by, creatorName: row.creator_name,
-    verified: !!row.is_verified,
+    verified: !!row.is_verified, imageUrl: row.image_url || '',
     bankInfo: {
       bankName: row.bank_name || '', accountNumber: row.bank_account_number || '',
       accountName: row.bank_account_name || '', verified: !!row.bank_verified,
@@ -121,6 +121,7 @@ function campaignToRow(data) {
   if ('createdBy' in data) row.created_by = data.createdBy;
   if ('creatorName' in data) row.creator_name = data.creatorName;
   if ('verified' in data) row.is_verified = data.verified;
+  if ('imageUrl' in data) row.image_url = data.imageUrl;
   if (data.bankInfo) {
     row.bank_name = data.bankInfo.bankName;
     row.bank_account_number = data.bankInfo.accountNumber;
