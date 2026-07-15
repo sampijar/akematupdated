@@ -88,6 +88,7 @@ function route(){
     case 'perawat':  id ? renderNurseDetail(id) : renderNurseList(); break;
     case 'donasi':   id ? renderCampaignDetail(id) : renderCampaignList(); break;
     case 'login':    renderLogin();       break;
+    case 'lupa-password': renderForgotPassword(); break;
     case 'register': renderRegister();    break;
     case 'dashboard':renderDashboard();   break;
     case 'profil':   renderProfile();     break;
@@ -700,6 +701,9 @@ function renderLogin(){
       <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
         Belum punya akun? <a href="#register" style="color:var(--accent2);font-weight:700">Daftar sekarang →</a>
       </div>
+      <div style="text-align:center;margin-top:8px;font-size:.84rem">
+        <a href="#lupa-password" style="color:var(--soft)">Lupa password?</a>
+      </div>
     </div>
   </div>`;
 
@@ -723,8 +727,103 @@ function renderLogin(){
   });
 }
 
+function renderForgotPassword(){
+  let otpRequestId = null;
+  let verifiedPhone = null;
+
+  app.innerHTML = `
+  <div class="auth-page">
+    <div class="auth-card">
+      <h2>Lupa Password</h2>
+      <p class="lead">Verifikasi nomor HP terdaftar via WhatsApp untuk atur ulang password.</p>
+
+      <div id="fpStep1">
+        <div class="ff"><label>No. HP terdaftar</label><input type="tel" id="fpPhone" placeholder="08xx…" /></div>
+        <button class="btn btn-primary btn-full" id="btnFpSendOtp" style="margin-top:8px">Kirim OTP WA</button>
+      </div>
+
+      <div id="fpStep2" style="display:none;margin-top:14px">
+        <div class="ff">
+          <label>Kode OTP WhatsApp</label>
+          <input type="text" id="fpOtpCode" inputmode="numeric" maxlength="6" placeholder="6 digit kode" style="letter-spacing:.3em" />
+        </div>
+        <button class="btn btn-primary btn-full" id="btnFpVerifyOtp">Verifikasi Kode</button>
+      </div>
+
+      <div id="fpStep3" style="display:none;margin-top:14px">
+        <div class="ff"><label>Password baru</label><input type="password" id="fpNewPass" placeholder="Min. 6 karakter" /></div>
+        <div class="ff"><label>Konfirmasi password baru</label><input type="password" id="fpNewPass2" placeholder="Ulangi password baru" /></div>
+        <button class="btn btn-primary btn-full" id="btnFpSavePass">Simpan Password Baru</button>
+      </div>
+
+      <div class="form-error" id="fpErr"></div>
+      <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
+        <a href="#login" style="color:var(--accent2);font-weight:700">← Kembali ke Masuk</a>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('btnFpSendOtp')?.addEventListener('click', async ()=>{
+    const err   = document.getElementById('fpErr');
+    const phone = document.getElementById('fpPhone')?.value.trim();
+    err.textContent = '';
+    if(!phone){ err.textContent = 'Isi nomor HP terlebih dahulu.'; return; }
+    if(!DB.getUserByPhone(phone)){ err.textContent = 'Nomor HP tidak terdaftar.'; return; }
+    const btn = document.getElementById('btnFpSendOtp');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Mengirim…';
+    try {
+      otpRequestId = await Otp.send(phone);
+      verifiedPhone = phone;
+      document.getElementById('fpStep1').style.display = 'none';
+      document.getElementById('fpStep2').style.display = 'block';
+      toast('Kode OTP dikirim via WhatsApp.','s');
+    } catch(e){
+      err.textContent = e.message || 'Gagal mengirim OTP.';
+    }
+    btn.disabled = false; btn.textContent = orig;
+  });
+
+  document.getElementById('btnFpVerifyOtp')?.addEventListener('click', async ()=>{
+    const err  = document.getElementById('fpErr');
+    const code = document.getElementById('fpOtpCode')?.value.trim();
+    err.textContent = '';
+    if(!code){ err.textContent = 'Masukkan kode OTP.'; return; }
+    const btn = document.getElementById('btnFpVerifyOtp');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Memeriksa…';
+    try {
+      await Otp.verify(otpRequestId, code);
+      document.getElementById('fpStep2').style.display = 'none';
+      document.getElementById('fpStep3').style.display = 'block';
+      toast('Nomor HP terverifikasi. Silakan atur password baru.','s');
+    } catch(e){
+      err.textContent = e.message || 'Kode OTP salah atau kadaluarsa.';
+    }
+    btn.disabled = false; btn.textContent = orig;
+  });
+
+  document.getElementById('btnFpSavePass')?.addEventListener('click', ()=>{
+    const err   = document.getElementById('fpErr');
+    const pass  = document.getElementById('fpNewPass')?.value;
+    const pass2 = document.getElementById('fpNewPass2')?.value;
+    err.textContent = '';
+    if(!verifiedPhone){ err.textContent = 'Verifikasi OTP terlebih dahulu.'; return; }
+    if(!pass || pass.length < 6){ err.textContent = 'Password minimal 6 karakter.'; return; }
+    if(pass !== pass2){ err.textContent = 'Konfirmasi password tidak cocok.'; return; }
+    const u = DB.getUserByPhone(verifiedPhone);
+    if(!u){ err.textContent = 'Akun tidak ditemukan.'; return; }
+    DB.updateUser(u.id, { password: pass });
+    toast('Password berhasil diubah. Silakan masuk.','s');
+    navigate('#login');
+  });
+}
+
 function renderRegister(){
   let selRole = 'patient';
+  let phoneVerified = false;
+  let otpRequestId  = null;
+  let verifiedPhone = '';
   app.innerHTML = `
   <div class="auth-page">
     <div class="auth-card">
@@ -751,7 +850,21 @@ function renderRegister(){
       <div class="ff"><label>Nama lengkap</label><input type="text" id="regName" placeholder="Nama sesuai KTP" /></div>
       <div class="ff row2">
         <div><label>Email</label><input type="email" id="regEmail" placeholder="email@anda.com" /></div>
-        <div><label>No. HP</label><input type="tel" id="regPhone" placeholder="08xx…" /></div>
+        <div>
+          <label>No. HP</label>
+          <div style="display:flex;gap:8px">
+            <input type="tel" id="regPhone" placeholder="08xx…" style="flex:1" />
+            <button type="button" class="btn btn-outline btn-sm" id="btnSendOtp" style="white-space:nowrap">Kirim OTP WA</button>
+          </div>
+        </div>
+      </div>
+      <div class="ff" id="otpSection" style="display:none">
+        <label>Kode OTP WhatsApp</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="regOtpCode" inputmode="numeric" maxlength="6" placeholder="6 digit kode" style="flex:1;letter-spacing:.3em" />
+          <button type="button" class="btn btn-primary btn-sm" id="btnVerifyOtp" style="white-space:nowrap">Verifikasi</button>
+        </div>
+        <p style="font-size:.74rem;color:var(--soft);margin:6px 0 0" id="otpStatus">Kode dikirim via WhatsApp ke nomor di atas.</p>
       </div>
       <div class="ff"><label>Password</label><input type="password" id="regPass" placeholder="Min. 6 karakter" /></div>
 
@@ -830,6 +943,56 @@ function renderRegister(){
   });
   updateRoleUI();
 
+  // Reset verifikasi jika nomor HP diubah setelah terverifikasi
+  document.getElementById('regPhone')?.addEventListener('input',()=>{
+    if(phoneVerified && document.getElementById('regPhone').value.trim() !== verifiedPhone){
+      phoneVerified = false;
+      document.getElementById('otpSection').style.display = 'none';
+      document.getElementById('btnSendOtp').textContent = 'Kirim OTP WA';
+    }
+  });
+
+  document.getElementById('btnSendOtp')?.addEventListener('click', async ()=>{
+    const err   = document.getElementById('regErr');
+    const phone = document.getElementById('regPhone')?.value.trim();
+    err.textContent = '';
+    if(!phone){ err.textContent = 'Isi nomor HP terlebih dahulu.'; return; }
+    const btn = document.getElementById('btnSendOtp');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Mengirim…';
+    try {
+      otpRequestId = await Otp.send(phone);
+      verifiedPhone = phone;
+      document.getElementById('otpSection').style.display = 'block';
+      document.getElementById('otpStatus').textContent = 'Kode dikirim via WhatsApp ke '+phone+'.';
+      toast('Kode OTP dikirim via WhatsApp.','s');
+    } catch(e){
+      err.textContent = e.message || 'Gagal mengirim OTP.';
+    }
+    btn.disabled = false; btn.textContent = orig;
+  });
+
+  document.getElementById('btnVerifyOtp')?.addEventListener('click', async ()=>{
+    const err  = document.getElementById('regErr');
+    const code = document.getElementById('regOtpCode')?.value.trim();
+    err.textContent = '';
+    if(!otpRequestId){ err.textContent = 'Kirim kode OTP terlebih dahulu.'; return; }
+    if(!code){ err.textContent = 'Masukkan kode OTP.'; return; }
+    const btn = document.getElementById('btnVerifyOtp');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Memeriksa…';
+    try {
+      await Otp.verify(otpRequestId, code);
+      phoneVerified = true;
+      document.getElementById('otpStatus').textContent = '✅ Nomor HP terverifikasi.';
+      toast('Nomor HP berhasil diverifikasi.','s');
+    } catch(e){
+      phoneVerified = false;
+      err.textContent = e.message || 'Kode OTP salah atau kadaluarsa.';
+    }
+    btn.disabled = false; btn.textContent = orig;
+  });
+
   document.getElementById('btnRegister')?.addEventListener('click',()=>{
     const err  = document.getElementById('regErr');
     const name = document.getElementById('regName')?.value.trim();
@@ -843,9 +1006,10 @@ function renderRegister(){
     if(!name||!email||!phone||!pass){ err.textContent='Lengkapi semua field wajib.'; return; }
     if(pass.length < 6){ err.textContent='Password minimal 6 karakter.'; return; }
     if(DB.getUserByEmail(email)){ err.textContent='Email sudah terdaftar.'; return; }
+    if(!phoneVerified || phone !== verifiedPhone){ err.textContent='Verifikasi No. HP via WhatsApp (OTP) terlebih dahulu.'; return; }
 
     const userData = {
-      name, email, phone, password: pass, role: selRole,
+      name, email, phone, password: pass, role: selRole, phoneVerified: true,
       bankInfo: selRole==='patient'
         ? { bankName:'', accountNumber:'', accountName:'', verified:false }
         : { bankName:bank||'', accountNumber:accN||'', accountName:accA||'', verified:false },
@@ -906,6 +1070,9 @@ function nurseBookingTable(bookings){
 
 function nurseBookingActions(b){
   var id = b.id;
+  if(b.paymentStatus !== 'paid'){
+    return '<span style="font-size:.72rem;color:var(--soft)">⏳ Menunggu pembayaran pasien</span>';
+  }
   if(b.status==='pending'){
     return '<button class="btn btn-xs btn-primary" onclick="updateBooking(\'' + id + '\',\'confirmed\')">Terima</button>' +
            ' <button class="btn btn-xs btn-danger" onclick="updateBooking(\'' + id + '\',\'cancelled\')">Tolak</button>';
@@ -928,15 +1095,39 @@ function donorCampaignCards(campaigns){
     campaigns.map(function(c){
       var p=pct(c.current,c.target);
       var bk=c.bankInfo;
+      var available = DB.getCampaignAvailablePayout(c.id);
+      var payouts   = DB.getPayoutsByCampaign(c.id);
       return '<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px">'+
         '<div style="font-weight:700;font-size:.9rem;margin-bottom:6px;color:var(--primary)">'+esc(c.title.slice(0,45))+'…</div>'+
         '<div class="progress-bar" style="margin-bottom:5px"><div class="progress-fill" style="width:'+p+'%"></div></div>'+
         '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:8px"><span>'+rpFmt(c.current)+' / '+rpFmt(c.target)+'</span><span>'+p+'%</span></div>'+
         '<div style="font-size:.76rem;color:var(--soft);margin-bottom:10px">🏦 '+(bk&&bk.accountNumber?bk.bankName+' · '+bk.accountNumber:'<span style=\"color:var(--danger)\">Rekening belum diisi</span>')+'</div>'+
-        '<div style="display:flex;gap:6px"><a href="#donasi/'+c.id+'" class="btn btn-xs btn-outline">Lihat</a> <button class="btn btn-xs btn-primary" onclick="openEditCampaignModal(\''+c.id+'\')">Edit Rekening</button></div>'+
+        '<div style="font-size:.76rem;color:var(--primary);font-weight:700;margin-bottom:10px">💸 Saldo bisa dicairkan: '+rpFmt(available)+'</div>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+        '<a href="#donasi/'+c.id+'" class="btn btn-xs btn-outline">Lihat</a> '+
+        '<button class="btn btn-xs btn-primary" onclick="openEditCampaignModal(\''+c.id+'\')">Edit Rekening</button> '+
+        '<button class="btn btn-xs btn-accent" onclick="requestCampaignPayout(\''+c.id+'\')" '+(available<=0||!(bk&&bk.accountNumber)?'disabled':'')+'>Ajukan Pencairan</button>'+
+        '</div>'+
+        payoutHistoryTable(payouts)+
         '</div>';
     }).join('')+'</div>';
 }
+
+window.requestCampaignPayout = function(campaignId){
+  const cam = DB.getCampaignById(campaignId);
+  if(!cam) return;
+  const bank = cam.bankInfo||{};
+  if(!bank.accountNumber){ toast('Isi rekening penerima campaign terlebih dahulu.','e'); return; }
+  const available = DB.getCampaignAvailablePayout(campaignId);
+  if(available<=0){ toast('Belum ada saldo yang bisa dicairkan.','e'); return; }
+  if(!confirm('Ajukan pencairan '+rpFmt(available)+' ke '+bank.bankName+' '+bank.accountNumber+'?')) return;
+  DB.addPayoutRequest({
+    recipientType:'campaign_owner', campaignId, amount:available,
+    bankName:bank.bankName, bankAccountNumber:bank.accountNumber, bankAccountName:bank.accountName,
+  });
+  toast('Pengajuan pencairan terkirim. Diproses 1-3 hari kerja.','s');
+  renderDonorDash(DB.getCurrentUser());
+};
 
 function nurseProfileSection(u){
   var np=u.np||{};
@@ -967,6 +1158,36 @@ function bankStatusSection(u){
     '</div>'+
     '<p style="font-size:.78rem;color:var(--soft);margin:6px 0 12px">Verifikasi dalam 1×24 jam kerja.</p>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveBank">Simpan Data Rekening</button></div>';
+}
+
+// ── Pencairan Dana (payouts) ──────────────────────────────
+function payoutStatusBadge(status){
+  var labels={pending:'Menunggu',processing:'Diproses',completed:'Dicairkan',rejected:'Ditolak'};
+  var cls={pending:'s-pending',processing:'s-confirmed',completed:'s-completed',rejected:'s-cancelled'}[status]||'s-pending';
+  return '<span class="status-badge '+cls+'">'+(labels[status]||status)+'</span>';
+}
+
+function payoutHistoryTable(payouts){
+  if(!payouts.length) return '<p style="font-size:.8rem;color:var(--soft);margin:8px 0 0">Belum ada riwayat pencairan.</p>';
+  return '<div style="overflow-x:auto;margin-top:10px"><table class="tbl"><thead><tr><th>Tanggal</th><th>Jumlah</th><th>Status</th></tr></thead><tbody>'+
+    payouts.slice().reverse().map(function(p){
+      return '<tr><td style="font-size:.8rem;white-space:nowrap">'+esc(p.requestedAt)+'</td><td style="font-size:.84rem;font-weight:700">'+rpFmt(p.amount)+'</td><td>'+payoutStatusBadge(p.status)+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
+
+function nursePayoutSection(u){
+  var available = DB.getNurseAvailablePayout(u.id);
+  var payouts   = DB.getPayoutsByUser(u.id);
+  var bankOk    = u.bankInfo?.accountNumber;
+  return '<div class="dash-section">'+
+    '<div class="dash-sh"><h3>💸 Pencairan Dana Penghasilan</h3></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'+
+    '<div><span style="font-size:.78rem;color:var(--soft);display:block">Saldo tersedia untuk dicairkan</span><strong style="font-family:var(--font-d);font-size:1.2rem;color:var(--primary)">'+rpFmt(available)+'</strong></div>'+
+    '<button class="btn btn-accent btn-sm" id="btnAjukanPencairanNurse" '+(available<=0||!bankOk?'disabled':'')+'>Ajukan Pencairan</button>'+
+    '</div>'+
+    (!bankOk?'<p style="font-size:.76rem;color:var(--danger);margin-top:8px">Isi data rekening di atas terlebih dahulu.</p>':'')+
+    payoutHistoryTable(payouts)+
+    '</div>';
 }
 
 // ── Dashboard ───────────────────────────────────────────────
@@ -1241,20 +1462,19 @@ function openDonateModal(campaignId){
     const orig = btn.textContent;
     btn.disabled=true; btn.textContent='Memproses…';
     try {
+      // Simpan metadata donasi (belum lunas) — baru dikreditkan ke campaign
+      // setelah iPaymu mengonfirmasi pembayaran di payment-return.html
       await Payment.payDonation({
         amount: amt, campaignId: cid,
         campaignTitle: cam.title, buyerName: name,
         buyerEmail: email, buyerPhone: phone,
         anonymous: anon, donorId: u?.id||'guest',
       });
-      // jika sampai sini, redirect belum terjadi (env belum set) → fallback localStorage
+      // Jika berhasil, browser sudah diarahkan ke halaman pembayaran iPaymu.
     } catch(err) {
-      // Fallback: simpan ke localStorage dulu, beri tahu user untuk konfirmasi manual
-      DB.addDonation({ campaignId:cid, donorId:u?.id||'guest', donorName:name, amount:amt, anonymous:anon });
-      closeModal('modalDonate');
-      toast('Donasi dicatat. Konfirmasi transfer ke WA kami ya.','s');
-      if(location.hash.startsWith('#donasi/')) renderCampaignDetail(cid);
-      console.warn('[Payment] iPaymu not connected yet:', err.message);
+      // Pembayaran WAJIB lewat iPaymu — jangan catat donasi tanpa pembayaran nyata.
+      toast('Gagal membuat transaksi pembayaran: '+(err.message||'coba lagi.'), 'e');
+      console.error('[Payment] iPaymu error:', err.message);
     }
     btn.disabled=false; btn.textContent=orig;
   };
@@ -1322,6 +1542,10 @@ window.openBookingModal       = openBookingModal;
 window.openCreateCampaignModal= openCreateCampaignModal;
 window.openEditCampaignModal  = openEditCampaignModal;
 window.updateBooking = (id, status)=>{
+  if(status==='confirmed'||status==='completed'){
+    const bk = DB.getBookings().find(b=>b.id===id);
+    if(!bk || bk.paymentStatus!=='paid'){ toast('Booking belum dibayar oleh pasien.','e'); return; }
+  }
   DB.updateBooking(id, {status});
   toast({confirmed:'Booking dikonfirmasi!',cancelled:'Booking ditolak.',completed:'Booking selesai!'}[status]||'Updated','s');
   renderDashboard();
@@ -1518,10 +1742,25 @@ function renderProfile(){
 
 
       ${u.role!=='patient'?bankStatusSection(u):''}
+      ${u.role==='nurse'?nursePayoutSection(u):''}
     </div>
   </div>`;
 
   afterDash();
+
+  document.getElementById('btnAjukanPencairanNurse')?.addEventListener('click',()=>{
+    const available = DB.getNurseAvailablePayout(u.id);
+    const bank = u.bankInfo||{};
+    if(!bank.accountNumber){ toast('Isi data rekening terlebih dahulu.','e'); return; }
+    if(available<=0){ toast('Belum ada saldo yang bisa dicairkan.','e'); return; }
+    if(!confirm('Ajukan pencairan '+rpFmt(available)+' ke '+bank.bankName+' '+bank.accountNumber+'?')) return;
+    DB.addPayoutRequest({
+      recipientType:'nurse', userId:u.id, amount:available,
+      bankName:bank.bankName, bankAccountNumber:bank.accountNumber, bankAccountName:bank.accountName,
+    });
+    toast('Pengajuan pencairan terkirim. Diproses 1-3 hari kerja.','s');
+    renderProfile();
+  });
 
   // Profile form save handlers
   document.getElementById('btnSaveProfile')?.addEventListener('click',()=>{
@@ -1615,20 +1854,19 @@ function openDonateModal(campaignId){
     const orig = btn.textContent;
     btn.disabled=true; btn.textContent='Memproses…';
     try {
+      // Simpan metadata donasi (belum lunas) — baru dikreditkan ke campaign
+      // setelah iPaymu mengonfirmasi pembayaran di payment-return.html
       await Payment.payDonation({
         amount: amt, campaignId: cid,
         campaignTitle: cam.title, buyerName: name,
         buyerEmail: email, buyerPhone: phone,
         anonymous: anon, donorId: u?.id||'guest',
       });
-      // jika sampai sini, redirect belum terjadi (env belum set) → fallback localStorage
+      // Jika berhasil, browser sudah diarahkan ke halaman pembayaran iPaymu.
     } catch(err) {
-      // Fallback: simpan ke localStorage dulu, beri tahu user untuk konfirmasi manual
-      DB.addDonation({ campaignId:cid, donorId:u?.id||'guest', donorName:name, amount:amt, anonymous:anon });
-      closeModal('modalDonate');
-      toast('Donasi dicatat. Konfirmasi transfer ke WA kami ya.','s');
-      if(location.hash.startsWith('#donasi/')) renderCampaignDetail(cid);
-      console.warn('[Payment] iPaymu not connected yet:', err.message);
+      // Pembayaran WAJIB lewat iPaymu — jangan catat donasi tanpa pembayaran nyata.
+      toast('Gagal membuat transaksi pembayaran: '+(err.message||'coba lagi.'), 'e');
+      console.error('[Payment] iPaymu error:', err.message);
     }
     btn.disabled=false; btn.textContent=orig;
   };
@@ -1696,6 +1934,10 @@ window.openBookingModal       = openBookingModal;
 window.openCreateCampaignModal= openCreateCampaignModal;
 window.openEditCampaignModal  = openEditCampaignModal;
 window.updateBooking = (id, status)=>{
+  if(status==='confirmed'||status==='completed'){
+    const bk = DB.getBookings().find(b=>b.id===id);
+    if(!bk || bk.paymentStatus!=='paid'){ toast('Booking belum dibayar oleh pasien.','e'); return; }
+  }
   DB.updateBooking(id, {status});
   toast({confirmed:'Booking dikonfirmasi!',cancelled:'Booking ditolak.',completed:'Booking selesai!'}[status]||'Updated','s');
   renderDashboard();

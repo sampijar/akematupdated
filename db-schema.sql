@@ -126,6 +126,28 @@ CREATE TABLE IF NOT EXISTS transactions (
   updated_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── Payouts (pencairan dana) ───────────────────────────────
+-- Ledger pencairan dana untuk perawat (penghasilan booking) dan
+-- pemilik campaign (donasi terkumpul). Satu baris = satu pengajuan pencairan.
+CREATE TABLE IF NOT EXISTS payouts (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  recipient_type      TEXT NOT NULL CHECK (recipient_type IN ('nurse','campaign_owner')),
+  user_id             UUID REFERENCES users(id),      -- diisi jika recipient_type = 'nurse'
+  campaign_id         UUID REFERENCES campaigns(id),  -- diisi jika recipient_type = 'campaign_owner'
+  amount              BIGINT NOT NULL CHECK (amount > 0),
+  bank_name           TEXT NOT NULL,
+  bank_account_number TEXT NOT NULL,
+  bank_account_name   TEXT NOT NULL,
+  status              TEXT DEFAULT 'pending' CHECK (status IN ('pending','processing','completed','rejected')),
+  notes               TEXT,
+  requested_at        TIMESTAMPTZ DEFAULT NOW(),
+  processed_at        TIMESTAMPTZ
+);
+
+-- Kolom ringkasan total yang sudah dicairkan (memudahkan query saldo tanpa agregasi payouts)
+ALTER TABLE users     ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;
+
 -- ── Row Level Security (RLS) ───────────────────────────────
 ALTER TABLE users     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nurse_profiles ENABLE ROW LEVEL SECURITY;
@@ -133,6 +155,7 @@ ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payouts   ENABLE ROW LEVEL SECURITY;
 
 -- Policies: semua user bisa baca data publik
 CREATE POLICY "Public read nurses"    ON nurse_profiles FOR SELECT USING (true);
@@ -142,6 +165,10 @@ CREATE POLICY "Public read donations" ON donations      FOR SELECT USING (true);
 -- User hanya bisa lihat data sendiri
 CREATE POLICY "Own bookings"  ON bookings USING (auth.uid() = patient_id OR auth.uid() = nurse_id);
 CREATE POLICY "Own profile"   ON users    USING (auth.uid() = id);
+CREATE POLICY "Own payouts"   ON payouts  USING (
+  auth.uid() = user_id
+  OR campaign_id IN (SELECT id FROM campaigns WHERE created_by = auth.uid())
+);
 
 -- ── Indexes ────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_bookings_patient  ON bookings(patient_id);
@@ -150,6 +177,8 @@ CREATE INDEX IF NOT EXISTS idx_donations_campaign ON donations(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_donations_donor   ON donations(donor_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_ref  ON transactions(reference_id);
 CREATE INDEX IF NOT EXISTS idx_campaigns_creator ON campaigns(created_by);
+CREATE INDEX IF NOT EXISTS idx_payouts_user      ON payouts(user_id);
+CREATE INDEX IF NOT EXISTS idx_payouts_campaign  ON payouts(campaign_id);
 
 -- ── Trigger: update updated_at otomatis ────────────────────
 CREATE OR REPLACE FUNCTION update_updated_at()

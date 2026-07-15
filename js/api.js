@@ -17,16 +17,17 @@ const API_BASE = '/api';
 
 // ── Generic fetch helper ────────────────────────────────────
 async function apiFetch(endpoint, body) {
-  const res = await fetch(`${API_BASE}/${endpoint}`, {
+  const res  = await fetch(`${API_BASE}/${endpoint}`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(body),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'Request gagal');
-  }
-  return res.json();
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error('Server tidak merespons dengan benar (HTTP '+res.status+').'); }
+  if (!res.ok) throw new Error(data.error || 'Request gagal');
+  return data;
 }
 
 // ── Database via Netlify Function (db.js) ─────────────────

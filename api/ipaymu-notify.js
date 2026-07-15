@@ -1,7 +1,7 @@
 /**
- * Netlify Function: ipaymu-notify.js
+ * Vercel Serverless Function: ipaymu-notify.js
  * Webhook (callback) dari iPaymu setelah pembayaran berhasil/gagal/expired.
- * URL: /.netlify/functions/ipaymu-notify
+ * URL: /api/ipaymu-notify
  *
  * Keamanan: iPaymu mengirim header X-Signature (HMAC-SHA256) yang wajib
  * divalidasi sebelum memproses callback — gunakan Nomor VA sebagai secret key
@@ -11,10 +11,21 @@
  * body, VA), pola paling umum untuk validasi webhook. Jika signature selalu
  * gagal cocok di production, cek ulang formula di dashboard iPaymu →
  * Integration → Callback, atau hubungi support@ipaymu.com.
+ *
+ * bodyParser dimatikan karena validasi signature butuh raw body, bukan hasil parse.
  */
 const crypto = require('crypto');
 
 const VA = process.env.IPAYMU_VA;
+
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => { data += chunk; });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+}
 
 function validSignature(rawBody, signatureHeader) {
   if (!VA || !signatureHeader) return false;
@@ -25,11 +36,11 @@ function validSignature(rawBody, signatureHeader) {
   return crypto.timingSafeEqual(a, b);
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-  const rawBody = event.body || '';
-  const sigHeader = event.headers['x-signature'] || event.headers['X-Signature'];
+  const rawBody = await readRawBody(req);
+  const sigHeader = req.headers['x-signature'];
   const signatureOk = validSignature(rawBody, sigHeader);
   if (!signatureOk) {
     console.warn('[notify] ⚠️ signature tidak valid atau tidak ada — callback diabaikan');
@@ -37,7 +48,7 @@ exports.handler = async (event) => {
 
   let body = {};
   try {
-    const ct = event.headers['content-type'] || '';
+    const ct = req.headers['content-type'] || '';
     body = ct.includes('application/json')
       ? JSON.parse(rawBody)
       : Object.fromEntries(new URLSearchParams(rawBody));
@@ -66,5 +77,9 @@ exports.handler = async (event) => {
   }
 
   // WAJIB return 200 agar iPaymu tidak retry, meski signature tidak valid.
-  return { statusCode: 200, headers: {'Content-Type':'application/json'}, body: JSON.stringify({ received: true }) };
-};
+  res.setHeader('Content-Type', 'application/json');
+  return res.status(200).json({ received: true });
+}
+
+module.exports = handler;
+module.exports.config = { api: { bodyParser: false } };

@@ -1,0 +1,9 @@
+{
+  "name": "akemat-foundation",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Akemat Foundation — platform booking perawat & donasi kesehatan.",
+  "engines": {
+    "node": ">=18"
+  }
+}

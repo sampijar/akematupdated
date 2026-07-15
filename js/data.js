@@ -49,6 +49,7 @@ const KEYS = {
   CAMPAIGNS:'ak3_campaigns',
   BOOKINGS: 'ak3_bookings',
   DONATIONS:'ak3_donations',
+  PAYOUTS:  'ak3_payouts',
   SEEDED:   'ak3_v3_seeded',
 };
 
@@ -218,28 +219,28 @@ const SEED_BOOKINGS = [
   { id:'bk-1', patientId:'u-p1', nurseId:'u-n1',
     nurseName:'Siti Rahayu, S.Kep Ners', nurseSpecialty:'Perawat Jiwa',
     service:'Pendampingan Psikiatri', date:dStr(3), time:'09:00', duration:3,
-    address:'Jl. Pajajaran No. 45, Bogor', status:'confirmed',
+    address:'Jl. Pajajaran No. 45, Bogor', status:'confirmed', paymentStatus:'paid',
     totalCost:480000, platformFee:96000, nursePay:384000,
     notes:'Anggota keluarga dengan riwayat gangguan bipolar', createdAt:dStr(-2) },
   { id:'bk-2', patientId:'u-p1', nurseId:'u-n3',
     nurseName:'Maya Dewi, S.Tr.Keb', nurseSpecialty:'Perawat Maternitas',
     service:'Konsultasi Laktasi', date:dStr(-5), time:'10:00', duration:2,
-    address:'Jl. Pajajaran No. 45, Bogor', status:'completed',
+    address:'Jl. Pajajaran No. 45, Bogor', status:'completed', paymentStatus:'paid',
     totalCost:230000, platformFee:46000, nursePay:184000,
     notes:'', createdAt:dStr(-8) },
   { id:'bk-3', patientId:'u-p1', nurseId:'u-n6',
     nurseName:'Budi Prasetyo, S.Kep Sp.KMB', nurseSpecialty:'Perawat Paliatif',
     service:'Manajemen Nyeri', date:dStr(7), time:'14:00', duration:2,
-    address:'Jl. Pajajaran No. 45, Bogor', status:'pending',
+    address:'Jl. Pajajaran No. 45, Bogor', status:'pending', paymentStatus:'unpaid',
     totalCost:400000, platformFee:80000, nursePay:320000,
     notes:'Pasien kanker stadium 3, nyeri punggung bawah', createdAt:dStr(-1) },
 ];
 
 const SEED_DONATIONS = [
   { id:'dn-1', campaignId:'c-1', donorId:'u-p1', donorName:'Budi Santoso',
-    amount:100000, platformFee:5000, netAmount:95000, date:dStr(-3), anonymous:false },
+    amount:100000, platformFee:5000, netAmount:95000, date:dStr(-3), anonymous:false, paymentStatus:'paid' },
   { id:'dn-2', campaignId:'c-4', donorId:'u-p1', donorName:'Budi Santoso',
-    amount:250000, platformFee:12500, netAmount:237500, date:dStr(-7), anonymous:false },
+    amount:250000, platformFee:12500, netAmount:237500, date:dStr(-7), anonymous:false, paymentStatus:'paid' },
 ];
 
 // ─── DB Layer ─────────────────────────────────────────────────────────────────
@@ -258,6 +259,7 @@ const DB = {
   saveUsers(u)       { localStorage.setItem(KEYS.USERS, JSON.stringify(u)); },
   getUserById(id)    { return this.getUsers().find(u => u.id === id) || null; },
   getUserByEmail(em) { return this.getUsers().find(u => u.email.toLowerCase() === em.toLowerCase()) || null; },
+  getUserByPhone(ph) { const digits = String(ph||'').replace(/\D/g,''); return this.getUsers().find(u => String(u.phone||'').replace(/\D/g,'') === digits) || null; },
   addUser(data) {
     const users = this.getUsers();
     const user  = { id: uid(), createdAt: dStr(), bankInfo: { bankName:'', accountNumber:'', accountName:'', verified:false }, ...data };
@@ -323,7 +325,8 @@ const DB = {
     const totalCost   = data.totalCost || 0;
     const platformFee = Math.round(totalCost * FEE.BOOKING);
     const nursePay    = totalCost - platformFee;
-    const b = { id: uid(), status: 'pending', createdAt: dStr(), platformFee, nursePay, ...data };
+    // paymentStatus selalu dimulai 'unpaid' — hanya berubah 'paid' setelah dikonfirmasi iPaymu
+    const b = { id: uid(), status: 'pending', createdAt: dStr(), platformFee, nursePay, ...data, paymentStatus: data.paymentStatus === 'paid' ? 'paid' : 'unpaid' };
     bs.push(b); this.saveBookings(bs); return b;
   },
   updateBooking(id, data) {
@@ -338,17 +341,55 @@ const DB = {
   saveDonations(d)          { localStorage.setItem(KEYS.DONATIONS, JSON.stringify(d)); },
   getDonationsByUser(uid)   { return this.getDonations().filter(d => d.donorId === uid); },
   getDonationsByCampaign(cid){ return this.getDonations().filter(d => d.campaignId === cid); },
+  // Dipanggil HANYA setelah pembayaran iPaymu terkonfirmasi (lihat payment-return.html).
+  // Campaign hanya bertambah jika paymentStatus:'paid' — mencegah donasi "tercatat" tanpa pembayaran nyata.
   addDonation(data) {
+    if (data.referenceId && this.getDonations().some(d => d.referenceId === data.referenceId)) {
+      return this.getDonations().find(d => d.referenceId === data.referenceId); // cegah duplikat (refresh halaman return)
+    }
     const ds          = this.getDonations();
     const amount      = data.amount || 0;
     const platformFee = Math.round(amount * FEE.DONATION);
     const netAmount   = amount - platformFee;
-    const d = { id: uid(), date: dStr(), platformFee, netAmount, ...data };
+    const paymentStatus = data.paymentStatus === 'paid' ? 'paid' : 'unpaid';
+    const d = { id: uid(), date: dStr(), platformFee, netAmount, ...data, paymentStatus };
     ds.push(d); this.saveDonations(ds);
-    const cam = this.getCampaignById(data.campaignId);
-    if (cam) this.updateCampaign(data.campaignId, {
-      current: cam.current + amount, donorCount: cam.donorCount + 1 });
+    if (paymentStatus === 'paid') {
+      const cam = this.getCampaignById(data.campaignId);
+      if (cam) this.updateCampaign(data.campaignId, {
+        current: cam.current + amount, donorCount: cam.donorCount + 1 });
+    }
     return d;
+  },
+
+  // Payouts (pencairan dana) — perawat & pemilik campaign
+  getPayouts()               { return JSON.parse(localStorage.getItem(KEYS.PAYOUTS) || '[]'); },
+  savePayouts(p)             { localStorage.setItem(KEYS.PAYOUTS, JSON.stringify(p)); },
+  getPayoutsByUser(uid)      { return this.getPayouts().filter(p => p.recipientType==='nurse' && p.userId===uid); },
+  getPayoutsByCampaign(cid)  { return this.getPayouts().filter(p => p.recipientType==='campaign_owner' && p.campaignId===cid); },
+  addPayoutRequest(data) {
+    const ps = this.getPayouts();
+    const p  = { id: uid(), status: 'pending', requestedAt: dStr(), ...data };
+    ps.push(p); this.savePayouts(ps); return p;
+  },
+
+  // Saldo yang sudah dicairkan/diajukan (pending+processing+completed dianggap "terpakai")
+  payoutUsed(list) { return list.filter(p=>p.status!=='rejected').reduce((s,p)=>s+p.amount,0); },
+
+  // Saldo tersedia perawat = penghasilan booking selesai+lunas − yang sudah diajukan/dicairkan
+  getNurseAvailablePayout(uid) {
+    const earned = this.getBookingsByNurse(uid)
+      .filter(b => b.status==='completed' && b.paymentStatus==='paid')
+      .reduce((s,b)=>s+(b.nursePay||0),0);
+    return Math.max(0, earned - this.payoutUsed(this.getPayoutsByUser(uid)));
+  },
+
+  // Saldo tersedia campaign = donasi bersih (95%) yang sudah lunas − yang sudah diajukan/dicairkan
+  getCampaignAvailablePayout(cid) {
+    const raised = this.getDonationsByCampaign(cid)
+      .filter(d => d.paymentStatus==='paid')
+      .reduce((s,d)=>s+(d.netAmount||0),0);
+    return Math.max(0, raised - this.payoutUsed(this.getPayoutsByCampaign(cid)));
   },
 
   // Stats helper
