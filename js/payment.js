@@ -17,6 +17,14 @@ function setBtn(btn, loading, label){
 
 function genRef(prefix){ return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`; }
 
+// Parse response defensif: kalau server balas HTML (mis. 404 platform) alih-alih
+// JSON, jangan biarkan error parsing mentah bocor ke pengguna.
+async function parsePaymentResponse(res) {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error('Server pembayaran tidak merespons dengan benar (HTTP '+res.status+'). Coba lagi sebentar lagi.'); }
+}
+
 // ── Core: create iPaymu redirect payment ──────────────────
 async function createPayment({ amount, productName, description, referenceId, buyerName, buyerEmail, buyerPhone }){
   const res = await fetch(PAYMENT_API, {
@@ -24,7 +32,7 @@ async function createPayment({ amount, productName, description, referenceId, bu
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ action:'redirect', amount, productName, description, referenceId, buyerName, buyerEmail, buyerPhone }),
   });
-  const data = await res.json();
+  const data = await parsePaymentResponse(res);
   if (!res.ok || !data.success) throw new Error(data.error || 'Gagal membuat transaksi');
   if (!data.paymentUrl)          throw new Error('URL pembayaran tidak ditemukan');
   // Simpan metadata di sessionStorage untuk halaman return
@@ -69,7 +77,7 @@ async function checkStatus(transactionId){
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ action:'status', transactionId }),
   });
-  const data = await res.json();
+  const data = await parsePaymentResponse(res).catch(() => null);
   return data?.data || null;
 }
 
