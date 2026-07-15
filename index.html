@@ -356,11 +356,33 @@
 
 
   <!-- PWA Service Worker Registration -->
+  <!-- Selalu cek update secara aktif: pengecekan otomatis bawaan browser
+       bisa tertunda sampai 24 jam, terutama untuk pengguna PWA/TWA di HP
+       yang jarang menutup app-nya. Ini memastikan versi terbaru terpasang
+       secepat mungkin setiap kali app dibuka/kembali aktif. -->
   <script>
     if ('serviceWorker' in navigator) {
+      let swRefreshed = false;
+      // Reload sekali saat service worker baru mengambil alih (skipWaiting + clients.claim
+      // di sw.js membuat ini terjadi otomatis begitu SW baru selesai diinstal).
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (swRefreshed) return;
+        swRefreshed = true;
+        window.location.reload();
+      });
+
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('[SW] Registered:', reg.scope))
+          .then((reg) => {
+            console.log('[SW] Registered:', reg.scope);
+            reg.update();
+            // Cek update tiap kali tab kembali terlihat (buka app dari background di HP)
+            document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible') reg.update();
+            });
+            // Cek update berkala selama app terbuka
+            setInterval(() => reg.update(), 60 * 1000);
+          })
           .catch(err => console.warn('[SW] Registration failed:', err));
       });
     }
