@@ -259,6 +259,7 @@ const DB = {
   saveUsers(u)       { localStorage.setItem(KEYS.USERS, JSON.stringify(u)); },
   getUserById(id)    { return this.getUsers().find(u => u.id === id) || null; },
   getUserByEmail(em) { return this.getUsers().find(u => u.email.toLowerCase() === em.toLowerCase()) || null; },
+  getUserByPhone(ph) { const digits = String(ph||'').replace(/\D/g,''); return this.getUsers().find(u => String(u.phone||'').replace(/\D/g,'') === digits) || null; },
   addUser(data) {
     const users = this.getUsers();
     const user  = { id: uid(), createdAt: dStr(), bankInfo: { bankName:'', accountNumber:'', accountName:'', verified:false }, ...data };

@@ -88,6 +88,7 @@ function route(){
     case 'perawat':  id ? renderNurseDetail(id) : renderNurseList(); break;
     case 'donasi':   id ? renderCampaignDetail(id) : renderCampaignList(); break;
     case 'login':    renderLogin();       break;
+    case 'lupa-password': renderForgotPassword(); break;
     case 'register': renderRegister();    break;
     case 'dashboard':renderDashboard();   break;
     case 'profil':   renderProfile();     break;
@@ -700,6 +701,9 @@ function renderLogin(){
       <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
         Belum punya akun? <a href="#register" style="color:var(--accent2);font-weight:700">Daftar sekarang →</a>
       </div>
+      <div style="text-align:center;margin-top:8px;font-size:.84rem">
+        <a href="#lupa-password" style="color:var(--soft)">Lupa password?</a>
+      </div>
     </div>
   </div>`;
 
@@ -720,6 +724,98 @@ function renderLogin(){
       document.getElementById('btnLogin')?.click();
       document.removeEventListener('keydown', onEnter);
     }
+  });
+}
+
+function renderForgotPassword(){
+  let otpRequestId = null;
+  let verifiedPhone = null;
+
+  app.innerHTML = `
+  <div class="auth-page">
+    <div class="auth-card">
+      <h2>Lupa Password</h2>
+      <p class="lead">Verifikasi nomor HP terdaftar via WhatsApp untuk atur ulang password.</p>
+
+      <div id="fpStep1">
+        <div class="ff"><label>No. HP terdaftar</label><input type="tel" id="fpPhone" placeholder="08xx…" /></div>
+        <button class="btn btn-primary btn-full" id="btnFpSendOtp" style="margin-top:8px">Kirim OTP WA</button>
+      </div>
+
+      <div id="fpStep2" style="display:none;margin-top:14px">
+        <div class="ff">
+          <label>Kode OTP WhatsApp</label>
+          <input type="text" id="fpOtpCode" inputmode="numeric" maxlength="6" placeholder="6 digit kode" style="letter-spacing:.3em" />
+        </div>
+        <button class="btn btn-primary btn-full" id="btnFpVerifyOtp">Verifikasi Kode</button>
+      </div>
+
+      <div id="fpStep3" style="display:none;margin-top:14px">
+        <div class="ff"><label>Password baru</label><input type="password" id="fpNewPass" placeholder="Min. 6 karakter" /></div>
+        <div class="ff"><label>Konfirmasi password baru</label><input type="password" id="fpNewPass2" placeholder="Ulangi password baru" /></div>
+        <button class="btn btn-primary btn-full" id="btnFpSavePass">Simpan Password Baru</button>
+      </div>
+
+      <div class="form-error" id="fpErr"></div>
+      <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
+        <a href="#login" style="color:var(--accent2);font-weight:700">← Kembali ke Masuk</a>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('btnFpSendOtp')?.addEventListener('click', async ()=>{
+    const err   = document.getElementById('fpErr');
+    const phone = document.getElementById('fpPhone')?.value.trim();
+    err.textContent = '';
+    if(!phone){ err.textContent = 'Isi nomor HP terlebih dahulu.'; return; }
+    if(!DB.getUserByPhone(phone)){ err.textContent = 'Nomor HP tidak terdaftar.'; return; }
+    const btn = document.getElementById('btnFpSendOtp');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Mengirim…';
+    try {
+      otpRequestId = await Otp.send(phone);
+      verifiedPhone = phone;
+      document.getElementById('fpStep1').style.display = 'none';
+      document.getElementById('fpStep2').style.display = 'block';
+      toast('Kode OTP dikirim via WhatsApp.','s');
+    } catch(e){
+      err.textContent = e.message || 'Gagal mengirim OTP.';
+    }
+    btn.disabled = false; btn.textContent = orig;
+  });
+
+  document.getElementById('btnFpVerifyOtp')?.addEventListener('click', async ()=>{
+    const err  = document.getElementById('fpErr');
+    const code = document.getElementById('fpOtpCode')?.value.trim();
+    err.textContent = '';
+    if(!code){ err.textContent = 'Masukkan kode OTP.'; return; }
+    const btn = document.getElementById('btnFpVerifyOtp');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Memeriksa…';
+    try {
+      await Otp.verify(otpRequestId, code);
+      document.getElementById('fpStep2').style.display = 'none';
+      document.getElementById('fpStep3').style.display = 'block';
+      toast('Nomor HP terverifikasi. Silakan atur password baru.','s');
+    } catch(e){
+      err.textContent = e.message || 'Kode OTP salah atau kadaluarsa.';
+    }
+    btn.disabled = false; btn.textContent = orig;
+  });
+
+  document.getElementById('btnFpSavePass')?.addEventListener('click', ()=>{
+    const err   = document.getElementById('fpErr');
+    const pass  = document.getElementById('fpNewPass')?.value;
+    const pass2 = document.getElementById('fpNewPass2')?.value;
+    err.textContent = '';
+    if(!verifiedPhone){ err.textContent = 'Verifikasi OTP terlebih dahulu.'; return; }
+    if(!pass || pass.length < 6){ err.textContent = 'Password minimal 6 karakter.'; return; }
+    if(pass !== pass2){ err.textContent = 'Konfirmasi password tidak cocok.'; return; }
+    const u = DB.getUserByPhone(verifiedPhone);
+    if(!u){ err.textContent = 'Akun tidak ditemukan.'; return; }
+    DB.updateUser(u.id, { password: pass });
+    toast('Password berhasil diubah. Silakan masuk.','s');
+    navigate('#login');
   });
 }
 
