@@ -16,6 +16,24 @@ function chipHTML(val, label, active){
   return '<button class="f-chip'+(active?' active':'')+'" data-cat="'+val+'">'+label+'</button>';
 }
 
+// ── Password field dengan tombol lihat/sembunyikan ──────────
+function pwFieldHTML(id, label, placeholder){
+  return '<div class="ff"><label>'+label+'</label>'+
+    '<div class="pw-field">'+
+      '<input type="password" id="'+id+'" placeholder="'+placeholder+'" />'+
+      '<button type="button" class="pw-toggle" data-pw-toggle="'+id+'" aria-label="Lihat password">👁️</button>'+
+    '</div></div>';
+}
+// Delegated sekali di init, aman dipanggil ulang tiap render (idempotent via addEventListener sekali di document).
+function togglePwField(btn){
+  var input = document.getElementById(btn.dataset.pwToggle);
+  if(!input) return;
+  var showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? '👁️' : '🙈';
+  btn.setAttribute('aria-label', showing ? 'Lihat password' : 'Sembunyikan password');
+}
+
 // ── Helper: render pay button without nested template literals ──
 function payBtnHTML(status, id){
   if(status==='pending' || status==='confirmed'){
@@ -114,7 +132,7 @@ function renderHeader(){
       <li><a href="#tnc">Syarat & Ketentuan</a></li>
     </ul>
     ${u
-      ? '<div class="header-user"><div class="header-avatar">'+initials(u.name)+'</div><span class="header-name">'+esc(u.name.split(' ')[0])+'</span><a href="#dashboard" class="btn btn-sm btn-outline">Dashboard</a></div>'
+      ? '<div class="header-user"><div class="header-avatar">'+initials(u.name)+'</div><span class="header-name">'+esc(u.name.split(' ')[0])+'</span><a href="#dashboard" class="btn btn-sm btn-outline" style="padding:9px 20px">Dashboard</a></div>'
       : '<div style="display:flex;gap:8px"><a href="#login" class="btn btn-sm btn-outline" style="padding:7px 16px;font-size:.82rem">Masuk</a><a href="#register" class="btn btn-sm btn-accent" style="padding:7px 16px;font-size:.82rem;color:#1F4D3F">Daftar</a></div>'
     }
   `;
@@ -709,7 +727,7 @@ function renderLogin(){
       <h2>Masuk ke Akemat</h2>
       <p class="lead">Masuk ke akun Akemat Foundation Anda.</p>
       <div class="ff"><label>Email</label><input type="email" id="loginEmail" placeholder="email@anda.com" /></div>
-      <div class="ff"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" /></div>
+      ${pwFieldHTML('loginPass','Password','••••••••')}
       <div class="form-error" id="loginErr"></div>
       <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:12px">Masuk</button>
       <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
@@ -773,8 +791,8 @@ function renderForgotPassword(){
       </div>
 
       <div id="fpStep3" style="display:none;margin-top:14px">
-        <div class="ff"><label>Password baru</label><input type="password" id="fpNewPass" placeholder="Min. 6 karakter" /></div>
-        <div class="ff"><label>Konfirmasi password baru</label><input type="password" id="fpNewPass2" placeholder="Ulangi password baru" /></div>
+        ${pwFieldHTML('fpNewPass','Password baru','Min. 6 karakter')}
+        ${pwFieldHTML('fpNewPass2','Konfirmasi password baru','Ulangi password baru')}
         <button class="btn btn-primary btn-full" id="btnFpSavePass">Simpan Password Baru</button>
       </div>
 
@@ -894,7 +912,7 @@ function renderRegister(){
         </div>
         <p style="font-size:.74rem;color:var(--soft);margin:6px 0 0" id="otpStatus">Kode dikirim via WhatsApp ke nomor di atas.</p>
       </div>
-      <div class="ff"><label>Password</label><input type="password" id="regPass" placeholder="Min. 6 karakter" /></div>
+      ${pwFieldHTML('regPass','Password','Min. 6 karakter')}
 
       <!-- Nurse extra -->
       <div id="nurseExtra" style="display:none">
@@ -1819,6 +1837,12 @@ document.addEventListener('DOMContentLoaded',async ()=>{
   document.addEventListener('click',e=>{
     const payBtn = e.target.closest('[data-pay]');
     if(payBtn){ openPayBook(payBtn.dataset.pay); return; }
+  });
+
+  // Tombol lihat/sembunyikan password — event delegation (aman lintas re-render)
+  document.addEventListener('click',e=>{
+    const pwBtn = e.target.closest('[data-pw-toggle]');
+    if(pwBtn){ togglePwField(pwBtn); return; }
   });
 
   // Modal close buttons & overlay click
