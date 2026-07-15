@@ -4,15 +4,19 @@
  * URL: /.netlify/functions/fazpass-otp
  *
  * CARA SETUP:
- * 1. Daftar / login ke https://platform.fazpass.com
- * 2. Setting → Merchant Key → copy nilainya
- * 3. Menu Proxy/Gateway → buat (atau pakai) Gateway bertipe "Generic" dengan
- *    channel WhatsApp OTP (di akun Akemat ini gateway-nya adalah Gateway #7) →
- *    copy Gateway Key-nya
+ * 1. Login ke https://dashboard.fazpass.com
+ * 2. Menu Integration → gateway "WA_GENERIC_OTP" (provider Fazpass Generic 7) →
+ *    klik "Show Key" untuk melihat gateway key
+ * 3. Menu Settings → salin Merchant Key
  * 4. Di Netlify Dashboard → Environment Variables, tambahkan:
  *    FAZPASS_MERCHANT_KEY = merchant key dari dashboard Fazpass
- *    FAZPASS_GATEWAY_KEY  = gateway key Generic WA OTP (Gateway #7)
+ *    FAZPASS_GATEWAY_KEY  = gateway key WA_GENERIC_OTP (Fazpass Generic 7)
  * 5. Push → Netlify auto-deploy
+ *
+ * Referensi API (dashboard.fazpass.com/documentation):
+ *   POST /v1/otp/request  { phone, gateway_key }        -> data.id, data.otp_length
+ *   POST /v1/otp/verify   { otp_id, otp }                -> status:true jika valid
+ * Auth: header Authorization: Bearer <merchant_key>
  */
 
 const BASE = 'https://api.fazpass.com';
@@ -61,15 +65,15 @@ exports.handler = async (event) => {
     if (!phone || phone.length < 10) return resp(400, { error:'Nomor HP tidak valid' });
 
     const { ok, data } = await fazpass('/v1/otp/request', {
+      phone,
       gateway_key: GATEWAY_KEY,
-      phone_number: phone,
     });
-    if (!ok || data?.errors) {
-      return resp(502, { error: data?.errors?.message || data?.message || 'Gagal mengirim OTP', detail: data });
+    if (!ok || data?.status !== true) {
+      return resp(502, { error: data?.message || 'Gagal mengirim OTP', detail: data });
     }
-    const requestId = data?.data?.request_id || data?.data?.requestId;
-    if (!requestId) return resp(502, { error:'Fazpass tidak mengembalikan request_id', detail: data });
-    return resp(200, { success:true, requestId });
+    const otpId = data?.data?.id;
+    if (!otpId) return resp(502, { error:'Fazpass tidak mengembalikan id OTP', detail: data });
+    return resp(200, { success:true, requestId: otpId });
   }
 
   // ── Verifikasi kode OTP ──
@@ -77,13 +81,13 @@ exports.handler = async (event) => {
     if (!p.requestId || !p.otp) return resp(400, { error:'requestId dan otp wajib diisi' });
 
     const { ok, data } = await fazpass('/v1/otp/verify', {
-      request_id: p.requestId,
+      otp_id: p.requestId,
       otp: String(p.otp).trim(),
     });
-    if (!ok || data?.errors) {
-      return resp(400, { success:false, error: data?.errors?.message || data?.message || 'Kode OTP salah atau kadaluarsa', detail: data });
+    if (!ok || data?.status !== true) {
+      return resp(400, { success:false, error: data?.message || 'Kode OTP salah atau kadaluarsa', detail: data });
     }
-    return resp(200, { success:true, valid:true, data: data?.data });
+    return resp(200, { success:true, valid:true });
   }
 
   return resp(400, { error:`action tidak dikenal: ${p.action}` });

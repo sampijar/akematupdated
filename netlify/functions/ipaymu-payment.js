@@ -44,22 +44,24 @@ exports.handler = async (event) => {
     if (!amount||!buyerName||!buyerEmail||!buyerPhone) return resp(400,{error:'amount, buyerName, buyerEmail, buyerPhone wajib'});
     if (+amount < 1000) return resp(400,{error:'Minimal Rp 1.000'});
 
+    const refId = referenceId||`AKM-${Date.now()}`;
     const body = {
-      account: VA,
-      name: buyerName, email: buyerEmail,
-      phone: String(buyerPhone).replace(/\D/g,''),
       product: [productName||'Pembayaran Akemat'], qty:[1], price:[Math.round(+amount)],
       description: [description||'Akemat Foundation'],
       returnUrl:  `${site}/payment-return.html`,
       cancelUrl:  `${site}/payment-cancel.html`,
       notifyUrl:  `${site}/.netlify/functions/ipaymu-notify`,
-      referenceId: referenceId||`AKM-${Date.now()}`,
+      referenceId: refId,
+      buyerName, buyerEmail,
+      buyerPhone: String(buyerPhone).replace(/\D/g,''),
       expired: 24,
     };
 
     const r = await iPaymu('/api/v2/payment', body);
     if (r?.Status !== 200) return resp(502,{error:r?.Message||'Gagal membuat transaksi',detail:r});
-    return resp(200,{success:true, transactionId:r.Data?.TransactionId, referenceId:r.Data?.ReferenceId, paymentUrl:r.Data?.Url, expired:r.Data?.Expired});
+    // Redirect Payment hanya mengembalikan SessionID & Url — trx_id numerik baru
+    // tersedia lewat query string returnUrl setelah pembeli menyelesaikan pembayaran.
+    return resp(200,{success:true, sessionId:r.Data?.SessionID, referenceId:refId, paymentUrl:r.Data?.Url});
   }
 
   if (p.action === 'status') {
