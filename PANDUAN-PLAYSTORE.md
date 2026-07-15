@@ -33,8 +33,8 @@ akemat-v3/
 
 **Tidak perlu coding Android sama sekali.**
 
-### Langkah 1 — Deploy dulu ke Netlify
-Website sudah live di akematfoundation.org ✅
+### Langkah 1 — Deploy dulu ke Vercel
+Website sudah live di akematfoundation.org (deploy otomatis dari branch `main` di GitHub) ✅
 
 ### Langkah 2 — Buka pwabuilder.com
 
@@ -71,14 +71,7 @@ File ini membuktikan ke Google bahwa website dan app Android terhubung.
 3. Upload `assetlinks.json` ke dalam folder tersebut
 4. File harus bisa diakses di: `https://akematfoundation.org/.well-known/assetlinks.json`
 
-**Cara di Netlify:** buat file `public/.well-known/assetlinks.json` atau tambah header di `netlify.toml`:
-```toml
-[[headers]]
-  for = "/.well-known/assetlinks.json"
-  [headers.values]
-    Content-Type = "application/json"
-    Access-Control-Allow-Origin = "*"
-```
+**Cara di Vercel:** taruh file di `.well-known/assetlinks.json` di root repo (folder ini akan otomatis ke-deploy sebagai static file). Header `Content-Type`/CORS-nya sudah disiapkan duluan di `vercel.json` — begitu file-nya ada, tinggal commit & push, tidak perlu ubah `vercel.json` lagi.
 
 ### Langkah 5 — Upload ke Google Play Console
 
@@ -161,7 +154,7 @@ implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
 
 ## ⚠️ Penting: Persyaratan Google Play
 
-1. **Domain harus HTTPS** ✅ (Netlify sudah auto-HTTPS)
+1. **Domain harus HTTPS** ✅ (Vercel sudah auto-HTTPS)
 2. **assetlinks.json wajib terpasang** sebelum submit
 3. **Privacy Policy wajib ada** — tambahkan halaman `/privasi` di website
 4. **Konten medis** memerlukan penjelasan bahwa app bukan pengganti dokter
