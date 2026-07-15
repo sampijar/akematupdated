@@ -54,16 +54,27 @@ module.exports = async (req, res) => {
       method = 'POST';
       reqBody = JSON.stringify(data);
     } else if (action === 'update') {
-      url = `${base}?id=eq.${id}`;
+      // filters (mis. { reference_id: 'eq.xxx' }) diutamakan; fallback ke id tunggal.
+      const params = new URLSearchParams(filters || (id ? { id: `eq.${id}` } : {}));
+      if (![...params.keys()].length) return res.status(400).json({ error: 'update butuh id atau filters' });
+      url = `${base}?${params}`;
       method = 'PATCH';
       reqBody = JSON.stringify(data);
     } else if (action === 'delete') {
-      url = `${base}?id=eq.${id}`;
+      const params = new URLSearchParams(filters || (id ? { id: `eq.${id}` } : {}));
+      if (![...params.keys()].length) return res.status(400).json({ error: 'delete butuh id atau filters' });
+      url = `${base}?${params}`;
       method = 'DELETE';
     } else if (action === 'upsert') {
       method = 'POST';
       headers['Prefer'] = 'resolution=merge-duplicates,return=representation';
       reqBody = JSON.stringify(data);
+    } else if (action === 'rpc') {
+      // Panggil Postgres function lewat PostgREST, untuk operasi yang butuh atomicity
+      // (mis. increment_campaign) yang tidak aman dilakukan lewat read-then-write biasa.
+      url = `${SUPABASE_URL}/rest/v1/rpc/${table}`;
+      method = 'POST';
+      reqBody = JSON.stringify(data || {});
     } else {
       return res.status(400).json({ error: `action tidak dikenal: ${action}` });
     }

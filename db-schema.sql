@@ -191,6 +191,20 @@ CREATE TRIGGER trg_bookings_updated  BEFORE UPDATE ON bookings      FOR EACH ROW
 CREATE TRIGGER trg_campaigns_updated BEFORE UPDATE ON campaigns     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_np_updated        BEFORE UPDATE ON nurse_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+-- ── RPC: tambah saldo campaign secara atomik ────────────────
+-- Dipanggil lewat POST {SUPABASE_URL}/rest/v1/rpc/increment_campaign.
+-- Read-then-write biasa dari aplikasi rawan race condition kalau ada dua
+-- donasi masuk bersamaan; UPDATE ... SET x = x + n di dalam function ini
+-- atomik di level database.
+CREATE OR REPLACE FUNCTION increment_campaign(p_campaign_id UUID, p_amount BIGINT)
+RETURNS void AS $$
+BEGIN
+  UPDATE campaigns
+  SET current = current + p_amount, donor_count = donor_count + 1
+  WHERE id = p_campaign_id;
+END;
+$$ LANGUAGE plpgsql;
+
 -- =========================================================
 -- CARA AKTIVASI:
 -- 1. Buka https://supabase.com/dashboard

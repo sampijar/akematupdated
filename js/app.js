@@ -77,24 +77,24 @@ const app = document.getElementById('app');
 
 function navigate(hash){ location.hash = hash; }
 
-function route(){
+async function route(){
   const hash  = location.hash.replace('#','') || '';
   const parts = hash.split('/');
   const page  = parts[0];
   const id    = parts[1];
   renderHeader();
   switch(page){
-    case '':         case 'home':    renderHome();           break;
-    case 'perawat':  id ? renderNurseDetail(id) : renderNurseList(); break;
-    case 'donasi':   id ? renderCampaignDetail(id) : renderCampaignList(); break;
+    case '':         case 'home':    await renderHome();           break;
+    case 'perawat':  id ? await renderNurseDetail(id) : await renderNurseList(); break;
+    case 'donasi':   id ? await renderCampaignDetail(id) : await renderCampaignList(); break;
     case 'login':    renderLogin();       break;
     case 'lupa-password': renderForgotPassword(); break;
     case 'register': renderRegister();    break;
-    case 'dashboard':renderDashboard();   break;
-    case 'profil':   renderProfile();     break;
+    case 'dashboard':await renderDashboard();   break;
+    case 'profil':   await renderProfile();     break;
     case 'tnc':      renderTNC();         break;
     case 'faq':      renderFAQ();         break;
-    default:         renderHome();
+    default:         await renderHome();
   }
   window.scrollTo(0,0);
 }
@@ -103,7 +103,7 @@ window.addEventListener('hashchange', route);
 
 // ── Header ─────────────────────────────────────────────────
 function renderHeader(){
-  const u = DB.getCurrentUser();
+  const u = Store.getCurrentUser();
   const nav = document.getElementById('mainNav');
   if(!nav) return;
   nav.innerHTML = `
@@ -121,9 +121,9 @@ function renderHeader(){
 }
 
 // ── Home ───────────────────────────────────────────────────
-function renderHome(){
-  const nurses    = DB.getNurses().length;
-  const campaigns = DB.getCampaigns();
+async function renderHome(){
+  const [nursesList, campaigns] = await Promise.all([Store.getNurses(), Store.getCampaigns()]);
+  const nurses    = nursesList.length;
   const totalDon  = campaigns.reduce((s,c)=>s+c.current,0);
 
   app.innerHTML = `
@@ -229,8 +229,21 @@ function renderHome(){
 }
 
 // ── Nurse List ─────────────────────────────────────────────
-function renderNurseList(){
-  const nurses = DB.getNurses();
+function filterNurses(list, { q, specialty, education, avail } = {}){
+  let out = list;
+  if (specialty && specialty !== 'Semua') out = out.filter(n => n.np.specialty === specialty);
+  if (avail)     out = out.filter(n => n.np.avail);
+  if (education && education !== 'Semua') out = out.filter(n => n.np.education === education);
+  if (q) {
+    const needle = q.toLowerCase();
+    out = out.filter(n => n.name.toLowerCase().includes(needle) || n.np.specialty.toLowerCase().includes(needle) || n.np.loc.toLowerCase().includes(needle));
+  }
+  return out;
+}
+
+async function renderNurseList(){
+  const nurses = await Store.getNurses();
+  const allNurses = nurses;
   app.innerHTML = `
   <section class="pub-section">
     <div class="container">
@@ -269,7 +282,7 @@ function renderNurseList(){
     const q    = document.getElementById('nurseSearch')?.value || '';
     const spec = document.getElementById('nurseSpec')?.value   || '';
     const edu  = document.getElementById('nurseEdu')?.value    || '';
-    const list = DB.getNurses({ q, specialty: spec, education: edu, avail });
+    const list = filterNurses(allNurses, { q, specialty: spec, education: edu, avail });
     document.getElementById('nurseGrid').innerHTML = list.map(n=>nurseCard(n)).join('') || emptyState('Tidak ada perawat yang cocok dengan filter.');
   };
   document.getElementById('nurseSearch')?.addEventListener('input', grid);
@@ -319,8 +332,8 @@ function nurseCard(n){
 }
 
 // ── Nurse Detail ────────────────────────────────────────────
-function renderNurseDetail(id){
-  const n = DB.getUserById(id);
+async function renderNurseDetail(id){
+  const n = await Store.getUserById(id);
   if(!n || !n.np){ app.innerHTML='<div class="container" style="padding:60px 0"><p>Perawat tidak ditemukan.</p></div>'; return; }
   const p = n.np;
 
@@ -499,7 +512,7 @@ function renderNurseDetail(id){
 
   // Book button
   document.getElementById('btnBook')?.addEventListener('click', async ()=>{
-    const u = DB.getCurrentUser();
+    const u = Store.getCurrentUser();
     if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
     if(u.role !== 'patient'){ toast('Hanya pasien yang bisa memesan perawat.','e'); return; }
     const date    = document.getElementById('bkDate')?.value;
@@ -512,7 +525,7 @@ function renderNurseDetail(id){
     if(!address) { toast('Isi alamat kunjungan.','e'); return; }
 
     const total = p.price * dur;
-    const booking = DB.addBooking({
+    const booking = await Store.addBooking({
       patientId: u.id, nurseId: n.id,
       nurseName: n.name, nurseSpecialty: p.specialty,
       service, date, time, duration: dur, address, notes,
@@ -542,8 +555,8 @@ function renderNurseDetail(id){
 }
 
 // ── Campaign List ───────────────────────────────────────────
-function renderCampaignList(){
-  const campaigns = DB.getCampaigns();
+async function renderCampaignList(){
+  const campaigns = await Store.getCampaigns();
   app.innerHTML = `
   <section class="pub-section">
     <div class="container">
@@ -563,7 +576,7 @@ function renderCampaignList(){
       <div class="campaign-grid" id="camGrid">
         ${campaigns.map(c=>campaignCard(c)).join('') || emptyState('Belum ada campaign.')}
       </div>
-      ${DB.getCurrentUser()?.role==='donor'?'<div style="text-align:center;margin-top:32px"><button class="btn btn-accent" onclick="openCreateCampaignModal()">+ Buat Campaign Baru</button></div>':''}
+      ${Store.getCurrentUser()?.role==='donor'?'<div style="text-align:center;margin-top:32px"><button class="btn btn-accent" onclick="openCreateCampaignModal()">+ Buat Campaign Baru</button></div>':''}
     </div>
   </section>
   ${renderFooterSection()}`;
@@ -580,7 +593,7 @@ function renderCampaignList(){
   });
   function filterCam(){
     const q  = document.getElementById('camSearch')?.value.toLowerCase()||'';
-    const list = DB.getCampaigns().filter(c=>{
+    const list = campaigns.filter(c=>{
       const matchQ  = !q || c.title.toLowerCase().includes(q) || c.category?.toLowerCase().includes(q);
       const matchCat= !cat || c.category === cat;
       return matchQ && matchCat;
@@ -622,12 +635,12 @@ function campaignCard(c){
 }
 
 // ── Campaign Detail ─────────────────────────────────────────
-function renderCampaignDetail(id){
-  const c = DB.getCampaignById(id);
+async function renderCampaignDetail(id){
+  const c = await Store.getCampaignById(id);
   if(!c){ app.innerHTML='<div class="container" style="padding:60px 0"><p>Campaign tidak ditemukan.</p></div>'; return; }
   const p    = pct(c.current, c.target);
   const cls  = p>=100?'high':p>=80?'urgent':'';
-  const doms = DB.getDonationsByCampaign(id).slice(-5).reverse();
+  const doms = (await Store.getDonationsByCampaign(id)).slice(-5).reverse();
 
   app.innerHTML = `
   <div class="container cam-detail-wrap">
@@ -707,15 +720,22 @@ function renderLogin(){
     </div>
   </div>`;
 
-  document.getElementById('btnLogin')?.addEventListener('click',()=>{
+  document.getElementById('btnLogin')?.addEventListener('click',async ()=>{
     const email = document.getElementById('loginEmail')?.value.trim();
     const pass  = document.getElementById('loginPass')?.value;
     const err   = document.getElementById('loginErr');
-    const u     = DB.getUserByEmail(email);
-    if(!u || u.password !== pass){ err.textContent = 'Email atau password salah.'; return; }
-    DB.setSession(u.id);
-    toast('Selamat datang, '+u.name.split(' ')[0]+'!','s');
-    navigate('#dashboard');
+    const btn   = document.getElementById('btnLogin');
+    if(!email||!pass){ err.textContent = 'Isi email dan password.'; return; }
+    err.textContent = '';
+    btn.disabled = true;
+    try {
+      const u = await Store.login(email, pass);
+      toast('Selamat datang, '+u.name.split(' ')[0]+'!','s');
+      navigate('#dashboard');
+    } catch(e) {
+      err.textContent = e.message || 'Email atau password salah.';
+    }
+    btn.disabled = false;
   });
 
   // Enter key
@@ -730,6 +750,7 @@ function renderLogin(){
 function renderForgotPassword(){
   let otpRequestId = null;
   let verifiedPhone = null;
+  let otpProof = null;
 
   app.innerHTML = `
   <div class="auth-page">
@@ -768,7 +789,7 @@ function renderForgotPassword(){
     const phone = document.getElementById('fpPhone')?.value.trim();
     err.textContent = '';
     if(!phone){ err.textContent = 'Isi nomor HP terlebih dahulu.'; return; }
-    if(!DB.getUserByPhone(phone)){ err.textContent = 'Nomor HP tidak terdaftar.'; return; }
+    if(!(await Store.getUserByPhone(phone))){ err.textContent = 'Nomor HP tidak terdaftar.'; return; }
     const btn = document.getElementById('btnFpSendOtp');
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Mengirim…';
@@ -793,7 +814,7 @@ function renderForgotPassword(){
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Memeriksa…';
     try {
-      await Otp.verify(otpRequestId, code);
+      otpProof = await Otp.verify(otpRequestId, code, verifiedPhone);
       document.getElementById('fpStep2').style.display = 'none';
       document.getElementById('fpStep3').style.display = 'block';
       toast('Nomor HP terverifikasi. Silakan atur password baru.','s');
@@ -803,7 +824,7 @@ function renderForgotPassword(){
     btn.disabled = false; btn.textContent = orig;
   });
 
-  document.getElementById('btnFpSavePass')?.addEventListener('click', ()=>{
+  document.getElementById('btnFpSavePass')?.addEventListener('click', async ()=>{
     const err   = document.getElementById('fpErr');
     const pass  = document.getElementById('fpNewPass')?.value;
     const pass2 = document.getElementById('fpNewPass2')?.value;
@@ -811,11 +832,16 @@ function renderForgotPassword(){
     if(!verifiedPhone){ err.textContent = 'Verifikasi OTP terlebih dahulu.'; return; }
     if(!pass || pass.length < 6){ err.textContent = 'Password minimal 6 karakter.'; return; }
     if(pass !== pass2){ err.textContent = 'Konfirmasi password tidak cocok.'; return; }
-    const u = DB.getUserByPhone(verifiedPhone);
-    if(!u){ err.textContent = 'Akun tidak ditemukan.'; return; }
-    DB.updateUser(u.id, { password: pass });
-    toast('Password berhasil diubah. Silakan masuk.','s');
-    navigate('#login');
+    const btn = document.getElementById('btnFpSavePass');
+    btn.disabled = true;
+    try {
+      await Store.resetPassword({ phone: verifiedPhone, proof: otpProof, newPassword: pass });
+      toast('Password berhasil diubah. Silakan masuk.','s');
+      navigate('#login');
+    } catch(e) {
+      err.textContent = e.message || 'Gagal mengubah password.';
+      btn.disabled = false;
+    }
   });
 }
 
@@ -824,6 +850,7 @@ function renderRegister(){
   let phoneVerified = false;
   let otpRequestId  = null;
   let verifiedPhone = '';
+  let otpProof      = null;
   app.innerHTML = `
   <div class="auth-page">
     <div class="auth-card">
@@ -982,7 +1009,7 @@ function renderRegister(){
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Memeriksa…';
     try {
-      await Otp.verify(otpRequestId, code);
+      otpProof = await Otp.verify(otpRequestId, code, verifiedPhone);
       phoneVerified = true;
       document.getElementById('otpStatus').textContent = '✅ Nomor HP terverifikasi.';
       toast('Nomor HP berhasil diverifikasi.','s');
@@ -993,7 +1020,7 @@ function renderRegister(){
     btn.disabled = false; btn.textContent = orig;
   });
 
-  document.getElementById('btnRegister')?.addEventListener('click',()=>{
+  document.getElementById('btnRegister')?.addEventListener('click', async ()=>{
     const err  = document.getElementById('regErr');
     const name = document.getElementById('regName')?.value.trim();
     const email= document.getElementById('regEmail')?.value.trim();
@@ -1005,7 +1032,7 @@ function renderRegister(){
 
     if(!name||!email||!phone||!pass){ err.textContent='Lengkapi semua field wajib.'; return; }
     if(pass.length < 6){ err.textContent='Password minimal 6 karakter.'; return; }
-    if(DB.getUserByEmail(email)){ err.textContent='Email sudah terdaftar.'; return; }
+    if(Store.backend==='local' && DB.getUserByEmail(email)){ err.textContent='Email sudah terdaftar.'; return; }
     if(!phoneVerified || phone !== verifiedPhone){ err.textContent='Verifikasi No. HP via WhatsApp (OTP) terlebih dahulu.'; return; }
 
     const userData = {
@@ -1032,10 +1059,16 @@ function renderRegister(){
       };
     }
 
-    const u = DB.addUser(userData);
-    DB.setSession(u.id);
-    toast('Akun berhasil dibuat! Selamat bergabung, '+name.split(' ')[0]+'.','s');
-    navigate('#dashboard');
+    const regBtn = document.getElementById('btnRegister');
+    regBtn.disabled = true;
+    try {
+      await Store.register(userData, otpProof);
+      toast('Akun berhasil dibuat! Selamat bergabung, '+name.split(' ')[0]+'.','s');
+      navigate('#dashboard');
+    } catch(e) {
+      err.textContent = e.message || 'Gagal membuat akun.';
+      regBtn.disabled = false;
+    }
   });
 }
 
@@ -1046,11 +1079,11 @@ function patientBookingTable(bookings){
     '</tbody></table></div>';
 }
 
-function patientDonationTable(donations){
+function patientDonationTable(donations, campaignMap){
   if(!donations.length) return emptyState('Belum ada donasi. <a href="#donasi">Donasi sekarang</a>.');
   return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Campaign</th><th>Donasi</th><th>Tanggal</th></tr></thead><tbody>'+
     donations.map(d=>{
-      var cam=DB.getCampaignById(d.campaignId);
+      var cam=campaignMap?.get(d.campaignId);
       return '<tr><td>'+(cam?'<a href="#donasi/'+d.campaignId+'">'+esc(cam.title.slice(0,40))+'…</a>':'Campaign dihapus')+'</td><td><strong>'+rpFmt(d.amount)+'</strong></td><td style="white-space:nowrap">'+esc(d.date)+'</td></tr>';
     }).join('')+
     '</tbody></table></div>';
@@ -1089,14 +1122,15 @@ function sidebarLinks(role, currentHash){
 }
 
 // ── Dashboard table helpers (continued) ──────────────────────
-function donorCampaignCards(campaigns){
+function donorCampaignCards(campaigns, payoutDataMap){
   if(!campaigns.length) return '<p style="color:var(--soft);text-align:center;padding:24px 0">Belum ada campaign. Buat campaign pertama Anda!</p>';
   return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">'+
     campaigns.map(function(c){
       var p=pct(c.current,c.target);
       var bk=c.bankInfo;
-      var available = DB.getCampaignAvailablePayout(c.id);
-      var payouts   = DB.getPayoutsByCampaign(c.id);
+      var pd = payoutDataMap?.get(c.id) || { available:0, payouts:[] };
+      var available = pd.available;
+      var payouts   = pd.payouts;
       return '<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px">'+
         '<div style="font-weight:700;font-size:.9rem;margin-bottom:6px;color:var(--primary)">'+esc(c.title.slice(0,45))+'…</div>'+
         '<div class="progress-bar" style="margin-bottom:5px"><div class="progress-fill" style="width:'+p+'%"></div></div>'+
@@ -1113,20 +1147,20 @@ function donorCampaignCards(campaigns){
     }).join('')+'</div>';
 }
 
-window.requestCampaignPayout = function(campaignId){
-  const cam = DB.getCampaignById(campaignId);
+window.requestCampaignPayout = async function(campaignId){
+  const cam = await Store.getCampaignById(campaignId);
   if(!cam) return;
   const bank = cam.bankInfo||{};
   if(!bank.accountNumber){ toast('Isi rekening penerima campaign terlebih dahulu.','e'); return; }
-  const available = DB.getCampaignAvailablePayout(campaignId);
+  const available = await Store.getCampaignAvailablePayout(campaignId);
   if(available<=0){ toast('Belum ada saldo yang bisa dicairkan.','e'); return; }
   if(!confirm('Ajukan pencairan '+rpFmt(available)+' ke '+bank.bankName+' '+bank.accountNumber+'?')) return;
-  DB.addPayoutRequest({
+  await Store.addPayoutRequest({
     recipientType:'campaign_owner', campaignId, amount:available,
     bankName:bank.bankName, bankAccountNumber:bank.accountNumber, bankAccountName:bank.accountName,
   });
   toast('Pengajuan pencairan terkirim. Diproses 1-3 hari kerja.','s');
-  renderDonorDash(DB.getCurrentUser());
+  await renderDonorDash(Store.getCurrentUser());
 };
 
 function nurseProfileSection(u){
@@ -1175,9 +1209,7 @@ function payoutHistoryTable(payouts){
     }).join('')+'</tbody></table></div>';
 }
 
-function nursePayoutSection(u){
-  var available = DB.getNurseAvailablePayout(u.id);
-  var payouts   = DB.getPayoutsByUser(u.id);
+function nursePayoutSection(u, available, payouts){
   var bankOk    = u.bankInfo?.accountNumber;
   return '<div class="dash-section">'+
     '<div class="dash-sh"><h3>💸 Pencairan Dana Penghasilan</h3></div>'+
@@ -1191,13 +1223,13 @@ function nursePayoutSection(u){
 }
 
 // ── Dashboard ───────────────────────────────────────────────
-function renderDashboard(){
-  const u = DB.getCurrentUser();
+async function renderDashboard(){
+  const u = Store.getCurrentUser();
   if(!u){ navigate('#login'); return; }
   switch(u.role){
-    case 'patient': renderPatientDash(u); break;
-    case 'nurse':   renderNurseDash(u);   break;
-    case 'donor':   renderDonorDash(u);   break;
+    case 'patient': await renderPatientDash(u); break;
+    case 'nurse':   await renderNurseDash(u);   break;
+    case 'donor':   await renderDonorDash(u);   break;
   }
 }
 
@@ -1234,12 +1266,13 @@ function sidebarHTML(u, activePage){
   </div>`;
 }
 
-function afterDash(){ document.getElementById('btnLogout')?.addEventListener('click',()=>{ DB.clearSession(); toast('Berhasil keluar.'); navigate('#'); }); }
+function afterDash(){ document.getElementById('btnLogout')?.addEventListener('click',async ()=>{ await Store.logout(); toast('Berhasil keluar.'); navigate('#'); }); }
 
-function renderPatientDash(u){
-  const bookings = DB.getBookingsByPatient(u.id);
-  const donations= DB.getDonationsByUser(u.id);
+async function renderPatientDash(u){
+  const [bookings, donations] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id)]);
   const spent    = bookings.filter(b=>b.status==='completed').reduce((s,b)=>s+b.totalCost,0);
+  const campaignIds = [...new Set(donations.map(d=>d.campaignId).filter(Boolean))];
+  const campaignMap = new Map((await Promise.all(campaignIds.map(cid=>Store.getCampaignById(cid)))).filter(Boolean).map(c=>[c.id,c]));
 
   app.innerHTML = `
   <div class="dash-wrap">
@@ -1273,15 +1306,15 @@ function renderPatientDash(u){
       <!-- Donations table -->
       <div class="dash-section">
         <div class="dash-sh"><h3>Riwayat Donasi</h3><a href="#donasi" class="btn btn-outline btn-sm">Lihat Campaign</a></div>
-        ${patientDonationTable(donations)}
+        ${patientDonationTable(donations, campaignMap)}
 
     </div>
   </div>`;
   afterDash();
 }
 
-function renderNurseDash(u){
-  const bookings = DB.getBookingsByNurse(u.id);
+async function renderNurseDash(u){
+  const bookings = await Store.getBookingsByNurse(u.id);
   const earned   = bookings.filter(b=>b.status==='completed').reduce((s,b)=>s+(b.nursePay||0),0);
   const p        = u.np || {};
 
@@ -1331,18 +1364,21 @@ function renderNurseDash(u){
   </div>`;
 
   afterDash();
-  document.getElementById('availToggle')?.addEventListener('change', function(){
+  document.getElementById('availToggle')?.addEventListener('change', async function(){
     const np = {...(u.np||{}), avail: this.checked};
-    DB.updateUser(u.id, {np});
+    await Store.updateUser(u.id, {np});
     document.getElementById('availLabel').textContent = this.checked?'✅ Saya tersedia untuk booking':'⏸ Saya tidak tersedia';
     toast(this.checked?'Status tersedia diaktifkan.':'Status dinonaktifkan.','s');
   });
 }
 
-function renderDonorDash(u){
-  const campaigns = DB.getCampaignsByUser(u.id);
-  const donations = DB.getDonationsByUser(u.id);
+async function renderDonorDash(u){
+  const [campaigns, donations] = await Promise.all([Store.getCampaignsByUser(u.id), Store.getDonationsByUser(u.id)]);
   const totalDon  = donations.reduce((s,d)=>s+d.amount,0);
+  const payoutDataMap = new Map(await Promise.all(campaigns.map(async c => [c.id, {
+    available: await Store.getCampaignAvailablePayout(c.id),
+    payouts:   await Store.getPayoutsByCampaign(c.id),
+  }])));
 
   app.innerHTML = `
   <div class="dash-wrap">
@@ -1369,7 +1405,7 @@ function renderDonorDash(u){
 
       <div class="dash-section">
         <div class="dash-sh"><h3>Campaign Saya</h3><button class="btn btn-accent btn-sm" onclick="openCreateCampaignModal()">+ Buat Campaign</button></div>
-        ${donorCampaignCards(campaigns)}
+        ${donorCampaignCards(campaigns, payoutDataMap)}
       </div>
     </div>
   </div>`;
@@ -1472,11 +1508,15 @@ function renderFAQ(){
 
 
 // ── Profile ─────────────────────────────────────────────────
-function renderProfile(){
-  const u = DB.getCurrentUser();
+async function renderProfile(){
+  const u = Store.getCurrentUser();
   if(!u){ navigate('#login'); return; }
   const bank = u.bankInfo || {};
   const np   = u.np || {};
+  let nurseAvailable = 0, nursePayouts = [];
+  if (u.role === 'nurse') {
+    [nurseAvailable, nursePayouts] = await Promise.all([Store.getNurseAvailablePayout(u.id), Store.getPayoutsByUser(u.id)]);
+  }
 
   app.innerHTML = `
   <div class="dash-wrap">
@@ -1505,19 +1545,19 @@ function renderProfile(){
 
 
       ${u.role!=='patient'?bankStatusSection(u):''}
-      ${u.role==='nurse'?nursePayoutSection(u):''}
+      ${u.role==='nurse'?nursePayoutSection(u, nurseAvailable, nursePayouts):''}
     </div>
   </div>`;
 
   afterDash();
 
-  document.getElementById('btnAjukanPencairanNurse')?.addEventListener('click',()=>{
-    const available = DB.getNurseAvailablePayout(u.id);
+  document.getElementById('btnAjukanPencairanNurse')?.addEventListener('click', async ()=>{
+    const available = await Store.getNurseAvailablePayout(u.id);
     const bank = u.bankInfo||{};
     if(!bank.accountNumber){ toast('Isi data rekening terlebih dahulu.','e'); return; }
     if(available<=0){ toast('Belum ada saldo yang bisa dicairkan.','e'); return; }
     if(!confirm('Ajukan pencairan '+rpFmt(available)+' ke '+bank.bankName+' '+bank.accountNumber+'?')) return;
-    DB.addPayoutRequest({
+    await Store.addPayoutRequest({
       recipientType:'nurse', userId:u.id, amount:available,
       bankName:bank.bankName, bankAccountNumber:bank.accountNumber, bankAccountName:bank.accountName,
     });
@@ -1526,21 +1566,21 @@ function renderProfile(){
   });
 
   // Profile form save handlers
-  document.getElementById('btnSaveProfile')?.addEventListener('click',()=>{
+  document.getElementById('btnSaveProfile')?.addEventListener('click', async ()=>{
     const name  = document.getElementById('profName')?.value.trim();
     const phone = document.getElementById('profPhone')?.value.trim();
     if(!name){ toast('Nama wajib diisi.','e'); return; }
     const upd = { name, phone };
     if(u.role==='patient') upd.address      = document.getElementById('profAddr')?.value.trim();
     if(u.role==='donor')   upd.organization = document.getElementById('profOrg')?.value.trim();
-    DB.updateUser(u.id, upd);
+    await Store.updateUser(u.id, upd);
     toast('Profil berhasil disimpan.','s');
   });
 
-  document.getElementById('btnSaveNP')?.addEventListener('click',()=>{
+  document.getElementById('btnSaveNP')?.addEventListener('click', async ()=>{
     const sched = [...document.querySelectorAll('#nurseScheduleWrap input:checked')].map(cb=>cb.value);
     const spec  = document.getElementById('npSpec')?.value;
-    DB.updateUser(u.id, {np:{...u.np,
+    await Store.updateUser(u.id, {np:{...u.np,
       specialty: spec,
       education: document.getElementById('npEdu')?.value,
       loc:       document.getElementById('npLoc')?.value.trim(),
@@ -1552,12 +1592,12 @@ function renderProfile(){
     toast('Profil perawat berhasil disimpan.','s');
   });
 
-  document.getElementById('btnSaveBank')?.addEventListener('click',()=>{
+  document.getElementById('btnSaveBank')?.addEventListener('click', async ()=>{
     const bankName = document.getElementById('bankNameInput')?.value;
     const accNum   = document.getElementById('bankAccNum')?.value.trim();
     const accName  = document.getElementById('bankAccName')?.value.trim();
     if(!bankName||!accNum||!accName){ toast('Lengkapi semua data rekening.','e'); return; }
-    DB.updateUser(u.id, { bankInfo:{ bankName, accountNumber:accNum, accountName:accName, verified:false }});
+    await Store.updateUser(u.id, { bankInfo:{ bankName, accountNumber:accNum, accountName:accName, verified:false }});
     toast('Data rekening disimpan. Verifikasi dalam 1×24 jam kerja.','s');
     setTimeout(()=>renderProfile(), 800);
   });
@@ -1567,9 +1607,9 @@ function renderProfile(){
 function openModal(id)  { document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); document.body.style.overflow=''; }
 
-function openDonateModal(campaignId){
-  const u   = DB.getCurrentUser();
-  const cam = DB.getCampaignById(campaignId);
+async function openDonateModal(campaignId){
+  const u   = Store.getCurrentUser();
+  const cam = await Store.getCampaignById(campaignId);
   if(!cam) return;
   let selAmt = 0;
 
@@ -1636,17 +1676,17 @@ function openDonateModal(campaignId){
 }
 
 function openBookingModal(nurseId){
-  const u = DB.getCurrentUser();
+  const u = Store.getCurrentUser();
   if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
   if(u.role!=='patient'){ toast('Hanya pasien yang bisa memesan perawat.','e'); return; }
   navigate('#perawat/'+nurseId);
 }
 
 function openCreateCampaignModal(){
-  const u = DB.getCurrentUser();
+  const u = Store.getCurrentUser();
   if(!u||u.role!=='donor'){ toast('Hanya donatur yang bisa membuat campaign.','e'); return; }
   openModal('modalCreateCampaign');
-  document.getElementById('btnCreateCampaign').onclick=()=>{
+  document.getElementById('btnCreateCampaign').onclick=async ()=>{
     const title    = document.getElementById('ccTitle')?.value.trim();
     const story    = document.getElementById('ccStory')?.value.trim();
     const target   = parseInt(document.getElementById('ccTarget')?.value)||0;
@@ -1657,7 +1697,7 @@ function openCreateCampaignModal(){
     const accOwner = document.getElementById('ccAccOwner')?.value.trim();
     if(!title||!story||!target||!deadline){ toast('Lengkapi semua field wajib.','e'); return; }
     if(!bankName||!accNum||!accOwner){ toast('Data rekening wajib diisi agar donasi bisa dicairkan.','e'); return; }
-    DB.addCampaign({
+    await Store.addCampaign({
       title, story, target, deadline, category,
       createdBy: u.id, creatorName: u.name,
       verified: false,
@@ -1665,12 +1705,12 @@ function openCreateCampaignModal(){
     });
     closeModal('modalCreateCampaign');
     toast('Campaign berhasil dibuat!','s');
-    renderDonorDash(DB.getCurrentUser());
+    renderDonorDash(Store.getCurrentUser());
   };
 }
 
-function openEditCampaignModal(campaignId){
-  const cam = DB.getCampaignById(campaignId);
+async function openEditCampaignModal(campaignId){
+  const cam = await Store.getCampaignById(campaignId);
   if(!cam) return;
   const bank = cam.bankInfo||{};
   document.getElementById('ecCamId').value    = campaignId;
@@ -1678,16 +1718,16 @@ function openEditCampaignModal(campaignId){
   document.getElementById('ecAccNum').value   = bank.accountNumber||'';
   document.getElementById('ecAccOwner').value = bank.accountName||'';
   openModal('modalEditCampaign');
-  document.getElementById('btnSaveEditCampaign').onclick=()=>{
+  document.getElementById('btnSaveEditCampaign').onclick=async ()=>{
     const cid     = document.getElementById('ecCamId')?.value;
     const bankName= document.getElementById('ecBankName')?.value;
     const accNum  = document.getElementById('ecAccNum')?.value.trim();
     const accOwner= document.getElementById('ecAccOwner')?.value.trim();
     if(!bankName||!accNum||!accOwner){ toast('Lengkapi semua data rekening.','e'); return; }
-    DB.updateCampaign(cid, { bankInfo:{ bankName, accountNumber:accNum, accountName:accOwner, verified:false }});
+    await Store.updateCampaign(cid, { bankInfo:{ bankName, accountNumber:accNum, accountName:accOwner, verified:false }});
     closeModal('modalEditCampaign');
     toast('Data rekening campaign disimpan.','s');
-    renderDonorDash(DB.getCurrentUser());
+    renderDonorDash(Store.getCurrentUser());
   };
 }
 
@@ -1696,12 +1736,13 @@ window.openDonateModal        = openDonateModal;
 window.openBookingModal       = openBookingModal;
 window.openCreateCampaignModal= openCreateCampaignModal;
 window.openEditCampaignModal  = openEditCampaignModal;
-window.updateBooking = (id, status)=>{
+window.updateBooking = async (id, status)=>{
   if(status==='confirmed'||status==='completed'){
-    const bk = DB.getBookings().find(b=>b.id===id);
+    const bookings = await Store.getBookings();
+    const bk = bookings.find(b=>b.id===id);
     if(!bk || bk.paymentStatus!=='paid'){ toast('Booking belum dibayar oleh pasien.','e'); return; }
   }
-  DB.updateBooking(id, {status});
+  await Store.updateBooking(id, {status});
   toast({confirmed:'Booking dikonfirmasi!',cancelled:'Booking ditolak.',completed:'Booking selesai!'}[status]||'Updated','s');
   renderDashboard();
 };
@@ -1745,9 +1786,9 @@ function emptyState(msg){
 
 // ── openPayBook: trigger iPaymu payment for booking ──────────
 async function openPayBook(bookingId){
-  const u = DB.getCurrentUser();
+  const u = Store.getCurrentUser();
   if(!u){ toast('Silakan login terlebih dahulu.','e'); return; }
-  const bookings = DB.getBookingsByPatient(u.id);
+  const bookings = await Store.getBookingsByPatient(u.id);
   const bk = bookings.find(b=>b.id===bookingId);
   if(!bk){ toast('Booking tidak ditemukan.','e'); return; }
   try {
@@ -1769,8 +1810,8 @@ async function openPayBook(bookingId){
 window.openPayBook = openPayBook;
 
 // ── Init ───────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded',()=>{
-  DB.seed();
+document.addEventListener('DOMContentLoaded',async ()=>{
+  await Store.init();
   route();
 
   // Mobile nav toggle

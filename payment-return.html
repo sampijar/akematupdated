@@ -25,6 +25,7 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
 #chk{font-size:.78rem;color:var(--soft);margin-top:10px}
 </style>
 <script src="/js/data.js"></script>
+<script src="/js/api.js"></script>
 </head>
 <body>
 <a href="/" class="logo">
@@ -60,13 +61,16 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
     det.style.display='block';
     det.innerHTML=rows.map(([l,v])=>`<div class="dr"><span class="lbl">${l}</span><span class="val">${v||'—'}</span></div>`).join('');
   }
-  // Catat pembayaran ke DB lokal HANYA setelah iPaymu mengonfirmasi status berhasil —
-  // ini satu-satunya tempat donasi/booking dianggap lunas & dikreditkan.
-  function finalizePaid(tid, a){
-    if (typeof DB === 'undefined' || !stored) return;
+  // Catat pembayaran HANYA setelah iPaymu mengonfirmasi status berhasil — ini
+  // satu-satunya tempat donasi/booking dianggap lunas & dikreditkan. Store
+  // memilih backend (Supabase kalau sudah dikonfigurasi, localStorage kalau
+  // belum) sama seperti index.html.
+  async function finalizePaid(tid, a){
+    if (typeof Store === 'undefined' || !stored?.type) return;
     try {
+      await Store.init();
       if (stored.type === 'donation' && stored.campaignId) {
-        DB.addDonation({
+        await Store.addDonation({
           campaignId: stored.campaignId,
           donorId: stored.donorId || 'guest',
           donorName: stored.buyerName || buyer || 'Donatur',
@@ -77,18 +81,18 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
           paymentStatus: 'paid',
         });
       } else if (stored.type === 'booking' && stored.bookingId) {
-        DB.updateBooking(stored.bookingId, { paymentStatus: 'paid', transactionId: tid });
+        await Store.updateBooking(stored.bookingId, { paymentStatus: 'paid', transactionId: tid });
       }
     } catch(e) { console.error('[finalizePaid]', e); }
   }
-  function ok(tid,a){ finalizePaid(tid,a); ico.textContent='✅'; ttl.textContent='Pembayaran Berhasil!'; dsc.textContent='Terima kasih atas pembayaran Anda. Tim Akemat akan segera menindaklanjuti.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',a?'Rp '+Number(a).toLocaleString('id-ID'):'—'],['Pembayar',buyer]]); acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a><a href="/#dashboard" class="btn btn-o">Dashboard</a>'; sessionStorage.removeItem('akemat_tx'); }
+  async function ok(tid,a){ await finalizePaid(tid,a); ico.textContent='✅'; ttl.textContent='Pembayaran Berhasil!'; dsc.textContent='Terima kasih atas pembayaran Anda. Tim Akemat akan segera menindaklanjuti.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',a?'Rp '+Number(a).toLocaleString('id-ID'):'—'],['Pembayar',buyer]]); acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a><a href="/#dashboard" class="btn btn-o">Dashboard</a>'; sessionStorage.removeItem('akemat_tx'); }
   function fail(){ ico.textContent='❌'; ttl.textContent='Pembayaran Gagal / Dibatalkan'; dsc.textContent='Transaksi tidak berhasil. Silakan coba lagi atau hubungi kami.'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali</a><a href="https://wa.me/6285196407117" target="_blank" class="btn btn-o">Hubungi WA</a>'; sessionStorage.removeItem('akemat_tx'); }
   function pend(tid){ ico.textContent='⏳'; ttl.textContent='Menunggu Pembayaran'; dsc.textContent='Transaksi menunggu konfirmasi pembayaran.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',amt?'Rp '+Number(amt).toLocaleString('id-ID'):'—']]); note.style.display='block'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a>'; }
 
   const ok_st = ['berhasil','success','paid','1'];
   const fail_st= ['gagal','failed','cancel','cancelled','-1'];
 
-  if(ok_st.includes(urlSt.toLowerCase()))  return ok(trxId, amt);
+  if(ok_st.includes(urlSt.toLowerCase()))  return await ok(trxId, amt);
   if(fail_st.includes(urlSt.toLowerCase())) return fail();
 
   if(trxId){
@@ -97,7 +101,7 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
       const r=await fetch('/api/ipaymu-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',transactionId:trxId})});
       const d=await r.json();
       const st=String(d?.data?.Status||d?.data?.status||'').toLowerCase();
-      if(ok_st.includes(st)) return ok(trxId, d?.data?.Amount||amt);
+      if(ok_st.includes(st)) return await ok(trxId, d?.data?.Amount||amt);
       if(fail_st.includes(st)) return fail();
       pend(trxId);
     }catch{ pend(trxId); }

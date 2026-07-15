@@ -24,14 +24,14 @@ async function otpSend(phone) {
   return data.requestId;
 }
 
-async function otpVerify(requestId, otp) {
+async function otpVerify(requestId, otp, phone) {
   const res  = await fetch(OTP_API, {
     method: 'POST', headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({ action:'verify', requestId, otp }),
+    body: JSON.stringify({ action:'verify', requestId, otp, phone }),
   });
   const data = await parseOtpResponse(res);
   if (!res.ok || !data.success) throw new Error(data.error || 'Kode OTP salah atau kadaluarsa');
-  return true;
+  return data.proof; // token bukti OTP tervalidasi, dibutuhkan endpoint registrasi/reset-password
 }
 
 window.Otp = { send: otpSend, verify: otpVerify };

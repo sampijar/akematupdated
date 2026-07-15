@@ -19,6 +19,8 @@
  * Auth: header Authorization: Bearer <merchant_key>
  */
 
+const { issueProof } = require('../lib/otpProof');
+
 const BASE = 'https://api.fazpass.com';
 
 // .trim() jaga-jaga jika ada spasi/newline tak sengaja ikut ter-paste saat
@@ -84,7 +86,7 @@ module.exports = async (req, res) => {
 
   // ── Verifikasi kode OTP ──
   if (p.action === 'verify') {
-    if (!p.requestId || !p.otp) return res.status(400).json({ error:'requestId dan otp wajib diisi' });
+    if (!p.requestId || !p.otp || !p.phone) return res.status(400).json({ error:'requestId, otp, dan phone wajib diisi' });
 
     const { ok, data } = await fazpass('/v1/otp/verify', {
       otp_id: p.requestId,
@@ -93,7 +95,11 @@ module.exports = async (req, res) => {
     if (!ok || data?.status !== true) {
       return res.status(400).json({ success:false, error: data?.message || 'Kode OTP salah atau kadaluarsa', detail: data });
     }
-    return res.status(200).json({ success:true, valid:true });
+    // Bukti singkat & bertanda tangan agar endpoint registrasi/reset-password bisa
+    // memverifikasi ulang bahwa OTP nomor ini benar-benar tervalidasi, tanpa harus
+    // mempercayai klaim mentah dari client.
+    const proof = issueProof(normalizePhone(p.phone));
+    return res.status(200).json({ success:true, valid:true, proof });
   }
 
   return res.status(400).json({ error:`action tidak dikenal: ${p.action}` });
