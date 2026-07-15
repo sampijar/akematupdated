@@ -14,8 +14,10 @@
  */
 const { verifyProof } = require('../lib/otpProof');
 
+// SUPABASE_SERVICE_ROLE_KEY = nama yang dipakai integrasi otomatis Vercel⇄Supabase;
+// SUPABASE_SERVICE_KEY = nama yang dipakai dokumentasi kita sendiri. Terima dua-duanya.
 const SUPABASE_URL         = process.env.SUPABASE_URL?.trim();
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY?.trim();
+const SUPABASE_SERVICE_KEY = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -43,7 +45,7 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST')    return res.status(405).json({ error:'Method Not Allowed' });
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return res.status(500).json({ error:'Set SUPABASE_URL dan SUPABASE_SERVICE_KEY di Vercel Environment Variables' });
+    return res.status(500).json({ error:'Set SUPABASE_URL dan SUPABASE_SERVICE_KEY (atau SUPABASE_SERVICE_ROLE_KEY) di Vercel Environment Variables' });
   }
 
   const p = typeof req.body === 'object' && req.body ? req.body : {};

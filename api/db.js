@@ -24,11 +24,14 @@ module.exports = async (req, res) => {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
+  // SUPABASE_SERVICE_ROLE_KEY = nama yang dipakai integrasi otomatis Vercel⇄Supabase;
+  // SUPABASE_SERVICE_KEY = nama yang dipakai dokumentasi kita sendiri. Terima dua-duanya
+  // supaya tidak bergantung pada mana yang kebetulan di-set duluan.
   const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
-  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY?.trim();
+  const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return res.status(500).json({ error: 'Database belum dikonfigurasi. Set SUPABASE_URL dan SUPABASE_SERVICE_KEY di Vercel Environment Variables.' });
+    return res.status(500).json({ error: 'Database belum dikonfigurasi. Set SUPABASE_URL dan SUPABASE_SERVICE_KEY (atau SUPABASE_SERVICE_ROLE_KEY) di Vercel Environment Variables.' });
   }
 
   const body = typeof req.body === 'object' && req.body ? req.body : {};
