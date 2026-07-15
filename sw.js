@@ -1,26 +1,37 @@
 // =========================================================
 // Akemat Foundation — Service Worker (PWA)
-// Versi: 1.0.0
+// Versi: 2.0.0
 // =========================================================
 
-const CACHE_NAME = 'akemat-v1';
-const CACHE_VERSION = '1.0.0';
+// NAIKKAN nomor ini setiap kali ada perubahan di js/*.js, css/*.css, atau
+// index.html — ini satu-satunya cara memaksa pengguna PWA/TWA (terutama di
+// HP, yang jarang hard-refresh) mengambil versi terbaru. Lupa menaikkan ini
+// = pengguna lama bisa terjebak di versi lama tanpa batas waktu.
+const CACHE_NAME = 'akemat-v2';
 
 // File yang di-cache untuk offline pertama kali dibuka
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/payment-return.html',
+  '/payment-cancel.html',
   '/css/style.css',
   '/js/data.js',
+  '/js/api.js',
+  '/js/payment.js',
+  '/js/otp.js',
   '/js/app.js',
   '/manifest.json',
   // Font Google (di-cache setelah pertama kali dimuat)
   'https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Work+Sans:wght@400;500;600&display=swap',
 ];
 
+// Ekstensi yang aman di-cache-first (jarang berubah)
+const CACHE_FIRST_EXT = /\.(png|jpg|jpeg|svg|ico|webp|woff2?|ttf)$/i;
+
 // ── Install: cache semua aset statis ─────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Akemat Foundation v' + CACHE_VERSION);
+  console.log('[SW] Installing Akemat Foundation, cache ' + CACHE_NAME);
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS).catch((err) => {
@@ -33,9 +44,9 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// ── Activate: hapus cache lama ────────────────────────────────
+// ── Activate: hapus SEMUA cache dari versi lama ───────────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating...');
+  console.log('[SW] Activating ' + CACHE_NAME + '...');
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
@@ -50,14 +61,17 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// ── Fetch: Cache-first untuk aset statis, Network-first untuk API ─
+// ── Fetch strategy ─────────────────────────────────────────
+// Network-first untuk app shell (HTML/JS/CSS) — supaya perubahan kode
+// SELALU diambil duluan saat online; cache hanya dipakai kalau offline.
+// Cache-first HANYA untuk aset yang jarang berubah (gambar, font, ikon).
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Lewati request non-GET
   if (event.request.method !== 'GET') return;
 
-  // Lewati Netlify Functions (API calls selalu ke network)
+  // Lewati Netlify Functions / Vercel API — selalu ke network, jangan cache.
   if (url.pathname.startsWith('/.netlify/') || url.pathname.startsWith('/api/')) {
     return;
   }
@@ -67,43 +81,41 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Cache hit — kembalikan cache, update di background
-        const fetchPromise = fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              const responseClone = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, responseClone);
-              });
-            }
-            return networkResponse;
-          })
-          .catch(() => cachedResponse); // Jika network error, pakai cache
-        return cachedResponse; // Langsung return cache (stale-while-revalidate)
-      }
+  const isStaticAsset = url.origin === location.origin && CACHE_FIRST_EXT.test(url.pathname);
 
-      // Cache miss — fetch dari network, lalu cache
-      return fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type === 'opaque') {
-            return response;
+  if (isStaticAsset) {
+    // Cache-first untuk gambar/font/ikon
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
           return response;
-        })
-        .catch(() => {
-          // Offline fallback: kembalikan index.html untuk navigasi
-          if (event.request.destination === 'document') {
-            return caches.match('/index.html');
-          }
         });
-    })
+      })
+    );
+    return;
+  }
+
+  // Network-first untuk app shell (HTML/JS/CSS/manifest)
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() =>
+        caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          if (event.request.destination === 'document') return caches.match('/index.html');
+        })
+      )
   );
 });
 

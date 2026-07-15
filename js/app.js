@@ -545,10 +545,11 @@ async function renderNurseDetail(id){
         buyerPhone:  u.phone||'08000000000',
       });
     } catch(err){
-      // iPaymu belum connect → simpan booking, redirect ke dashboard
-      toast('Booking dibuat! Lanjutkan pembayaran di dashboard.','s');
-      setTimeout(()=>navigate('#dashboard'), 1500);
-      console.warn('[Payment] iPaymu fallback:', err.message);
+      // Booking tersimpan (belum lunas) tapi redirect ke iPaymu gagal — tampilkan
+      // alasan sebenarnya, jangan sembunyikan di balik pesan sukses yang menyesatkan.
+      toast('Booking tersimpan, tapi gagal membuka pembayaran: '+(err.message||'coba lagi.'), 'e');
+      setTimeout(()=>navigate('#dashboard'), 1800);
+      console.error('[Payment] iPaymu redirect failed:', err.message);
     }
     if(btn2){ btn2.disabled=false; btn2.textContent=orig2; }
   });
@@ -914,35 +915,8 @@ function renderRegister(){
         <div class="ff"><label>Bio singkat</label><textarea id="regBio" rows="3" placeholder="Pengalaman, sertifikasi, keunggulan Anda…"></textarea></div>
       </div>
 
-      <!-- Bank account — hanya untuk nurse & donor -->
-      <div id="bankSection" style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px;margin-bottom:14px;display:none">
-        <h4 style="font-family:var(--font-d);font-weight:700;font-size:.88rem;margin:0 0 8px;color:var(--primary)">🏦 Rekening pencairan dana</h4>
-        <p style="font-size:.76rem;color:var(--soft);margin:0 0 12px">Wajib diisi agar pembayaran/donasi dapat dicairkan ke rekening Anda.</p>
-        <div class="ff">
-          <label>Nama bank</label>
-          <select id="regBankName">
-            <option value="">Pilih bank…</option>
-            ${BANKS.map(b=>'<option value="'+b+'">'+b+'</option>').join('')}
-          </select>
-        </div>
-        <div class="ff row2">
-          <div><label>Nomor rekening</label><input type="text" id="regAccNum" placeholder="1234567890" /></div>
-          <div><label>Atas nama</label><input type="text" id="regAccName" placeholder="Nama di buku tabungan" /></div>
-        </div>
-      </div>
-
-      <!-- Upload KTP / verifikasi identitas -->
-      <div id="ktpSection" style="background:var(--bg-alt);border-radius:var(--r-md);padding:16px;margin-bottom:14px">
-        <h4 style="font-family:var(--font-d);font-weight:700;font-size:.88rem;margin:0 0 6px;color:var(--primary)">📎 Upload KTP untuk verifikasi</h4>
-        <p style="font-size:.76rem;color:var(--soft);margin:0 0 10px">Opsional saat daftar, wajib sebelum melakukan booking pertama. Format JPG/PNG/PDF maks. 2MB.</p>
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:var(--bg);transition:border-color var(--tr)" id="ktpLabel" onmouseover="this.style.borderColor='var(--primary-lt)'" onmouseout="this.style.borderColor='var(--border)'">
-          <span style="font-size:1.4rem">🪪</span>
-          <div>
-            <div style="font-family:var(--font-d);font-weight:600;font-size:.84rem;color:var(--primary)" id="ktpFilename">Pilih file KTP</div>
-            <div style="font-size:.74rem;color:var(--soft)">Klik untuk upload</div>
-          </div>
-          <input type="file" id="regKtp" accept="image/jpeg,image/png,image/gif,.pdf" style="display:none" onchange="document.getElementById('ktpFilename').textContent=this.files[0]?.name||'Pilih file KTP'" />
-        </label>
+      <div class="bank-warning" style="margin-bottom:14px">
+        ℹ️ Data rekening pencairan dana dan upload KTP bisa dilengkapi belakangan di halaman <strong>Profil</strong> setelah masuk ke dashboard.
       </div>
 
       <div class="form-error" id="regErr"></div>
@@ -958,7 +932,6 @@ function renderRegister(){
 
   function updateRoleUI(){
     document.getElementById('nurseExtra').style.display  = selRole==='nurse'?'block':'none';
-    document.getElementById('bankSection').style.display = (selRole==='nurse'||selRole==='donor')?'block':'none';
   }
   document.querySelectorAll('.role-pick').forEach(btn=>{
     btn.addEventListener('click',()=>{
@@ -1026,21 +999,17 @@ function renderRegister(){
     const email= document.getElementById('regEmail')?.value.trim();
     const phone= document.getElementById('regPhone')?.value.trim();
     const pass = document.getElementById('regPass')?.value;
-    const bank = document.getElementById('regBankName')?.value;
-    const accN = document.getElementById('regAccNum')?.value.trim();
-    const accA = document.getElementById('regAccName')?.value.trim();
 
     if(!name||!email||!phone||!pass){ err.textContent='Lengkapi semua field wajib.'; return; }
     if(pass.length < 6){ err.textContent='Password minimal 6 karakter.'; return; }
     if(Store.backend==='local' && DB.getUserByEmail(email)){ err.textContent='Email sudah terdaftar.'; return; }
     if(!phoneVerified || phone !== verifiedPhone){ err.textContent='Verifikasi No. HP via WhatsApp (OTP) terlebih dahulu.'; return; }
 
+    // Rekening pencairan & KTP dilengkapi belakangan dari halaman Profil.
     const userData = {
       name, email, phone, password: pass, role: selRole, phoneVerified: true,
-      bankInfo: selRole==='patient'
-        ? { bankName:'', accountNumber:'', accountName:'', verified:false }
-        : { bankName:bank||'', accountNumber:accN||'', accountName:accA||'', verified:false },
-      ktpStatus: document.getElementById('regKtp')?.files?.length ? 'uploaded' : 'pending',
+      bankInfo: { bankName:'', accountNumber:'', accountName:'', verified:false },
+      ktpStatus: 'pending',
     };
 
     if(selRole === 'nurse'){
@@ -1192,6 +1161,22 @@ function bankStatusSection(u){
     '</div>'+
     '<p style="font-size:.78rem;color:var(--soft);margin:6px 0 12px">Verifikasi dalam 1×24 jam kerja.</p>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveBank">Simpan Data Rekening</button></div>';
+}
+
+function ktpSection(u){
+  var status = u.ktpStatus || 'pending';
+  var cls    = status==='verified' ? 'verified' : status==='uploaded' ? 'pending' : 'empty';
+  var lbl    = status==='verified' ? '✓ Terverifikasi' : status==='uploaded' ? '⏳ Menunggu verifikasi' : '❌ Belum diunggah';
+  return '<div class="dash-section">'+
+    '<div class="dash-sh"><h3>📎 Verifikasi Identitas (KTP)</h3><span class="bank-status '+cls+'">'+lbl+'</span></div>'+
+    '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diunggah sebelum booking/campaign pertama Anda. Format JPG/PNG/PDF maks. 2MB.</p>'+
+    '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:var(--bg-alt)">'+
+    '<span style="font-size:1.4rem">🪪</span>'+
+    '<div><div style="font-family:var(--font-d);font-weight:600;font-size:.84rem;color:var(--primary)" id="ktpFilename">'+(status!=='pending'?'KTP tersimpan — klik untuk ganti':'Pilih file KTP')+'</div>'+
+    '<div style="font-size:.74rem;color:var(--soft)">Klik untuk upload</div></div>'+
+    '<input type="file" id="profKtp" accept="image/jpeg,image/png,image/gif,.pdf" style="display:none" onchange="document.getElementById(\'ktpFilename\').textContent=this.files[0]?.name||\'Pilih file KTP\'" />'+
+    '</label>'+
+    '<button class="btn btn-primary btn-sm" id="btnSaveKtp" style="margin-top:12px">Simpan KTP</button></div>';
 }
 
 // ── Pencairan Dana (payouts) ──────────────────────────────
@@ -1543,7 +1528,7 @@ async function renderProfile(){
       <!-- Nurse profile extra -->
       ${u.role==='nurse'?nurseProfileSection(u):''}
 
-
+      ${ktpSection(u)}
       ${u.role!=='patient'?bankStatusSection(u):''}
       ${u.role==='nurse'?nursePayoutSection(u, nurseAvailable, nursePayouts):''}
     </div>
@@ -1562,6 +1547,14 @@ async function renderProfile(){
       bankName:bank.bankName, bankAccountNumber:bank.accountNumber, bankAccountName:bank.accountName,
     });
     toast('Pengajuan pencairan terkirim. Diproses 1-3 hari kerja.','s');
+    renderProfile();
+  });
+
+  document.getElementById('btnSaveKtp')?.addEventListener('click', async ()=>{
+    const file = document.getElementById('profKtp')?.files?.[0];
+    if(!file){ toast('Pilih file KTP terlebih dahulu.','e'); return; }
+    await Store.updateUser(u.id, { ktpStatus: 'uploaded' });
+    toast('KTP berhasil diunggah. Menunggu verifikasi tim Akemat.','s');
     renderProfile();
   });
 
@@ -1802,9 +1795,9 @@ async function openPayBook(bookingId){
       buyerPhone:  u.phone||'08000000000',
     });
   } catch(err) {
-    // Fallback ke WA jika iPaymu belum connect
+    toast('Gagal membuka pembayaran: '+(err.message||'coba lagi.')+' — mengarahkan ke WhatsApp.', 'e');
     window.open('https://wa.me/6285196407117?text='+encodeURIComponent('Halo Akemat, saya ingin bayar booking '+bk.service+' ('+bk.date+'). Nama: '+u.name),'_blank');
-    console.warn('[Payment] iPaymu not connected, redirecting to WA:', err.message);
+    console.error('[Payment] iPaymu redirect failed:', err.message);
   }
 }
 window.openPayBook = openPayBook;
