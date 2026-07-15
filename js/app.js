@@ -915,10 +915,6 @@ function renderRegister(){
         <div class="ff"><label>Bio singkat</label><textarea id="regBio" rows="3" placeholder="Pengalaman, sertifikasi, keunggulan Anda…"></textarea></div>
       </div>
 
-      <div class="bank-warning" style="margin-bottom:14px">
-        ℹ️ Data rekening pencairan dana dan upload KTP bisa dilengkapi belakangan di halaman <strong>Profil</strong> setelah masuk ke dashboard.
-      </div>
-
       <div class="form-error" id="regErr"></div>
       <button class="btn btn-primary btn-full" id="btnRegister" style="background:#1F4D3F !important;color:#FFFFFF !important;font-size:1rem;padding:14px;letter-spacing:.03em;font-weight:800;box-shadow:0 2px 8px rgba(31,77,63,.3)">Daftar Sekarang</button>
       <div style="text-align:center;margin-top:12px;font-size:.82rem;color:var(--soft)">
