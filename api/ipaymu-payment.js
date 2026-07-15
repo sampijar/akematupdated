@@ -4,9 +4,11 @@
  */
 const crypto = require('crypto');
 
-const VA      = process.env.IPAYMU_VA;
-const API_KEY = process.env.IPAYMU_API_KEY;
-const ENV     = process.env.IPAYMU_ENV || 'production';
+// .trim() jaga-jaga jika ada spasi/newline tak sengaja ikut ter-paste saat
+// menyimpan value di Vercel Environment Variables.
+const VA      = process.env.IPAYMU_VA?.trim();
+const API_KEY = process.env.IPAYMU_API_KEY?.trim();
+const ENV     = process.env.IPAYMU_ENV?.trim() || 'production';
 const BASE    = ENV === 'sandbox' ? 'https://sandbox.ipaymu.com' : 'https://my.ipaymu.com';
 
 function setCors(res) {

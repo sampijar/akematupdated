@@ -24,8 +24,8 @@ module.exports = async (req, res) => {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY;
+  const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
+  const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY?.trim();
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return res.status(500).json({ error: 'Database belum dikonfigurasi. Set SUPABASE_URL dan SUPABASE_SERVICE_KEY di Vercel Environment Variables.' });

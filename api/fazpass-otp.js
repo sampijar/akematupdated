@@ -21,8 +21,10 @@
 
 const BASE = 'https://api.fazpass.com';
 
-const MERCHANT_KEY = process.env.FAZPASS_MERCHANT_KEY;
-const GATEWAY_KEY   = process.env.FAZPASS_GATEWAY_KEY;
+// .trim() jaga-jaga jika ada spasi/newline tak sengaja ikut ter-paste saat
+// menyimpan value di Vercel Environment Variables.
+const MERCHANT_KEY = process.env.FAZPASS_MERCHANT_KEY?.trim();
+const GATEWAY_KEY   = process.env.FAZPASS_GATEWAY_KEY?.trim();
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -57,7 +59,8 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST')    return res.status(405).json({ error:'Method Not Allowed' });
   if (!MERCHANT_KEY || !GATEWAY_KEY) {
-    return res.status(500).json({ error:'Set FAZPASS_MERCHANT_KEY dan FAZPASS_GATEWAY_KEY di Vercel Environment Variables' });
+    const missing = [!MERCHANT_KEY && 'FAZPASS_MERCHANT_KEY', !GATEWAY_KEY && 'FAZPASS_GATEWAY_KEY'].filter(Boolean).join(', ');
+    return res.status(500).json({ error:`Env var ${missing} kosong di deployment ini. Jika sudah diisi di Vercel Dashboard, pastikan di-set untuk environment "Production" (bukan cuma Preview) dan redeploy — menambah/mengubah env var TIDAK otomatis redeploy deployment yang sudah ada.` });
   }
 
   const p = typeof req.body === 'object' && req.body ? req.body : {};

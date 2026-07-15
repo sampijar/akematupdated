@@ -16,7 +16,7 @@
  */
 const crypto = require('crypto');
 
-const VA = process.env.IPAYMU_VA;
+const VA = process.env.IPAYMU_VA?.trim();
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
