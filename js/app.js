@@ -1041,13 +1041,6 @@ function renderRegister(){
   });
 }
 
-function patientBookingTable(bookings){
-  if(!bookings.length) return emptyState('Belum ada booking. <a href="#perawat">Cari perawat sekarang</a>.');
-  return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Perawat</th><th>Layanan</th><th>Tanggal</th><th>Total</th><th>Status</th></tr></thead><tbody>'+
-    bookings.map(b=>'<tr><td><strong style="font-size:.84rem">'+esc(b.nurseName.split(',')[0])+'</strong><br><span style="font-size:.72rem;color:var(--soft)">'+esc(b.nurseSpecialty)+'</span></td><td style="font-size:.82rem">'+esc(b.service)+'</td><td style="font-size:.82rem;white-space:nowrap">'+esc(b.date)+'<br><span style="font-size:.72rem;color:var(--soft)">'+esc(b.time)+' &middot; '+b.duration+'j</span></td><td style="font-size:.84rem;font-weight:700;white-space:nowrap">'+rpFmt(b.totalCost)+'</td><td>'+statusBadge(b.status)+'</td></tr>').join('')+
-    '</tbody></table></div>';
-}
-
 function patientDonationTable(donations, campaignMap){
   if(!donations.length) return emptyState('Belum ada donasi. <a href="#donasi">Donasi sekarang</a>.');
   return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Campaign</th><th>Donasi</th><th>Tanggal</th></tr></thead><tbody>'+
@@ -1063,15 +1056,21 @@ function statusBadge(status){
   return '<span class="status-badge s-'+status+'">'+(labels[status]||status)+'</span>';
 }
 
-function nurseBookingTable(bookings){
-  if(!bookings.length) return emptyState('Belum ada booking masuk.');
+function nurseBookingTable(bookings, viewerRole){
+  if(!bookings.length) return emptyState(viewerRole==='patient' ? 'Belum ada booking. <a href="#perawat">Cari perawat sekarang</a>.' : 'Belum ada booking masuk.');
   return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Layanan &amp; Tanggal</th><th>Durasi</th><th>Anda Terima</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
-    bookings.map(b=>'<tr><td><div style="font-size:.84rem;font-weight:600">'+esc(b.service)+'</div><div style="font-size:.74rem;color:var(--soft);margin-top:2px">'+esc(b.date)+' &middot; '+esc(b.time)+'</div></td><td style="font-size:.82rem">'+b.duration+' jam</td><td style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap">'+rpFmt(b.nursePay||Math.round((b.totalCost||0)*0.8))+'</td><td>'+statusBadge(b.status)+'</td><td style="white-space:nowrap">'+nurseBookingActions(b)+'</td></tr>').join('')+
+    bookings.map(b=>'<tr><td><div style="font-size:.84rem;font-weight:600">'+esc(b.service)+'</div><div style="font-size:.74rem;color:var(--soft);margin-top:2px">'+esc(b.date)+' &middot; '+esc(b.time)+'</div></td><td style="font-size:.82rem">'+b.duration+' jam</td><td style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap">'+rpFmt(b.nursePay||Math.round((b.totalCost||0)*0.8))+'</td><td>'+statusBadge(b.status)+'</td><td style="white-space:nowrap">'+bookingActionsFor(b, viewerRole)+'</td></tr>').join('')+
     '</tbody></table></div>';
 }
 
-function nurseBookingActions(b){
+// viewerRole: 'patient' — pasien lihat booking sendiri, harus bisa langsung bayar
+//             'nurse' (default) — perawat lihat booking masuk, aksi terima/tolak/selesai
+function bookingActionsFor(b, viewerRole){
   var id = b.id;
+  if(viewerRole === 'patient'){
+    if(b.paymentStatus !== 'paid') return payBtnHTML(b.status, id);
+    return '<span style="color:#9CA3AF">—</span>';
+  }
   if(b.paymentStatus !== 'paid'){
     return '<span style="font-size:.72rem;color:var(--soft)">⏳ Menunggu pembayaran pasien</span>';
   }
@@ -1255,7 +1254,7 @@ function afterDash(){ document.getElementById('btnLogout')?.addEventListener('cl
 
 async function renderPatientDash(u){
   const [bookings, donations] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id)]);
-  const spent    = bookings.filter(b=>b.status==='completed').reduce((s,b)=>s+b.totalCost,0);
+  const totalPaid = bookings.filter(b=>b.paymentStatus==='paid').reduce((s,b)=>s+(b.totalCost||0),0);
   const campaignIds = [...new Set(donations.map(d=>d.campaignId).filter(Boolean))];
   const campaignMap = new Map((await Promise.all(campaignIds.map(cid=>Store.getCampaignById(cid)))).filter(Boolean).map(c=>[c.id,c]));
 
@@ -1279,20 +1278,21 @@ async function renderPatientDash(u){
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#FFF7ED"><svg viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg></div>
-          <div><div class="stat-val">${patientBookingTable(bookings)}</div><div class="stat-lbl">Total bayar booking</div></div>
+          <div><div class="stat-val">${rpFmt(totalPaid)}</div><div class="stat-lbl">Total bayar booking</div></div>
         </div>
       </div>
 
       <!-- Bookings table -->
       <div class="dash-section">
         <div class="dash-sh"><h3>Riwayat Booking Perawat</h3><a href="#perawat" class="btn btn-primary btn-sm">+ Booking Baru</a></div>
-        ${nurseBookingTable(bookings)}
+        ${nurseBookingTable(bookings, 'patient')}
+      </div>
 
       <!-- Donations table -->
       <div class="dash-section">
         <div class="dash-sh"><h3>Riwayat Donasi</h3><a href="#donasi" class="btn btn-outline btn-sm">Lihat Campaign</a></div>
         ${patientDonationTable(donations, campaignMap)}
-
+      </div>
     </div>
   </div>`;
   afterDash();
@@ -1335,7 +1335,7 @@ async function renderNurseDash(u){
             <input type="checkbox" id="availToggle" ${p.avail?'checked':''}>
             <span class="toggle-track"></span>
           </label>
-          <span class="toggle-label" id="availLabel">${nurseBookingTable(bookings)}</span>
+          <span class="toggle-label" id="availLabel">${p.avail?'✅ Saya tersedia untuk booking':'⏸ Saya tidak tersedia'}</span>
         </div>
         <p style="font-size:.82rem;color:var(--soft);margin-top:8px">Nonaktifkan jika sedang cuti atau penuh jadwal.</p>
       </div>
@@ -1343,8 +1343,8 @@ async function renderNurseDash(u){
       <!-- Bookings -->
       <div class="dash-section">
         <div class="dash-sh"><h3>Permintaan & Riwayat Booking</h3></div>
-        ${nurseBookingTable(bookings)}
-
+        ${nurseBookingTable(bookings, 'nurse')}
+      </div>
     </div>
   </div>`;
 
