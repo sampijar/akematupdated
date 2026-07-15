@@ -705,16 +705,17 @@ async function renderCampaignDetail(id){
           <a class="btn btn-sm share-wa" id="shareWaLink" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>
         </div>
 
-        <!-- Campaign bank info -->
+        <!-- Campaign penerima dana — nomor rekening TIDAK ditampilkan ke publik.
+             Semua donasi wajib lewat payment gateway platform (iPaymu), bukan
+             transfer langsung, jadi pengunjung cukup tahu program terverifikasi
+             + atas nama siapa dananya, tanpa data rekening mentah. -->
         <div style="background:var(--bg-alt);border-radius:var(--r-sm);padding:14px;margin-bottom:18px">
-          <h4 style="font-family:var(--font-d);font-weight:700;font-size:.85rem;margin:0 0 8px;color:var(--primary)">🏦 Rekening penerima dana campaign</h4>
+          <h4 style="font-family:var(--font-d);font-weight:700;font-size:.85rem;margin:0 0 8px;color:var(--primary)">🏦 Penerima Dana Campaign</h4>
           ${c.bankInfo?.accountNumber
-            ? '<div style="display:flex;gap:20px;flex-wrap:wrap">'+
-               '<div><span style="font-size:.76rem;color:var(--soft);display:block">Bank</span><strong>'+esc(c.bankInfo.bankName)+'</strong></div>'+
-               '<div><span style="font-size:.76rem;color:var(--soft);display:block">No. Rekening</span><strong style="font-family:Courier New,monospace">'+esc(c.bankInfo.accountNumber)+'</strong></div>'+
-               '<div><span style="font-size:.76rem;color:var(--soft);display:block">Atas Nama</span><strong>'+esc(c.bankInfo.accountName)+'</strong></div></div>'+
-               (c.bankInfo.verified?'<span class="bank-status verified" style="margin-top:8px;display:inline-flex">✓ Rekening terverifikasi</span>':'<span class="bank-status pending" style="margin-top:8px;display:inline-flex">⏳ Verifikasi rekening</span>')
-            : '<p style="margin:0;font-size:.84rem;color:var(--soft)">Rekening belum diisi. Dana akan ditransfer setelah pemilik campaign melengkapi data rekening.</p>'}
+            ? '<div><span style="font-size:.76rem;color:var(--soft);display:block">Atas Nama</span><strong>'+esc(c.bankInfo.accountName)+'</strong></div>'+
+               (c.bankInfo.verified?'<span class="bank-status verified" style="margin-top:8px;display:inline-flex">✓ Program sudah terverifikasi</span>':'<span class="bank-status pending" style="margin-top:8px;display:inline-flex">⏳ Program menunggu verifikasi</span>')+
+               '<p style="margin:8px 0 0;font-size:.74rem;color:var(--soft)">Donasi diproses aman lewat payment gateway resmi Akemat Foundation, bukan transfer langsung ke rekening pribadi.</p>'
+            : '<p style="margin:0;font-size:.84rem;color:var(--soft)">Menunggu kelengkapan data penerima. Dana akan dicairkan setelah verifikasi selesai.</p>'}
         </div>
 
         <h3 style="margin-bottom:12px">Cerita Campaign</h3>
