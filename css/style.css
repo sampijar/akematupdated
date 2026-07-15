@@ -77,8 +77,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 
 /* ── Hero ────────────────────────────────────────────────── */
 .hero{padding:64px 0 48px}
-.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center}
 .hero h1{margin-bottom:16px}
+.hero-art svg{width:100%;height:auto}
 .hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
 
 /* ── Role cards ─────────────────────────────────────────── */
@@ -332,14 +333,14 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .footer-bottom p{margin:0;color:#90A89E}
 
 /* ── Nurse detail ────────────────────────────────────────── */
-.nurse-detail-wrap{display:grid;grid-template-columns:1fr 310px;gap:28px;padding:36px 0 72px;align-items:start}
+.nurse-detail-wrap{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:28px;padding:36px 0 72px;align-items:start}
 .nurse-profile-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:26px;margin-bottom:18px}
 .npro-head{display:flex;gap:18px;align-items:flex-start}
 .npro-big-avatar{width:72px;height:72px;border-radius:50%;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-weight:800;font-size:1.6rem;color:var(--primary);flex-shrink:0}
 .npro-name{font-size:1.3rem;font-weight:800;margin-bottom:4px}
 .npro-spec{color:var(--soft);font-size:.9rem;margin-bottom:8px}
-.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:20px}
-.tab-btn{padding:9px 18px;font-family:var(--font-d);font-weight:600;font-size:.84rem;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--soft);cursor:pointer;margin-bottom:-2px;transition:var(--tr)}
+.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:20px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab-btn{padding:9px 18px;font-family:var(--font-d);font-weight:600;font-size:.84rem;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--soft);cursor:pointer;margin-bottom:-2px;transition:var(--tr);white-space:nowrap;flex-shrink:0}
 .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
 .tab-pane{display:none}.tab-pane.active{display:block}
 .book-widget{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:22px;position:sticky;top:calc(var(--hh) + 16px)}
@@ -347,7 +348,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .book-price small{font-size:.82rem;font-weight:500;color:var(--soft)}
 
 /* ── Campaign detail ─────────────────────────────────────── */
-.cam-detail-wrap{display:grid;grid-template-columns:1fr 320px;gap:28px;padding:36px 0 72px;align-items:start}
+.cam-detail-wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;padding:36px 0 72px;align-items:start}
 .cam-story-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:26px;margin-bottom:18px}
 .cam-story p{font-size:.93rem;line-height:1.75;color:var(--ink)}
 .donate-widget{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:22px;position:sticky;top:calc(var(--hh) + 16px)}
@@ -361,36 +362,36 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media(max-width:1020px){
-  .hero-grid,.nurse-detail-wrap,.cam-detail-wrap{grid-template-columns:1fr}
+  .hero-grid,.nurse-detail-wrap,.cam-detail-wrap{grid-template-columns:minmax(0,1fr)}
   .book-widget,.donate-widget{position:static}
   .hero-art{max-width:280px;margin:0 auto;order:-1}
-  .footer-inner{grid-template-columns:1fr 1fr}
+  .footer-inner{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .footer-brand{grid-column:1/-1}
-  .stat-row{grid-template-columns:repeat(2,1fr)}
+  .stat-row{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:780px){
-  .role-grid,.stats-grid{grid-template-columns:1fr 1fr}
-  .dash-wrap{grid-template-columns:1fr}
+  .role-grid,.stats-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .dash-wrap{grid-template-columns:minmax(0,1fr)}
   .sidebar{position:relative;top:0;height:auto;padding:12px}
   .sidebar.mobile-collapsed .sb-nav,.sidebar.mobile-collapsed .sb-footer{display:none}
   .sb-user{display:flex;align-items:center;gap:12px;padding:8px}
   .sb-avatar{margin:0}
   .dash-main{padding:18px}
-  .stat-row{grid-template-columns:1fr}
+  .stat-row{grid-template-columns:minmax(0,1fr)}
   .nav{position:absolute;top:100%;left:0;right:0;background:var(--bg);border-bottom:1px solid var(--border);flex-direction:column;align-items:stretch;padding:14px 20px 18px;gap:14px;display:none}
   .nav[data-open="true"]{display:flex}
   .nav ul{flex-direction:column;gap:12px}
   .nav-toggle{display:flex}
-  .role-pick-grid{grid-template-columns:repeat(3,1fr)}
-  .nurse-grid,.campaign-grid{grid-template-columns:1fr}
-  .footer-inner{grid-template-columns:1fr}
-  .profile-grid{grid-template-columns:1fr}
+  .role-pick-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .nurse-grid,.campaign-grid{grid-template-columns:minmax(0,1fr)}
+  .footer-inner{grid-template-columns:minmax(0,1fr)}
+  .profile-grid{grid-template-columns:minmax(0,1fr)}
   .profile-grid .full{grid-column:1}
-  .amount-grid{grid-template-columns:1fr 1fr 1fr}
+  .amount-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:480px){
-  .role-grid,.stats-grid,.role-pick-grid{grid-template-columns:1fr}
-  .amount-grid{grid-template-columns:1fr 1fr}
+  .role-grid,.stats-grid,.role-pick-grid{grid-template-columns:minmax(0,1fr)}
+  .amount-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 

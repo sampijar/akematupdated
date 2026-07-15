@@ -212,8 +212,8 @@ async function renderHome(){
   <!-- Active campaigns preview -->
   <section class="pub-section">
     <div class="container">
-      <div class="section-head" style="display:flex;justify-content:space-between;align-items:flex-end">
-        <div>
+      <div class="section-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
+        <div style="min-width:0">
           <p class="eyebrow">Campaign donasi aktif</p>
           <h2>Mereka membutuhkan bantuan Anda</h2>
         </div>
@@ -343,7 +343,7 @@ async function renderNurseDetail(id){
       <div class="nurse-profile-card">
         <div class="npro-head">
           <div class="npro-big-avatar">${initials(n.name)}</div>
-          <div style="flex:1">
+          <div style="flex:1;min-width:0">
             <div class="npro-name">${esc(n.name)}</div>
             <div class="npro-spec">${specBadge(p.specialty)}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
