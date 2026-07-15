@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "org.akematfoundation.www.twa",
+        "sha256_cert_fingerprints": ["58:9F:B0:8D:8A:8F:9C:CC:67:80:17:92:8C:54:4E:8C:4B:60:6B:79:22:AB:B9:71:62:31:94:4A:D5:D0:38:13"]
+      }
+    }]

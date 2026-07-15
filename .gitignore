@@ -2,3 +2,14 @@
 .env.local
 .netlify/
 node_modules/
+
+# Android signing material / build output — NEVER commit these.
+# Losing the keystore means you can never publish an update to this
+# app on Google Play again; a leaked one lets anyone sign as you.
+# Keep signing.keystore + signing-key-info.txt in a password manager
+# or offline backup instead.
+*.keystore
+key.properties
+signing-key-info.txt
+*.aab
+*.apk
