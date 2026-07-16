@@ -30,7 +30,7 @@ const API_BASE = '/api';
 // manual, jadi selalu ikut ter-refresh mengikuti siklus sesi Supabase.
 async function apiFetch(endpoint, body) {
   const headers = { 'Content-Type': 'application/json' };
-  if (endpoint === 'db' && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
+  if ((endpoint === 'db' || endpoint === 'admin') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
     try {
       const { data } = await SupabaseAuth.client.auth.getSession();
       if (data?.session?.access_token) headers['Authorization'] = 'Bearer ' + data.session.access_token;

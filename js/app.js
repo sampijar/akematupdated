@@ -147,6 +147,7 @@ async function route(){
     case 'profil':   await renderProfile();     break;
     case 'tnc':      renderTNC();         break;
     case 'faq':      renderFAQ();         break;
+    case 'admin':    await renderAdminDash(); break;
     default:         await renderHome();
   }
   // Restart animasi fade-in tiap ganti halaman (class sudah ada = tidak replay
@@ -1321,6 +1322,74 @@ function bankStatusSection(u){
     '</div>'+
     '<p style="font-size:.78rem;color:var(--soft);margin:6px 0 12px">Verifikasi dalam 1×24 jam kerja.</p>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveBank">Simpan Data Rekening</button></div>';
+}
+
+// ── Admin: review manual KTP & campaign (akses dibatasi server-side
+// lewat ADMIN_EMAILS di api/admin.js, bukan lewat role di tabel users —
+// lihat catatan keamanan di file itu) ─────────────────────────
+async function renderAdminDash(){
+  const u = Store.getCurrentUser();
+  if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
+  app.innerHTML = '<div class="container" style="padding:40px 20px;text-align:center"><p>Memuat…</p></div>';
+
+  let ktps = [], camps = [];
+  try {
+    const [rk, rc] = await Promise.all([
+      apiFetch('admin', { action:'listPendingKtp' }),
+      apiFetch('admin', { action:'listPendingCampaigns' }),
+    ]);
+    ktps  = rk.data  || [];
+    camps = rc.data || [];
+  } catch(e) {
+    app.innerHTML = '<div class="container" style="padding:60px 20px;text-align:center;max-width:420px;margin:0 auto">'+
+      '<div style="font-size:2.5rem;margin-bottom:10px">🔒</div>'+
+      '<h2>Akses Ditolak</h2>'+
+      '<p style="color:var(--soft);margin:8px 0 20px">'+esc(e.message||'Akun ini tidak punya akses admin.')+'</p>'+
+      '<a href="#" class="btn btn-primary">Kembali ke Beranda</a></div>';
+    return;
+  }
+
+  function ktpCard(k){
+    return '<div class="dash-section" style="margin-bottom:12px">'+
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+
+      (k.ktp_url?'<img src="'+k.ktp_url+'" alt="Foto KTP" style="width:160px;border-radius:var(--r-sm);border:1px solid var(--border)" />':'<div style="width:160px;height:100px;background:var(--bg-alt);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:.76rem">Tidak ada foto</div>')+
+      '<div style="flex:1;min-width:180px">'+
+      '<div style="font-family:var(--font-d);font-weight:700">'+esc(k.name)+'</div>'+
+      '<div style="font-size:.8rem;color:var(--soft)">'+esc(k.email)+' · '+esc(k.phone||'—')+'</div>'+
+      '<div style="font-size:.74rem;color:var(--soft);margin-top:4px">Diunggah: '+esc((k.created_at||'').slice(0,10))+'</div>'+
+      '<div class="acts" style="margin-top:10px;display:flex;gap:8px">'+
+      '<button class="btn btn-primary btn-sm" data-approve-ktp="'+k.id+'">✓ Setujui</button>'+
+      '<button class="btn btn-outline btn-sm" data-reject-ktp="'+k.id+'">✕ Tolak</button>'+
+      '</div></div></div></div>';
+  }
+  function campCard(c){
+    return '<div class="dash-section" style="margin-bottom:12px">'+
+      '<div style="font-family:var(--font-d);font-weight:700">'+esc(c.title)+'</div>'+
+      '<div style="font-size:.8rem;color:var(--soft)">oleh '+esc(c.creator_name)+' · target '+rpFmt(c.target)+'</div>'+
+      '<div style="font-size:.8rem;margin-top:6px">🏦 '+esc(c.bank_name||'—')+' — '+esc(c.bank_account_number||'—')+' a.n. '+esc(c.bank_account_name||'—')+'</div>'+
+      '<div class="acts" style="margin-top:10px;display:flex;gap:8px">'+
+      '<button class="btn btn-primary btn-sm" data-approve-camp="'+c.id+'">✓ Setujui</button>'+
+      '<button class="btn btn-danger btn-sm" data-delete-camp="'+c.id+'">🗑 Hapus</button>'+
+      '</div></div>';
+  }
+
+  app.innerHTML = '<div class="container" style="padding:32px 20px;max-width:760px;margin:0 auto">'+
+    '<h2 style="margin-bottom:4px">Panel Admin</h2>'+
+    '<p style="color:var(--soft);font-size:.86rem;margin-bottom:24px">Review manual — dipakai sampai verifikasi otomatis dibangun (kalau nanti diputuskan).</p>'+
+    '<h3 style="margin-bottom:10px">🪪 KTP Menunggu Verifikasi ('+ktps.length+')</h3>'+
+    (ktps.length ? ktps.map(ktpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
+    '<h3 style="margin:24px 0 10px">💰 Campaign Menunggu Verifikasi ('+camps.length+')</h3>'+
+    (camps.length ? camps.map(campCard).join('') : '<p style="color:var(--soft);font-size:.84rem">Tidak ada yang menunggu.</p>')+
+    '</div>';
+
+  async function runAction(action, id, okMsg){
+    try { await apiFetch('admin', { action, id }); toast(okMsg,'s'); renderAdminDash(); }
+    catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
+  }
+  document.querySelectorAll('[data-approve-ktp]').forEach(b=>b.addEventListener('click',()=>runAction('approveKtp', b.dataset.approveKtp, 'KTP disetujui.')));
+  document.querySelectorAll('[data-reject-ktp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Tolak KTP ini? Status kembali ke belum diunggah.')) runAction('rejectKtp', b.dataset.rejectKtp, 'KTP ditolak.'); }));
+  document.querySelectorAll('[data-approve-camp]').forEach(b=>b.addEventListener('click',()=>runAction('approveCampaign', b.dataset.approveCamp, 'Campaign disetujui.')));
+  document.querySelectorAll('[data-delete-camp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Hapus campaign ini? Tidak bisa dibatalkan.')) runAction('deleteCampaign', b.dataset.deleteCamp, 'Campaign dihapus.'); }));
 }
 
 function ktpSection(u){
