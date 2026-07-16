@@ -413,7 +413,7 @@ function nurseCard(n){
     <div class="nc-price">${rpFmt(p.price)} <small>/ jam</small></div>
     <div class="nc-actions">
       <a href="#perawat/${n.id}" class="btn btn-outline btn-sm">Lihat profil</a>
-      ${p.avail?'<button class="btn btn-primary btn-sm" onclick="openBookingModal(\''+n.id+'\')">Pesan</button>':'<button class="btn btn-ghost btn-sm" disabled>Tidak tersedia</button>'}
+      ${p.avail?'<button class="btn btn-primary btn-sm" onclick="openBookingModal(\''+n.id+'\')">Buat Janji</button>':'<button class="btn btn-ghost btn-sm" disabled>Tidak tersedia</button>'}
     </div>
   </div>`;
 }
@@ -492,7 +492,7 @@ async function renderNurseDetail(id){
     <!-- Booking widget -->
     <div>
       <div class="book-widget">
-        <h3>Pesan ${esc(n.name.split(',')[0])}</h3>
+        <h3>Buat Janji Temu dengan ${esc(n.name.split(',')[0])}</h3>
         <div class="book-price">${rpFmt(p.price)} <small>/ jam</small></div>
 
         ${!p.avail ? '<div class="bank-warning">⚠️ Perawat ini sedang tidak tersedia. Coba cari perawat lain.</div>' : ''}
@@ -549,7 +549,7 @@ async function renderNurseDetail(id){
         </div>
 
         <button class="btn btn-primary btn-full" id="btnBook" ${!p.avail?'disabled':''}>
-          Pesan Sekarang
+          Buat Janji Temu
         </button>
         <p style="font-size:.72rem;color:var(--soft);text-align:center;margin-top:8px;line-height:1.5">
           Pembayaran dikonfirmasi via WhatsApp setelah booking. 
@@ -973,7 +973,7 @@ function renderRegister(){
         <div class="role-pick active" data-role="patient">
           <div class="role-pick-icon">🏠</div>
           <div class="role-pick-name">Pasien</div>
-          <div class="role-pick-desc">Cari &amp; pesan perawat</div>
+          <div class="role-pick-desc">Cari &amp; buat janji temu dengan perawat</div>
         </div>
         <div class="role-pick" data-role="nurse">
           <div class="role-pick-icon">👨‍⚕️</div>
