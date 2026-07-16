@@ -77,7 +77,11 @@ function toast(msg, type=''){
   t.textContent = msg;
   t.className = 'vis' + (type ? ' t'+type[0] : '');
   clearTimeout(t._t);
-  t._t = setTimeout(()=>{ t.className=''; }, 3500);
+  // Cuma lepas 'vis' (posisi/visibilitas) saat sembunyi, JANGAN lepas kelas
+  // warnanya (te/ts) — kalau semuanya di-reset sekaligus, warnanya balik ke
+  // default (hijau tua) duluan sebelum animasi slide-out selesai, jadi
+  // toast merah kelihatan "berubah jadi hijau" pas lagi turun.
+  t._t = setTimeout(()=>{ t.classList.remove('vis'); }, 3500);
 }
 
 function daysLeft(dateStr){
@@ -1760,8 +1764,8 @@ async function renderProfile(){
 }
 
 // ── Modals ──────────────────────────────────────────────────
-function openModal(id)  { document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); document.body.style.overflow=''; }
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; document.body.classList.add('modal-open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); document.body.style.overflow=''; document.body.classList.remove('modal-open'); }
 
 async function openDonateModal(campaignId){
   const u   = Store.getCurrentUser();

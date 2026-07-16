@@ -312,6 +312,11 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 /* ── Toast ───────────────────────────────────────────────── */
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--primary);color:#fff;padding:11px 22px;border-radius:999px;font-family:var(--font-d);font-weight:600;font-size:.84rem;box-shadow:var(--sh-md);z-index:200;transition:transform .3s ease;white-space:nowrap}
 #toast.vis{transform:translateX(-50%) translateY(0)}
+/* Toast fixed di bawah viewport nabrak tombol CTA modal (mis. "Konfirmasi
+   Donasi") kalau modal lagi terbuka — pindah ke atas supaya tidak tumpang
+   tindih dengan tombol/isi modal. */
+body.modal-open #toast{bottom:auto;top:14px;transform:translateX(-50%) translateY(-60px)}
+body.modal-open #toast.vis{transform:translateX(-50%) translateY(0)}
 #toast.ts{background:var(--success)}
 #toast.te{background:var(--danger)}
 
