@@ -3,10 +3,27 @@
  * Backend API untuk operasi database Supabase
  * URL: /api/db
  *
+ * KEAMANAN — PENTING:
+ * Endpoint ini dulunya proxy generik TANPA otentikasi ke Supabase pakai
+ * service role key (yang melewati Row Level Security sepenuhnya) — siapa pun
+ * yang tahu bentuk request-nya bisa baca/ubah/hapus SELURUH data (KTP,
+ * rekening bank, status pembayaran "paid", role akun) tanpa login sama
+ * sekali. Sekarang setiap request WAJIB menyertakan token sesi Supabase Auth
+ * (header Authorization: Bearer <access_token>, dikirim otomatis oleh
+ * js/api.js), dan setiap tabel punya aturan eksplisit di bawah: kolom
+ * sensitif (role, ktp_status, bank_verified, is_verified, payment_status,
+ * dst.) TIDAK PERNAH dipercaya dari input klien, dan filter kepemilikan
+ * baris (mis. "cuma boleh update booking milik sendiri") dipaksa dari sisi
+ * server, bukan dari filters yang dikirim klien.
+ *
+ * Status pembayaran "paid" TIDAK BISA diset lewat endpoint ini sama sekali —
+ * itu cuma boleh terjadi lewat api/doku-payment.js action:'confirm', yang
+ * memverifikasi ulang langsung ke DOKU sebelum mengkreditkan apa pun.
+ *
  * CARA SETUP SUPABASE:
  * 1. Daftar di https://supabase.com (gratis)
  * 2. Buat project baru
- * 3. Buka Settings → API → copy URL dan anon key
+ * 3. Buka Settings → API → copy URL, anon key, dan service_role key
  * 4. Di Vercel Dashboard → Project → Settings → Environment Variables, tambahkan:
  *    SUPABASE_URL = https://xxxx.supabase.co
  *    SUPABASE_ANON_KEY = eyJxxx...
@@ -14,79 +31,231 @@
  * 5. Push ke GitHub → Vercel auto-deploy
  */
 
+const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
+const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
+
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
+
+// Verifikasi token sesi Supabase Auth yang dikirim klien. Balik null kalau
+// tidak ada/tidak valid — dipakai sebagai "anonymous", BUKAN error, karena
+// beberapa aksi (baca data publik, donasi tamu) memang boleh tanpa login.
+async function getAuthUser(req) {
+  const auth  = req.headers['authorization'] || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!token) return null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return u?.id ? u : null;
+  } catch { return null; }
+}
+
+async function sbRequest(pathAndQuery, method, bodyObj, extraHeaders) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${SERVICE_KEY}`,
+    'apikey': SERVICE_KEY,
+    'Prefer': 'return=representation',
+    ...(extraHeaders || {}),
+  };
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${pathAndQuery}`, {
+    method, headers, body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined,
+  });
+  const text = await r.text();
+  let data; try { data = JSON.parse(text); } catch { data = text; }
+  return { ok: r.ok, status: r.status, data };
+}
+
+const PUBLIC_USER_FIELDS = 'id,name,role,created_at';
+const OWN_USER_FIELDS    = 'id,name,email,phone,role,address,organization,ktp_status,bank_name,bank_account_number,bank_account_name,bank_verified,created_at';
 
 module.exports = async (req, res) => {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
-
-  // SUPABASE_SERVICE_ROLE_KEY = nama yang dipakai integrasi otomatis Vercel⇄Supabase;
-  // SUPABASE_SERVICE_KEY = nama yang dipakai dokumentasi kita sendiri. Terima dua-duanya
-  // supaya tidak bergantung pada mana yang kebetulan di-set duluan.
-  const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
-  const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
-
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return res.status(500).json({ error: 'Database belum dikonfigurasi. Set SUPABASE_URL dan SUPABASE_SERVICE_KEY (atau SUPABASE_SERVICE_ROLE_KEY) di Vercel Environment Variables.' });
   }
 
   const body = typeof req.body === 'object' && req.body ? req.body : {};
   const { action, table, data, filters, id } = body;
-  const base = `${SUPABASE_URL}/rest/v1/${table}`;
-  const headers = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${SERVICE_KEY}`,
-    'apikey': SERVICE_KEY,
-    'Prefer': 'return=representation',
-  };
+  if (!action || !table) return res.status(400).json({ error: 'action dan table wajib diisi' });
+
+  const authUser = await getAuthUser(req);
+  const uid = authUser?.id || null;
+  const denied = () => res.status(403).json({ error: 'Tidak diizinkan.' });
+  const authRequired = () => res.status(401).json({ error: 'Silakan login terlebih dahulu.' });
 
   try {
-    let url = base;
-    let method = 'GET';
-    let reqBody;
-
-    if (action === 'select') {
-      const params = new URLSearchParams(filters || {});
-      url = `${base}?${params}`;
-      method = 'GET';
-    } else if (action === 'insert') {
-      method = 'POST';
-      reqBody = JSON.stringify(data);
-    } else if (action === 'update') {
-      // filters (mis. { reference_id: 'eq.xxx' }) diutamakan; fallback ke id tunggal.
-      const params = new URLSearchParams(filters || (id ? { id: `eq.${id}` } : {}));
-      if (![...params.keys()].length) return res.status(400).json({ error: 'update butuh id atau filters' });
-      url = `${base}?${params}`;
-      method = 'PATCH';
-      reqBody = JSON.stringify(data);
-    } else if (action === 'delete') {
-      const params = new URLSearchParams(filters || (id ? { id: `eq.${id}` } : {}));
-      if (![...params.keys()].length) return res.status(400).json({ error: 'delete butuh id atau filters' });
-      url = `${base}?${params}`;
-      method = 'DELETE';
-    } else if (action === 'upsert') {
-      method = 'POST';
-      headers['Prefer'] = 'resolution=merge-duplicates,return=representation';
-      reqBody = JSON.stringify(data);
-    } else if (action === 'rpc') {
-      // Panggil Postgres function lewat PostgREST, untuk operasi yang butuh atomicity
-      // (mis. increment_campaign) yang tidak aman dilakukan lewat read-then-write biasa.
-      url = `${SUPABASE_URL}/rest/v1/rpc/${table}`;
-      method = 'POST';
-      reqBody = JSON.stringify(data || {});
-    } else {
-      return res.status(400).json({ error: `action tidak dikenal: ${action}` });
+    // ── users ──────────────────────────────────────────────
+    if (table === 'users') {
+      if (action === 'select') {
+        const own = uid && filters?.id === `eq.${uid}`;
+        const params = new URLSearchParams(filters || {});
+        params.set('select', own ? OWN_USER_FIELDS : PUBLIC_USER_FIELDS);
+        const r = await sbRequest(`users?${params}`, 'GET');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'update') {
+        if (!uid) return authRequired();
+        const clean = { ...data };
+        // Field sensitif TIDAK PERNAH boleh diset lewat request klien biasa.
+        delete clean.role; delete clean.bank_verified; delete clean.total_disbursed;
+        if ('ktp_status' in clean && clean.ktp_status !== 'uploaded' && clean.ktp_status !== 'pending') delete clean.ktp_status;
+        const params = new URLSearchParams({ id: `eq.${uid}` }); // paksa hanya baris sendiri, abaikan filters/id dari klien
+        const r = await sbRequest(`users?${params}`, 'PATCH', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied(); // insert (lewat auth-register.js) & delete tidak diizinkan lewat endpoint ini
     }
 
-    const r = await fetch(url, { method, headers, body: reqBody });
-    const result = await r.json();
+    // ── nurse_profiles ─────────────────────────────────────
+    if (table === 'nurse_profiles') {
+      if (action === 'select') {
+        const params = new URLSearchParams(filters || {});
+        const r = await sbRequest(`nurse_profiles?${params}`, 'GET');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'update') {
+        if (!uid) return authRequired();
+        const clean = { ...data };
+        delete clean.is_verified;
+        const params = new URLSearchParams({ user_id: `eq.${uid}` });
+        const r = await sbRequest(`nurse_profiles?${params}`, 'PATCH', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied();
+    }
 
-    if (!r.ok) return res.status(r.status).json({ error: result });
-    return res.status(200).json({ success: true, data: result });
+    // ── campaigns ──────────────────────────────────────────
+    if (table === 'campaigns') {
+      if (action === 'select') {
+        const params = new URLSearchParams(filters || {});
+        const r = await sbRequest(`campaigns?${params}`, 'GET');
+        // Nomor rekening penerima campaign sengaja tidak ditampilkan ke publik
+        // di UI (lihat komentar di js/app.js) — tapi kalau kolomnya ikut
+        // kebawa di response API, siapa pun bisa baca langsung lewat network
+        // tab. Buang di sini kecuali yang minta adalah pemilik campaign-nya.
+        if (r.ok && Array.isArray(r.data)) {
+          r.data = r.data.map(row => row.created_by === uid ? row : { ...row, bank_account_number: undefined });
+        }
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'insert') {
+        if (!uid) return authRequired();
+        const clean = { ...data, created_by: uid, is_verified: false, bank_verified: false, current: 0, donor_count: 0 };
+        const r = await sbRequest('campaigns', 'POST', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'update') {
+        if (!uid) return authRequired();
+        const targetId = id || filters?.id?.replace(/^eq\./, '');
+        if (!targetId) return res.status(400).json({ error: 'id wajib' });
+        const clean = { ...data };
+        delete clean.is_verified; delete clean.current; delete clean.donor_count; delete clean.total_disbursed; delete clean.created_by;
+        if (clean.bank_verified !== undefined) clean.bank_verified = false; // edit rekening selalu reset status verifikasi
+        const params = new URLSearchParams({ id: `eq.${targetId}`, created_by: `eq.${uid}` });
+        const r = await sbRequest(`campaigns?${params}`, 'PATCH', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied();
+    }
+
+    // ── bookings ───────────────────────────────────────────
+    if (table === 'bookings') {
+      if (action === 'select') {
+        if (!uid) return authRequired();
+        const params = new URLSearchParams(filters || {});
+        params.delete('patient_id'); params.delete('nurse_id');
+        params.set('or', `(patient_id.eq.${uid},nurse_id.eq.${uid})`);
+        const r = await sbRequest(`bookings?${params}`, 'GET');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'insert') {
+        if (!uid) return authRequired();
+        const clean = { ...data, patient_id: uid, status: 'pending', payment_status: 'unpaid' };
+        delete clean.transaction_id; delete clean.reference_id;
+        const r = await sbRequest('bookings', 'POST', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'update') {
+        if (!uid) return authRequired();
+        const targetId = id || filters?.id?.replace(/^eq\./, '');
+        if (!targetId) return res.status(400).json({ error: 'id wajib' });
+        const clean = { ...data };
+        // Status pembayaran cuma boleh berubah lewat doku-payment.js action:'confirm'
+        // (yang cek ulang ke DOKU langsung), bukan lewat endpoint umum ini.
+        delete clean.payment_status; delete clean.transaction_id; delete clean.reference_id;
+        delete clean.total_cost; delete clean.platform_fee; delete clean.nurse_pay;
+        delete clean.patient_id; delete clean.nurse_id;
+        const params = new URLSearchParams({ id: `eq.${targetId}` });
+        params.set('or', `(patient_id.eq.${uid},nurse_id.eq.${uid})`);
+        const r = await sbRequest(`bookings?${params}`, 'PATCH', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied();
+    }
+
+    // ── donations ──────────────────────────────────────────
+    // Baca publik (dipakai buat "Donatur terakhir" di halaman campaign, boleh
+    // tanpa login termasuk oleh donatur anonim). Insert/update TIDAK diizinkan
+    // sama sekali lewat endpoint ini — donasi "paid" cuma dibuat oleh
+    // api/doku-payment.js action:'confirm' setelah verifikasi ulang ke DOKU.
+    if (table === 'donations') {
+      if (action === 'select') {
+        const params = new URLSearchParams(filters || {});
+        const r = await sbRequest(`donations?${params}`, 'GET');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied();
+    }
+
+    // ── payouts ────────────────────────────────────────────
+    if (table === 'payouts') {
+      if (!uid) return authRequired();
+      if (action === 'select') {
+        if (filters?.recipient_type === 'eq.nurse') {
+          const params = new URLSearchParams(filters);
+          params.set('user_id', `eq.${uid}`);
+          const r = await sbRequest(`payouts?${params}`, 'GET');
+          return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+        }
+        if (filters?.recipient_type === 'eq.campaign_owner') {
+          const own = await sbRequest(`campaigns?created_by=eq.${uid}&select=id`, 'GET');
+          const ids = (own.data || []).map(c => c.id);
+          if (!ids.length) return res.status(200).json({ success: true, data: [] });
+          const params = new URLSearchParams(filters);
+          params.set('campaign_id', `in.(${ids.join(',')})`);
+          const r = await sbRequest(`payouts?${params}`, 'GET');
+          return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+        }
+        return denied();
+      }
+      if (action === 'insert') {
+        const clean = { ...data };
+        delete clean.status;
+        if (clean.recipient_type === 'nurse') {
+          clean.user_id = uid; clean.campaign_id = null;
+        } else if (clean.recipient_type === 'campaign_owner') {
+          const own = await sbRequest(`campaigns?id=eq.${clean.campaign_id}&created_by=eq.${uid}&select=id`, 'GET');
+          if (!own.data?.length) return denied();
+          clean.user_id = null;
+        } else {
+          return res.status(400).json({ error: 'recipient_type tidak valid' });
+        }
+        const r = await sbRequest('payouts', 'POST', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied();
+    }
+
+    return res.status(400).json({ error: `Tabel/aksi tidak diizinkan lewat endpoint ini: ${table}.${action}` });
 
   } catch (err) {
     console.error('[db]', err);

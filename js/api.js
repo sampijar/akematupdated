@@ -24,10 +24,21 @@
 const API_BASE = '/api';
 
 // ── Generic fetch helper ────────────────────────────────────
+// Endpoint 'db' butuh token sesi Supabase Auth supaya api/db.js bisa
+// memverifikasi siapa yang memanggil (lihat keamanan di api/db.js) — token
+// diambil langsung dari sesi aktif SupabaseAuth.client, bukan disimpan
+// manual, jadi selalu ikut ter-refresh mengikuti siklus sesi Supabase.
 async function apiFetch(endpoint, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (endpoint === 'db' && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
+    try {
+      const { data } = await SupabaseAuth.client.auth.getSession();
+      if (data?.session?.access_token) headers['Authorization'] = 'Bearer ' + data.session.access_token;
+    } catch { /* tetap lanjut tanpa token — request publik masih boleh jalan */ }
+  }
   const res  = await fetch(`${API_BASE}/${endpoint}`, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body:    JSON.stringify(body),
   });
   const text = await res.text();

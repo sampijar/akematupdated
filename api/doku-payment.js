@@ -22,6 +22,30 @@ const SECRET_KEY  = process.env.DOKU_SECRET_KEY?.trim();
 const ENV         = process.env.DOKU_ENV?.trim() || 'sandbox';
 const BASE        = ENV === 'production' ? 'https://api.doku.com' : 'https://api-sandbox.doku.com';
 
+// Dipakai action:'confirm' buat mengkreditkan donasi/booking LANGSUNG di sini
+// (bukan lewat api/db.js) setelah verifikasi ulang ke DOKU — supaya status
+// "paid" tidak pernah bisa dipalsukan dari klien (lihat catatan keamanan di
+// api/db.js, yang sekarang menolak semua tulis payment_status).
+const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
+const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
+const FEE_DONATION = 0.05;
+
+async function sb(pathAndQuery, method, bodyObj) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${pathAndQuery}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SERVICE_KEY}`,
+      'apikey': SERVICE_KEY,
+      'Prefer': 'return=representation',
+    },
+    body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined,
+  });
+  const text = await r.text();
+  let data; try { data = JSON.parse(text); } catch { data = text; }
+  return { ok: r.ok, status: r.status, data };
+}
+
 const PAYMENT_PATH = '/checkout/v1/payment';
 // Endpoint cek status non-SNAP DOKU — pola umum {invoiceNumber} di path,
 // signature GET tanpa body. Kalau path ini ternyata beda di dokumentasi
@@ -123,6 +147,59 @@ module.exports = async (req, res) => {
     catch (err) { return res.status(502).json({ error: 'Gagal menghubungi DOKU: ' + err.message }); }
     if (!result.ok) return res.status(502).json({ error: result.data?.response_message || 'Gagal cek status', detail: result.data });
     return res.status(200).json({ success: true, data: result.data });
+  }
+
+  // action:'confirm' — SATU-SATUNYA cara payment_status boleh menjadi "paid".
+  // Verifikasi ulang LANGSUNG ke DOKU pakai referenceId (bukan percaya klaim
+  // klien), lalu kreditkan donasi/booking pakai amount asli dari respons
+  // DOKU (bukan amount yang dikirim klien). Idempoten: aman dipanggil ulang.
+  if (p.action === 'confirm') {
+    const { type, referenceId, campaignId, donorId, donorName, anonymous, bookingId } = p;
+    if (!type || !referenceId) return res.status(400).json({ error: 'type dan referenceId wajib' });
+    if (!SUPABASE_URL || !SERVICE_KEY) return res.status(500).json({ error: 'Database belum dikonfigurasi (SUPABASE_URL / SUPABASE_SERVICE_KEY).' });
+
+    let result;
+    try { result = await dokuGet(STATUS_PATH_PREFIX + encodeURIComponent(referenceId)); }
+    catch (err) { return res.status(502).json({ error: 'Gagal menghubungi DOKU: ' + err.message }); }
+    if (!result.ok) return res.status(502).json({ error: result.data?.response_message || 'Gagal cek status', detail: result.data });
+
+    const d           = result.data;
+    const txStatus     = String(d?.transaction?.status || d?.order?.status || '').toUpperCase();
+    const orderAmount  = Number(d?.order?.amount) || 0;
+    const isPaid        = ['SUCCESS', 'PAID', 'COMPLETED'].includes(txStatus);
+
+    if (!isPaid) return res.status(200).json({ success: true, paid: false, status: txStatus || 'UNKNOWN' });
+
+    if (type === 'booking') {
+      if (!bookingId) return res.status(400).json({ error: 'bookingId wajib untuk konfirmasi booking' });
+      const upd = await sb(`bookings?id=eq.${encodeURIComponent(bookingId)}&payment_status=eq.unpaid`, 'PATCH', {
+        payment_status: 'paid', reference_id: referenceId,
+      });
+      if (!upd.ok) return res.status(502).json({ error: 'Gagal mengkreditkan booking', detail: upd.data });
+      return res.status(200).json({ success: true, paid: true, amount: orderAmount });
+    }
+
+    if (type === 'donation') {
+      if (!campaignId) return res.status(400).json({ error: 'campaignId wajib untuk konfirmasi donasi' });
+      const existing = await sb(`donations?reference_id=eq.${encodeURIComponent(referenceId)}&select=id&limit=1`, 'GET');
+      if (existing.data?.[0]) return res.status(200).json({ success: true, paid: true, amount: orderAmount, alreadyCredited: true });
+
+      const amount      = orderAmount;
+      const platformFee = Math.round(amount * FEE_DONATION);
+      const netAmount    = amount - platformFee;
+      const ins = await sb('donations', 'POST', {
+        campaign_id: campaignId,
+        donor_id: donorId && donorId !== 'guest' ? donorId : null,
+        donor_name: donorName || 'Donatur',
+        amount, platform_fee: platformFee, net_amount: netAmount,
+        is_anonymous: !!anonymous, reference_id: referenceId, payment_status: 'paid',
+      });
+      if (!ins.ok) return res.status(502).json({ error: 'Gagal mencatat donasi', detail: ins.data });
+      await sb('rpc/increment_campaign', 'POST', { p_campaign_id: campaignId, p_amount: amount }).catch(() => {});
+      return res.status(200).json({ success: true, paid: true, amount });
+    }
+
+    return res.status(400).json({ error: 'type tidak dikenal (harus "donation" atau "booking")' });
   }
 
   return res.status(400).json({ error: `action tidak dikenal: ${p.action}` });

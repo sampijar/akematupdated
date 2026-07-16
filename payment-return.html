@@ -67,54 +67,60 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
     det.style.display='block';
     det.innerHTML=rows.map(([l,v])=>`<div class="dr"><span class="lbl">${l}</span><span class="val">${v||'—'}</span></div>`).join('');
   }
-  // Catat pembayaran HANYA setelah DOKU mengonfirmasi status berhasil — ini
-  // satu-satunya tempat donasi/booking dianggap lunas & dikreditkan. Store
-  // memilih backend (Supabase kalau sudah dikonfigurasi, localStorage kalau
-  // belum) sama seperti index.html.
-  async function finalizePaid(tid, a){
-    if (typeof Store === 'undefined' || !stored?.type) return;
-    try {
-      await Store.init();
-      if (stored.type === 'donation' && stored.campaignId) {
-        await Store.addDonation({
-          campaignId: stored.campaignId,
-          donorId: stored.donorId || 'guest',
-          donorName: stored.buyerName || buyer || 'Donatur',
-          amount: Number(stored.amount || a) || 0,
-          anonymous: !!stored.anonymous,
-          referenceId: ref,
-          transactionId: tid,
-          paymentStatus: 'paid',
-        });
-      } else if (stored.type === 'booking' && stored.bookingId) {
-        await Store.updateBooking(stored.bookingId, { paymentStatus: 'paid', transactionId: tid });
-      }
-    } catch(e) { console.error('[finalizePaid]', e); }
-  }
-  async function ok(tid,a){ await finalizePaid(tid,a); ico.textContent='✅'; ttl.textContent='Pembayaran Berhasil!'; dsc.textContent='Terima kasih atas pembayaran Anda. Tim Akemat akan segera menindaklanjuti.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',a?'Rp '+Number(a).toLocaleString('id-ID'):'—'],['Pembayar',buyer]]); acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a><a href="/#dashboard" class="btn btn-o">Dashboard</a>'; sessionStorage.removeItem('akemat_tx'); }
+  function ok(tid,a){ ico.textContent='✅'; ttl.textContent='Pembayaran Berhasil!'; dsc.textContent='Terima kasih atas pembayaran Anda. Tim Akemat akan segera menindaklanjuti.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',a?'Rp '+Number(a).toLocaleString('id-ID'):'—'],['Pembayar',buyer]]); acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a><a href="/#dashboard" class="btn btn-o">Dashboard</a>'; sessionStorage.removeItem('akemat_tx'); }
   function fail(){ ico.textContent='❌'; ttl.textContent='Pembayaran Gagal / Dibatalkan'; dsc.textContent='Transaksi tidak berhasil. Silakan coba lagi atau hubungi kami.'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali</a><a href="https://wa.me/6285196407117" target="_blank" class="btn btn-o">Hubungi WA</a>'; sessionStorage.removeItem('akemat_tx'); }
   function pend(tid){ ico.textContent='⏳'; ttl.textContent='Menunggu Pembayaran'; dsc.textContent='Transaksi menunggu konfirmasi pembayaran.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',amt?'Rp '+Number(amt).toLocaleString('id-ID'):'—']]); note.style.display='block'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a>'; }
 
   const ok_st = ['berhasil','success','paid','1','settlement'];
   const fail_st= ['gagal','failed','cancel','cancelled','expired','order_expired','-1'];
 
-  // Jangan langsung percaya status dari query string redirect DOKU — selalu
-  // konfirmasi ke DOKU langsung lewat invoice_number sebelum mengkreditkan
-  // donasi/booking. urlSt cuma dipakai untuk teks status awal yang lebih
-  // ramah selagi menunggu hasil cek di bawah.
+  // Kredit donasi/booking (menandai "paid") TIDAK PERNAH dilakukan dari
+  // JavaScript di browser ini — itu bisa dipalsukan siapa saja lewat devtools.
+  // Satu-satunya jalan sah: api/doku-payment.js action:'confirm', yang
+  // verifikasi ulang LANGSUNG ke DOKU pakai referenceId sebelum menulis apa
+  // pun ke database (lihat catatan keamanan di file itu & api/db.js).
+  // Mode 'local' (tanpa Supabase, cuma localStorage di browser sendiri) tetap
+  // pakai jalur lama karena tidak ada backend nyata yang perlu diamankan.
   if(trxId){
     chk.textContent='Mengonfirmasi status ke DOKU…';
     try{
+      await (typeof Store !== 'undefined' ? Store.init() : Promise.resolve());
+      const isLocal = typeof Store !== 'undefined' && Store.backend === 'local';
+
+      if (!isLocal && stored?.type) {
+        const r = await fetch('/api/doku-payment', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action:'confirm', type: stored.type, referenceId: trxId,
+            campaignId: stored.campaignId, donorId: stored.donorId,
+            donorName: stored.buyerName || buyer, anonymous: !!stored.anonymous,
+            bookingId: stored.bookingId,
+          }),
+        });
+        const d = await r.json();
+        if (d?.paid) return ok(trxId, d.amount || amt);
+        const st = String(d?.status || '').toLowerCase();
+        if (fail_st.includes(st)) return fail();
+        return pend(trxId);
+      }
+
+      // Fallback lokal (localStorage, tanpa Supabase) — cek status manual & catat sendiri di klien.
       const r=await fetch('/api/doku-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',transactionId:trxId})});
       const d=await r.json();
       const st=String(d?.data?.transaction?.status||d?.data?.order?.status||d?.data?.status||'').toLowerCase();
-      if(ok_st.includes(st)) return await ok(trxId, d?.data?.order?.amount||amt);
-      if(fail_st.includes(st)) return fail();
-      if(ok_st.includes(urlSt.toLowerCase()))  return await ok(trxId, amt);
-      if(fail_st.includes(urlSt.toLowerCase())) return fail();
+      const paidLocal = ok_st.includes(st) || ok_st.includes(urlSt.toLowerCase());
+      if (paidLocal && typeof Store !== 'undefined' && stored?.type) {
+        if (stored.type === 'donation' && stored.campaignId) {
+          await Store.addDonation({ campaignId: stored.campaignId, donorId: stored.donorId||'guest', donorName: stored.buyerName||buyer||'Donatur', amount: Number(stored.amount||d?.data?.order?.amount||amt)||0, anonymous: !!stored.anonymous, referenceId: ref, transactionId: trxId, paymentStatus:'paid' });
+        } else if (stored.type === 'booking' && stored.bookingId) {
+          await Store.updateBooking(stored.bookingId, { paymentStatus:'paid', transactionId: trxId });
+        }
+      }
+      if(paidLocal) return ok(trxId, d?.data?.order?.amount||amt);
+      if(fail_st.includes(st) || fail_st.includes(urlSt.toLowerCase())) return fail();
       pend(trxId);
     }catch{
-      if(ok_st.includes(urlSt.toLowerCase()))  return await ok(trxId, amt);
+      if(ok_st.includes(urlSt.toLowerCase()))  return ok(trxId, amt);
       if(fail_st.includes(urlSt.toLowerCase())) return fail();
       pend(trxId);
     }
