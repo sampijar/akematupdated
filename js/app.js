@@ -1329,12 +1329,13 @@ function ktpSection(u){
   var lbl    = status==='verified' ? '✓ Terverifikasi' : status==='uploaded' ? '⏳ Menunggu verifikasi' : '❌ Belum diunggah';
   return '<div class="dash-section">'+
     '<div class="dash-sh"><h3>📎 Verifikasi Identitas (KTP)</h3><span class="bank-status '+cls+'">'+lbl+'</span></div>'+
-    '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diunggah sebelum janji temu/campaign pertama Anda. Format JPG/PNG/PDF maks. 2MB.</p>'+
+    '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diunggah sebelum janji temu/campaign pertama Anda. Foto KTP (JPG/PNG), maks. 5MB — pastikan foto, NIK, dan alamat terbaca jelas.</p>'+
+    (u.ktpUrl?'<img src="'+u.ktpUrl+'" alt="Foto KTP tersimpan" style="max-width:220px;border-radius:var(--r-sm);border:1px solid var(--border);display:block;margin-bottom:10px" />':'')+
     '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:var(--bg-alt)">'+
     '<span style="font-size:1.4rem">🪪</span>'+
-    '<div><div style="font-family:var(--font-d);font-weight:600;font-size:.84rem;color:var(--primary)" id="ktpFilename">'+(status!=='pending'?'KTP tersimpan — klik untuk ganti':'Pilih file KTP')+'</div>'+
+    '<div><div style="font-family:var(--font-d);font-weight:600;font-size:.84rem;color:var(--primary)" id="ktpFilename">'+(u.ktpUrl?'KTP tersimpan — klik untuk ganti':'Pilih foto KTP')+'</div>'+
     '<div style="font-size:.74rem;color:var(--soft)">Klik untuk upload</div></div>'+
-    '<input type="file" id="profKtp" accept="image/jpeg,image/png,image/gif,.pdf" style="display:none" onchange="document.getElementById(\'ktpFilename\').textContent=this.files[0]?.name||\'Pilih file KTP\'" />'+
+    '<input type="file" id="profKtp" accept="image/jpeg,image/png" style="display:none" onchange="document.getElementById(\'ktpFilename\').textContent=this.files[0]?.name||\'Pilih foto KTP\'" />'+
     '</label>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveKtp" style="margin-top:12px">Simpan KTP</button></div>';
 }
@@ -1721,10 +1722,22 @@ async function renderProfile(){
 
   document.getElementById('btnSaveKtp')?.addEventListener('click', async ()=>{
     const file = document.getElementById('profKtp')?.files?.[0];
-    if(!file){ toast('Pilih file KTP terlebih dahulu.','e'); return; }
-    await Store.updateUser(u.id, { ktpStatus: 'uploaded' });
-    toast('KTP berhasil diunggah. Menunggu verifikasi tim Akemat.','s');
-    renderProfile();
+    if(!file){ toast('Pilih foto KTP terlebih dahulu.','e'); return; }
+    if(file.size > 5*1024*1024){ toast('Ukuran file maksimal 5MB.','e'); return; }
+    const btn = document.getElementById('btnSaveKtp');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Mengunggah…';
+    try {
+      // maxDim lebih besar dari foto campaign (1000px) — teks NIK/alamat di
+      // KTP harus tetap terbaca setelah dikompres, bukan cuma "cukup bagus".
+      const dataUrl = await fileToResizedDataUrl(file, 1400, 0.85);
+      await Store.updateUser(u.id, { ktpUrl: dataUrl, ktpStatus: 'uploaded' });
+      toast('KTP berhasil diunggah. Menunggu verifikasi tim Akemat.','s');
+      renderProfile();
+    } catch(e) {
+      toast(e.message||'Gagal mengunggah KTP.','e');
+      btn.disabled = false; btn.textContent = orig;
+    }
   });
 
   // Profile form save handlers

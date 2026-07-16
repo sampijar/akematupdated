@@ -60,7 +60,7 @@ function rowToUser(row, npRow) {
   const u = {
     id: row.id, name: row.name, email: row.email, phone: row.phone,
     role: row.role, address: row.address || '', organization: row.organization || '',
-    ktpStatus: row.ktp_status || 'pending', phoneVerified: true,
+    ktpStatus: row.ktp_status || 'pending', ktpUrl: row.ktp_url || '', phoneVerified: true,
     bankInfo: {
       bankName: row.bank_name || '', accountNumber: row.bank_account_number || '',
       accountName: row.bank_account_name || '', verified: !!row.bank_verified,
@@ -85,6 +85,7 @@ function userUpdateToRow(data) {
   if ('address' in data) row.address = data.address;
   if ('organization' in data) row.organization = data.organization;
   if ('ktpStatus' in data) row.ktp_status = data.ktpStatus;
+  if ('ktpUrl' in data) row.ktp_url = data.ktpUrl;
   if (data.bankInfo) {
     row.bank_name = data.bankInfo.bankName;
     row.bank_account_number = data.bankInfo.accountNumber;
