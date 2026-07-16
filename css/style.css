@@ -75,6 +75,12 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .nav-toggle{display:none;flex-direction:column;justify-content:center;gap:4px;width:38px;height:38px;background:transparent;border:1.5px solid var(--border);border-radius:var(--r-sm)}
 .nav-toggle span{display:block;width:16px;height:2px;margin:0 auto;background:var(--primary)}
 
+/* ── Loading state (tampil sebentar saat pertama buka / pindah
+   halaman yang perlu fetch data) — supaya tidak terasa "diam kosong". */
+.app-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:60vh;color:var(--soft);font-family:var(--font-d);font-weight:600;font-size:.88rem}
+.app-loading-spinner{width:42px;height:42px;border-radius:50%;border:4px solid var(--bg-alt);border-top-color:var(--primary);border-right-color:var(--accent);animation:app-spin .75s linear infinite}
+@keyframes app-spin{to{transform:rotate(360deg)}}
+
 /* ── Mobile bottom tab bar (disembunyikan di desktop) ───────
    Pola navigasi ala aplikasi native (referensi: app RS Borromeus) —
    4 tujuan utama selalu terlihat & bisa dijangkau satu jempol, jadi
@@ -436,8 +442,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 
 /* ── Specialty grid cards ─────────────────────────────────── */
-.spec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
-.spec-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;transition:border-color var(--tr),transform var(--tr);text-decoration:none}
-.spec-card:hover{border-color:var(--primary-lt);transform:translateY(-3px)}
-.spec-icon{font-size:1.8rem;line-height:1}
-.spec-label{font-family:var(--font-d);font-weight:700;font-size:.8rem;color:var(--primary);line-height:1.3}
+.spec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.spec-card{border:none;border-radius:18px;padding:24px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px;transition:transform var(--tr),box-shadow var(--tr);text-decoration:none;box-shadow:var(--sh-sm)}
+.spec-card:hover{transform:translateY(-4px);box-shadow:var(--sh-md)}
+.spec-icon{font-size:2.1rem;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15))}
+.spec-label{font-family:var(--font-d);font-weight:800;font-size:.86rem;color:#fff;line-height:1.3}
+.spec-sub{font-size:.7rem;color:rgba(255,255,255,.88);font-weight:600}

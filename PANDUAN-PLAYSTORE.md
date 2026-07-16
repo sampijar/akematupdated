@@ -129,7 +129,7 @@ UNTUK PERAWAT
 👨‍⚕️ Atur sendiri jadwal dan tarif
 👨‍⚕️ Terima pembayaran langsung ke rekening
 
-Hubungi kami: customecare@akematfoundation.org
+Hubungi kami: customercare@akematfoundation.org
 WhatsApp: 0851 9640 7117
 ```
 

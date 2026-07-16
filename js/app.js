@@ -270,8 +270,15 @@ async function renderHome(){
         <h2>7 bidang keahlian tersedia</h2>
       </div>
       <div class="spec-grid" id="specGrid">
-        ${SPECIALTIES.map(s=>'<a href="#perawat" data-spec="'+s+'" class="spec-card"><span class="spec-icon">'+SPECIALTY_ICONS[s]+'</span><span class="spec-label">'+esc(s)+'</span></a>').join('')}
-      </div>      </div>
+        ${SPECIALTIES.map(s=>{
+          const color = CAM_COLORS[s]||'#1F4D3F';
+          return '<a href="#perawat" data-spec="'+s+'" class="spec-card" style="background:linear-gradient(145deg,'+color+' 0%,'+color+'CC 100%)">'+
+            '<span class="spec-icon">'+SPECIALTY_ICONS[s]+'</span>'+
+            '<span class="spec-label">'+esc(s)+'</span>'+
+            '<span class="spec-sub">Lihat perawat →</span>'+
+          '</a>';
+        }).join('')}
+      </div>
     </div>
   </section>
 
@@ -292,6 +299,14 @@ async function renderHome(){
   </section>
 
     ${renderFooterSection()}`;
+
+  // Kartu spesialisasi: simpan pilihan lalu biarkan <a href="#perawat"> navigasi
+  // normal — renderNurseList() baca sessionStorage ini sekali untuk pre-filter.
+  document.getElementById('specGrid')?.addEventListener('click', (e)=>{
+    const card = e.target.closest('[data-spec]');
+    if(!card) return;
+    sessionStorage.setItem('akemat_prefilter_spec', card.dataset.spec);
+  });
 }
 
 // ── Nurse List ─────────────────────────────────────────────
@@ -310,6 +325,12 @@ function filterNurses(list, { q, specialty, education, avail } = {}){
 async function renderNurseList(){
   const nurses = await Store.getNurses();
   const allNurses = nurses;
+  // Datang dari kartu spesialisasi di Home? Pre-filter sekali, lalu buang (link
+  // biasa ke #perawat berikutnya harus tampil semua lagi, bukan nyangkut ke-filter).
+  const preSpec = sessionStorage.getItem('akemat_prefilter_spec') || '';
+  if(preSpec) sessionStorage.removeItem('akemat_prefilter_spec');
+  const initialList = preSpec ? filterNurses(nurses, { specialty: preSpec }) : nurses;
+
   app.innerHTML = `
   <section class="pub-section">
     <div class="container">
@@ -325,7 +346,7 @@ async function renderNurseList(){
         </div>
         <select id="nurseSpec" style="max-width:200px">
           <option value="">Semua spesialisasi</option>
-          ${SPECIALTIES.map(s=>'<option value="'+s+'">'+s+'</option>').join('')}
+          ${SPECIALTIES.map(s=>'<option value="'+s+'"'+(s===preSpec?' selected':'')+'>'+s+'</option>').join('')}
         </select>
         <select id="nurseEdu" style="max-width:190px">
           <option value="">Semua pendidikan</option>
@@ -336,7 +357,7 @@ async function renderNurseList(){
       </div>
 
       <div class="nurse-grid" id="nurseGrid">
-        ${nurses.map(n=>nurseCard(n)).join('') || emptyState('Belum ada perawat terdaftar.')}
+        ${initialList.map(n=>nurseCard(n)).join('') || emptyState('Tidak ada perawat yang cocok dengan filter.')}
       </div>
     </div>
   </section>
@@ -1513,7 +1534,7 @@ function renderTNC(){
   html += '<div class="tnc-section"><h2>7. Perubahan Ketentuan</h2>';
   html += '<p>Akemat Foundation berhak mengubah Syarat &amp; Ketentuan ini sewaktu-waktu. Perubahan signifikan akan diberitahukan melalui email terdaftar minimal 7 hari sebelum berlaku.</p></div>';
   html += '<div class="tnc-section"><h2>8. Kontak &amp; Penyelesaian Sengketa</h2>';
-  html += '<ul><li>Email: customecare@akematfoundation.org</li><li>WhatsApp: +62 851-9640-7117</li><li>Jam layanan: Senin–Sabtu, 08.00–17.00 WIB</li></ul></div>';
+  html += '<ul><li>Email: customercare@akematfoundation.org</li><li>WhatsApp: +62 851-9640-7117</li><li>Jam layanan: Senin–Sabtu, 08.00–17.00 WIB</li></ul></div>';
   html += '<div style="margin-top:36px;text-align:center"><a href="#" class="btn btn-primary">Kembali ke Beranda</a> <a href="#faq" class="btn btn-outline" style="margin-left:10px">Lihat FAQ →</a></div>';
   html += '</div>';
   app.innerHTML = html + renderFooterSection();
@@ -1562,7 +1583,7 @@ function renderFAQ(){
   faqHTML += '<h3 style="margin-bottom:8px">Masih ada pertanyaan?</h3>';
   faqHTML += '<p style="margin-bottom:16px">Tim kami siap membantu Senin-Sabtu, 08.00-17.00 WIB.</p>';
   faqHTML += '<a href="https://wa.me/6285196407117" target="_blank" class="btn btn-primary">WhatsApp Kami</a> ';
-  faqHTML += '<a href="mailto:customecare@akematfoundation.org" class="btn btn-outline" style="margin-left:8px">Email Kami</a> ';
+  faqHTML += '<a href="mailto:customercare@akematfoundation.org" class="btn btn-outline" style="margin-left:8px">Email Kami</a> ';
   faqHTML += '<a href="#tnc" class="btn btn-ghost" style="margin-left:8px">Syarat &amp; Ketentuan</a>';
   faqHTML += '</div></div>';
 
@@ -1873,7 +1894,7 @@ function renderFooterSection(){
   html += '<div class="f-cta"><h4>Informasi</h4><ul class="f-nav" style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px">';
   html += '<li><a href="#faq" style="color:#C5D8CD;font-size:.84rem">FAQ</a></li>';
   html += '<li><a href="#tnc" style="color:#C5D8CD;font-size:.84rem">Syarat &amp; Ketentuan</a></li>';
-  html += '<li><a href="mailto:customecare@akematfoundation.org" style="color:#C5D8CD;font-size:.84rem">customecare@akematfoundation.org</a></li>';
+  html += '<li><a href="mailto:customercare@akematfoundation.org" style="color:#C5D8CD;font-size:.84rem">customercare@akematfoundation.org</a></li>';
   html += '<li><a href="https://wa.me/6285196407117" style="color:#C5D8CD;font-size:.84rem">WhatsApp 0851 9640 7117</a></li>';
   html += '</ul></div>';
   html += '</div>';

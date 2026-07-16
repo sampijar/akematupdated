@@ -80,12 +80,6 @@
     /* hide pulse on hover */
     .wa-fab:hover::before { animation: none; }
 
-    /* ── App loading placeholder ────────────────────────────── */
-    #app:empty::after {
-      content: '';
-      display: block;
-      height: 60vh;
-    }
   </style>
 </head>
 <body>
@@ -114,7 +108,12 @@
 
   <!-- ─── Main SPA Container ────────────────────────────── -->
   <main id="main-content">
-    <div id="app" role="main"></div>
+    <div id="app" role="main">
+      <div class="app-loading">
+        <div class="app-loading-spinner" aria-hidden="true"></div>
+        <p>Memuat…</p>
+      </div>
+    </div>
   </main>
 
   <!-- ─── Bottom Tab Bar (HP saja) — diisi dinamis oleh app.js → renderMobileTabbar() ── -->
