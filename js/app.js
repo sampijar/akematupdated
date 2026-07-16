@@ -192,10 +192,64 @@ function renderMobileTabbar(){
 }
 
 // ── Home ───────────────────────────────────────────────────
+function specGridHTML(){
+  return SPECIALTIES.map(s=>{
+    const color = CAM_COLORS[s]||'#1F4D3F';
+    return '<a href="#perawat" data-spec="'+s+'" class="spec-card" style="background:linear-gradient(145deg,'+color+' 0%,'+color+'CC 100%)">'+
+      '<span class="spec-icon">'+SPECIALTY_ICONS[s]+'</span>'+
+      '<span class="spec-label">'+esc(s)+'</span>'+
+      '<span class="spec-sub">Lihat perawat →</span>'+
+    '</a>';
+  }).join('');
+}
+function wireSpecGrid(){
+  document.getElementById('specGrid')?.addEventListener('click', (e)=>{
+    const card = e.target.closest('[data-spec]');
+    if(!card) return;
+    sessionStorage.setItem('akemat_prefilter_spec', card.dataset.spec);
+  });
+}
+
 async function renderHome(){
+  const u = Store.getCurrentUser();
   const [nursesList, campaigns] = await Promise.all([Store.getNurses(), Store.getCampaigns()]);
   const nurses    = nursesList.length;
   const totalDon  = campaigns.reduce((s,c)=>s+c.current,0);
+
+  // Sudah login = sudah "diyakinkan", tidak perlu hero/statistik/pitch marketing
+  // lagi tiap buka Beranda — langsung ke sapaan singkat + jalan pintas, seperti
+  // halaman utama aplikasi native (bukan halaman landing yang panjang).
+  if(u){
+    app.innerHTML = `
+    <section class="home-greet">
+      <div class="container">
+        <p class="hg-hi">Halo, ${esc(u.name.split(' ')[0])} 👋</p>
+        <h2 class="hg-q">Mau apa hari ini?</h2>
+      </div>
+    </section>
+    <section class="pub-section" style="padding-top:8px">
+      <div class="container">
+        <div class="spec-grid" id="specGrid">${specGridHTML()}</div>
+      </div>
+    </section>
+    <section class="pub-section alt">
+      <div class="container">
+        <div class="section-head" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">
+          <div style="min-width:0">
+            <p class="eyebrow">Campaign donasi aktif</p>
+            <h2>Mereka membutuhkan bantuan Anda</h2>
+          </div>
+          <a href="#donasi" class="btn btn-ghost btn-sm">Lihat semua →</a>
+        </div>
+        <div class="campaign-grid">
+          ${campaigns.slice(0,3).map(c=>campaignCard(c)).join('') || emptyState('Belum ada campaign aktif.')}
+        </div>
+      </div>
+    </section>
+    ${renderFooterSection()}`;
+    wireSpecGrid();
+    return;
+  }
 
   app.innerHTML = `
   <!-- Hero -->
@@ -274,16 +328,7 @@ async function renderHome(){
         <p class="eyebrow">Spesialisasi perawat</p>
         <h2>7 bidang keahlian tersedia</h2>
       </div>
-      <div class="spec-grid" id="specGrid">
-        ${SPECIALTIES.map(s=>{
-          const color = CAM_COLORS[s]||'#1F4D3F';
-          return '<a href="#perawat" data-spec="'+s+'" class="spec-card" style="background:linear-gradient(145deg,'+color+' 0%,'+color+'CC 100%)">'+
-            '<span class="spec-icon">'+SPECIALTY_ICONS[s]+'</span>'+
-            '<span class="spec-label">'+esc(s)+'</span>'+
-            '<span class="spec-sub">Lihat perawat →</span>'+
-          '</a>';
-        }).join('')}
-      </div>
+      <div class="spec-grid" id="specGrid">${specGridHTML()}</div>
     </div>
   </section>
 
@@ -304,14 +349,7 @@ async function renderHome(){
   </section>
 
     ${renderFooterSection()}`;
-
-  // Kartu spesialisasi: simpan pilihan lalu biarkan <a href="#perawat"> navigasi
-  // normal — renderNurseList() baca sessionStorage ini sekali untuk pre-filter.
-  document.getElementById('specGrid')?.addEventListener('click', (e)=>{
-    const card = e.target.closest('[data-spec]');
-    if(!card) return;
-    sessionStorage.setItem('akemat_prefilter_spec', card.dataset.spec);
-  });
+  wireSpecGrid();
 }
 
 // ── Nurse List ─────────────────────────────────────────────
