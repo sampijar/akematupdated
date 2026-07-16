@@ -75,6 +75,12 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .nav-toggle{display:none;flex-direction:column;justify-content:center;gap:4px;width:38px;height:38px;background:transparent;border:1.5px solid var(--border);border-radius:var(--r-sm)}
 .nav-toggle span{display:block;width:16px;height:2px;margin:0 auto;background:var(--primary)}
 
+/* ── Mobile bottom tab bar (disembunyikan di desktop) ───────
+   Pola navigasi ala aplikasi native (referensi: app RS Borromeus) —
+   4 tujuan utama selalu terlihat & bisa dijangkau satu jempol, jadi
+   pengguna HP tidak harus buka hamburger menu tiap mau pindah halaman. */
+.mobile-tabbar{display:none}
+
 /* ── Hero ────────────────────────────────────────────────── */
 .hero{padding:64px 0 48px}
 .hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center}
@@ -404,6 +410,24 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
   .profile-grid{grid-template-columns:minmax(0,1fr)}
   .profile-grid .full{grid-column:1}
   .amount-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+  /* Bottom tab bar aktif, konten & elemen fixed lain digeser ke atasnya */
+  .mobile-tabbar{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;
+    background:var(--card);border-top:1px solid var(--border);
+    box-shadow:0 -4px 16px rgba(31,77,63,.08);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .mobile-tabbar a{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+    padding:6px 2px;border-radius:var(--r-sm);
+    font-family:var(--font-d);font-size:.66rem;font-weight:600;color:var(--soft);
+  }
+  .mobile-tabbar a .mt-icon{font-size:1.2rem;line-height:1}
+  .mobile-tabbar a.active{color:var(--primary)}
+  body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+  .wa-fab{bottom:calc(78px + env(safe-area-inset-bottom))!important}
+  #toast{bottom:calc(78px + env(safe-area-inset-bottom))!important}
 }
 @media(max-width:480px){
   .role-grid,.stats-grid,.role-pick-grid{grid-template-columns:minmax(0,1fr)}

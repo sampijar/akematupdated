@@ -129,6 +129,7 @@ async function route(){
   const page  = parts[0];
   const id    = parts[1];
   renderHeader();
+  renderMobileTabbar();
   switch(page){
     case '':         case 'home':    await renderHome();           break;
     case 'perawat':  id ? await renderNurseDetail(id) : await renderNurseList(); break;
@@ -164,6 +165,25 @@ function renderHeader(){
       : '<div style="display:flex;gap:8px"><a href="#login" class="btn btn-sm btn-outline" style="padding:7px 16px;font-size:.82rem">Masuk</a><a href="#register" class="btn btn-sm btn-accent" style="padding:7px 16px;font-size:.82rem;color:#1F4D3F">Daftar</a></div>'
     }
   `;
+}
+
+// ── Bottom tab bar (HP) — navigasi utama gaya app native ─────
+function renderMobileTabbar(){
+  const u = Store.getCurrentUser();
+  const tb = document.getElementById('mobileTabbar');
+  if(!tb) return;
+  const h = location.hash || '#home';
+  const isHome    = h==='' || h==='#' || h==='#home';
+  const isPerawat = h.startsWith('#perawat');
+  const isDonasi  = h.startsWith('#donasi');
+  const isAccount = u ? h.startsWith('#dashboard')||h.startsWith('#profil') : (h.startsWith('#login')||h.startsWith('#register')||h.startsWith('#lupa-password'));
+  tb.innerHTML =
+    '<a href="#home" class="'+(isHome?'active':'')+'"><span class="mt-icon">🏠</span>Beranda</a>'+
+    '<a href="#perawat" class="'+(isPerawat?'active':'')+'"><span class="mt-icon">🔍</span>Perawat</a>'+
+    '<a href="#donasi" class="'+(isDonasi?'active':'')+'"><span class="mt-icon">❤️</span>Donasi</a>'+
+    (u
+      ? '<a href="#dashboard" class="'+(isAccount?'active':'')+'"><span class="mt-icon">👤</span>Akun</a>'
+      : '<a href="#login" class="'+(isAccount?'active':'')+'"><span class="mt-icon">👤</span>Masuk</a>');
 }
 
 // ── Home ───────────────────────────────────────────────────
