@@ -399,6 +399,33 @@
     </div>
   </div>
 
+  <!-- ── Modal: Beri Rating Perawat ──────────────────────── -->
+  <div class="modal-overlay" id="modalRateNurse" role="dialog" aria-modal="true" aria-labelledby="rnModalTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="rnModalTitle">⭐ Beri Rating</h3>
+        <button class="modal-x" aria-label="Tutup">✕</button>
+      </div>
+      <p id="rnNurseLabel" style="font-size:.84rem;color:var(--soft);margin-bottom:18px">Bagaimana pengalaman Anda dengan perawat ini?</p>
+      <input type="hidden" id="rnBookingId" />
+      <div class="star-picker" id="rnStars">
+        <button type="button" class="star-btn" data-star="1">★</button>
+        <button type="button" class="star-btn" data-star="2">★</button>
+        <button type="button" class="star-btn" data-star="3">★</button>
+        <button type="button" class="star-btn" data-star="4">★</button>
+        <button type="button" class="star-btn" data-star="5">★</button>
+      </div>
+      <div class="ff" style="margin-top:14px">
+        <label for="rnComment">Ulasan (opsional)</label>
+        <textarea id="rnComment" rows="3" placeholder="Ceritakan pengalaman Anda…"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="btn btn-primary" id="btnSubmitReview" style="flex:2">Kirim Rating</button>
+        <button class="btn btn-ghost" onclick="closeModal('modalRateNurse')" style="flex:1">Batal</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Modal: Konfirmasi Booking (dari nurse detail) ── -->
   <!-- Booking langsung diproses di halaman detail perawat, tidak butuh modal terpisah -->
 

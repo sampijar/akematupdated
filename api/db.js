@@ -240,6 +240,39 @@ module.exports = async (req, res) => {
       return denied();
     }
 
+    // ── reviews ────────────────────────────────────────────
+    // Baca publik (ditampilkan di halaman detail perawat ke semua
+    // pengunjung). Insert cuma boleh untuk booking milik pasien yang
+    // login sendiri, sudah 'completed', dan belum pernah diulas (UNIQUE
+    // booking_id di skema juga menjaga ini di level database).
+    if (table === 'reviews') {
+      if (action === 'select') {
+        const params = new URLSearchParams(filters || {});
+        const r = await sbRequest(`reviews?${params}`, 'GET');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'insert') {
+        if (!uid) return authRequired();
+        const rating = Number(data?.rating);
+        if (!data?.booking_id || !(rating >= 1 && rating <= 5)) return res.status(400).json({ error: 'booking_id dan rating (1-5) wajib' });
+        const bk = await sbRequest(`bookings?id=eq.${data.booking_id}&patient_id=eq.${uid}&status=eq.completed&select=id,nurse_id`, 'GET');
+        const booking = bk.data?.[0];
+        if (!booking) return res.status(400).json({ error: 'Janji temu tidak ditemukan atau belum selesai.' });
+        // Nama diambil dari data akun sendiri (bukan dari klien) supaya tidak
+        // bisa memalsukan nama pengulas lain.
+        const me = await sbRequest(`users?id=eq.${uid}&select=name`, 'GET');
+        const clean = {
+          booking_id: data.booking_id, nurse_id: booking.nurse_id, patient_id: uid,
+          patient_name: me.data?.[0]?.name || 'Pasien', rating, comment: data.comment || null,
+        };
+        const r = await sbRequest('reviews', 'POST', clean);
+        if (!r.ok) return res.status(r.status).json({ error: r.data });
+        await sbRequest('rpc/recompute_nurse_rating', 'POST', { p_nurse_id: booking.nurse_id }).catch(() => {});
+        return res.status(200).json({ success: true, data: r.data });
+      }
+      return denied();
+    }
+
     // ── donations ──────────────────────────────────────────
     // Baca publik (dipakai buat "Donatur terakhir" di halaman campaign, boleh
     // tanpa login termasuk oleh donatur anonim). Insert/update TIDAK diizinkan

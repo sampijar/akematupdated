@@ -500,6 +500,7 @@ async function renderNurseDetail(id){
   const p = n.np;
   const currentUser = Store.getCurrentUser();
   const patientProfiles = currentUser?.role==='patient' ? await Store.getPatientProfiles(currentUser.id) : [];
+  const reviews = await Store.getReviewsByNurse(n.id);
   const bookableProfiles = patientProfiles.filter(pp => pp.ktpStatus !== 'pending');
 
   app.innerHTML = `
@@ -523,6 +524,10 @@ async function renderNurseDetail(id){
           <div class="nc-stat">📍 ${esc(p.loc)}</div>
           <div class="nc-stat">🏥 Pengalaman ${p.exp} tahun</div>
           <div class="nc-stat">💰 ${rpFmt(p.price)}/jam</div>
+        </div>
+        <div class="cam-share-row" style="margin-top:14px;margin-bottom:0">
+          <button class="btn btn-outline btn-sm" id="btnShareNurse" type="button">🔗 Bagikan Profil</button>
+          <a class="btn btn-sm share-wa" id="shareNurseWaLink" target="_blank" rel="noopener noreferrer">💬 Rekomendasikan via WhatsApp</a>
         </div>
       </div>
 
@@ -549,19 +554,15 @@ async function renderNurseDetail(id){
         </div>
         <div class="tab-pane" id="tab-ulasan">
           <div style="display:flex;flex-direction:column;gap:12px">
-            ${[
-              {name:'Keluarga Bapak Hendra', rating:5, date:'3 hari lalu', text:'Sangat profesional dan sabar. Ibu saya merasa nyaman dan perkembangannya baik.'},
-              {name:'Ibu Rini Hartati', rating:5, date:'2 minggu lalu', text:'Perawat yang sangat telaten. Selalu tepat waktu dan berkomunikasi baik dengan keluarga.'},
-              {name:'Anonim', rating:4, date:'1 bulan lalu', text:'Baik dan terampil. Sangat membantu di masa pemulihan ibu saya.'},
-            ].map(function(r){
+            ${reviews.length ? reviews.map(function(r){
               var stars='★'.repeat(r.rating)+'☆'.repeat(5-r.rating);
               return '<div style="padding:14px;background:var(--bg-alt);border-radius:10px">'+
                 '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'+
-                '<span style="font-weight:700;font-size:.86rem">'+r.name+'</span>'+
-                '<span style="font-size:.76rem;color:var(--soft)">'+r.date+'</span></div>'+
+                '<span style="font-weight:700;font-size:.86rem">'+esc(r.patientName)+'</span>'+
+                '<span style="font-size:.76rem;color:var(--soft)">'+esc(r.createdAt)+'</span></div>'+
                 '<div style="color:#F59E0B;font-size:.84rem;margin-bottom:5px">'+stars+'</div>'+
-                '<p style="font-size:.88rem;margin:0">'+r.text+'</p></div>';
-            }).join('')}
+                (r.comment?'<p style="font-size:.88rem;margin:0">'+esc(r.comment)+'</p>':'')+'</div>';
+            }).join('') : '<p style="color:var(--soft);font-size:.88rem">Belum ada ulasan untuk perawat ini.</p>'}
           </div>
         </div>
       </div>
@@ -652,6 +653,25 @@ async function renderNurseDetail(id){
       btn.classList.add('active');
       document.getElementById('tab-'+btn.dataset.tab)?.classList.add('active');
     });
+  });
+
+  // ── Bagikan / rekomendasikan profil perawat ──────────────
+  const nurseShareUrl  = location.origin + location.pathname + '#perawat/' + n.id;
+  const nurseShareText = 'Saya mau rekomendasikan perawat '+n.name.split(',')[0]+' ('+p.specialty+') di Akemat Foundation. Cek profilnya di sini:';
+  const nurseWaLink = document.getElementById('shareNurseWaLink');
+  if(nurseWaLink) nurseWaLink.href = 'https://wa.me/?text=' + encodeURIComponent(nurseShareText + ' ' + nurseShareUrl);
+  document.getElementById('btnShareNurse')?.addEventListener('click', async ()=>{
+    if(navigator.share){
+      try { await navigator.share({ title: n.name, text: nurseShareText, url: nurseShareUrl }); }
+      catch(e){ /* pengguna batal share, abaikan */ }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(nurseShareUrl);
+      toast('Link profil perawat disalin! Tempel di chat/medsos manapun.','s');
+    } catch {
+      toast('Gagal menyalin link. Salin manual: '+nurseShareUrl,'e');
+    }
   });
 
   // Duration / time selection
@@ -1243,6 +1263,10 @@ function bookingActionsFor(b, viewerRole){
   var id = b.id;
   if(viewerRole === 'patient'){
     if(b.paymentStatus !== 'paid') return payBtnHTML(b.status, id);
+    if(b.status === 'completed'){
+      if(b.reviewed) return '<span style="color:var(--success);font-size:.8rem">✓ Sudah dinilai</span>';
+      return '<button class="btn btn-xs btn-accent" onclick="openRateModal(\''+id+'\',\''+esc(b.nurseName||'')+'\')">⭐ Beri Rating</button>';
+    }
     return '<span style="color:#9CA3AF">—</span>';
   }
   if(b.paymentStatus !== 'paid'){
@@ -1540,7 +1564,9 @@ function sidebarHTML(u, activePage){
 function afterDash(){ document.getElementById('btnLogout')?.addEventListener('click',async ()=>{ await Store.logout(); toast('Berhasil keluar.'); navigate('#'); }); }
 
 async function renderPatientDash(u){
-  const [bookings, donations, patientProfiles] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id), Store.getPatientProfiles(u.id)]);
+  const [bookings, donations, patientProfiles, reviews] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id), Store.getPatientProfiles(u.id), Store.getReviewsByPatient(u.id)]);
+  const reviewedBookingIds = new Set(reviews.map(r=>r.bookingId));
+  bookings.forEach(b=>{ b.reviewed = reviewedBookingIds.has(b.id); });
   const campaignIds = [...new Set(donations.map(d=>d.campaignId).filter(Boolean))];
   const campaignMap = new Map((await Promise.all(campaignIds.map(cid=>Store.getCampaignById(cid)))).filter(Boolean).map(c=>[c.id,c]));
   const needsPatientProfile = !patientProfiles.some(p=>p.ktpStatus!=='pending');
@@ -2119,11 +2145,41 @@ async function openEditCampaignModal(campaignId){
   };
 }
 
+function openRateModal(bookingId, nurseName){
+  let selRating = 0;
+  document.getElementById('rnNurseLabel').textContent = nurseName ? 'Bagaimana pengalaman Anda dengan '+nurseName+'?' : 'Bagaimana pengalaman Anda dengan perawat ini?';
+  document.getElementById('rnBookingId').value = bookingId;
+  document.getElementById('rnComment').value = '';
+  const stars = [...document.querySelectorAll('#rnStars .star-btn')];
+  function paintStars(n){ stars.forEach(s=>s.classList.toggle('on', +s.dataset.star <= n)); }
+  paintStars(0);
+  stars.forEach(s=>{
+    s.onclick = ()=>{ selRating = +s.dataset.star; paintStars(selRating); };
+  });
+  openModal('modalRateNurse');
+  document.getElementById('btnSubmitReview').onclick = async ()=>{
+    if(!selRating){ toast('Pilih rating bintang terlebih dahulu.','e'); return; }
+    const btn = document.getElementById('btnSubmitReview');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Mengirim…';
+    try {
+      await Store.addReview({ bookingId, rating: selRating, comment: document.getElementById('rnComment')?.value.trim() });
+      closeModal('modalRateNurse');
+      toast('Terima kasih atas rating Anda!','s');
+      renderDashboard();
+    } catch(e) {
+      toast('Gagal mengirim rating: '+(e.message||'coba lagi.'),'e');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  };
+}
+
 // Global helpers
 window.openDonateModal        = openDonateModal;
 window.openBookingModal       = openBookingModal;
 window.openCreateCampaignModal= openCreateCampaignModal;
 window.openEditCampaignModal  = openEditCampaignModal;
+window.openRateModal          = openRateModal;
 window.updateBooking = async (id, status)=>{
   if(status==='confirmed'||status==='completed'){
     const bookings = await Store.getBookings();

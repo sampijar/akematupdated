@@ -298,6 +298,11 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .dur-btn{flex:1;min-width:60px;padding:9px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--bg);font-family:var(--font-d);font-weight:700;font-size:.8rem;color:var(--soft);cursor:pointer;transition:var(--tr)}
 .dur-btn.active{border-color:var(--primary);background:var(--primary);color:#fff}
 
+.star-picker{display:flex;gap:6px}
+.star-btn{background:none;border:none;font-size:2rem;line-height:1;color:var(--border);cursor:pointer;padding:2px;transition:transform .12s ease}
+.star-btn:hover{transform:scale(1.12)}
+.star-btn.on{color:#F59E0B}
+
 /* ── Filters ─────────────────────────────────────────────── */
 .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;align-items:center}
 .search-wrap{position:relative;flex:1;min-width:180px}

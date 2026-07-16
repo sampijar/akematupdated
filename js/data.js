@@ -51,6 +51,7 @@ const KEYS = {
   DONATIONS:'ak3_donations',
   PAYOUTS:  'ak3_payouts',
   PATIENT_PROFILES: 'ak3_patient_profiles',
+  REVIEWS:  'ak3_reviews',
   SEEDED:   'ak3_v3_seeded',
 };
 
@@ -356,6 +357,30 @@ const DB = {
     const all = JSON.parse(localStorage.getItem(KEYS.PATIENT_PROFILES) || '[]');
     this.saveAllPatientProfiles(all.filter(p => p.id !== id));
     return true;
+  },
+
+  // Reviews (rating perawat)
+  getReviews()            { return JSON.parse(localStorage.getItem(KEYS.REVIEWS) || '[]'); },
+  saveReviews(r)          { localStorage.setItem(KEYS.REVIEWS, JSON.stringify(r)); },
+  getReviewsByNurse(nid)  { return this.getReviews().filter(r => r.nurseId === nid); },
+  getReviewsByPatient(pid){ return this.getReviews().filter(r => r.patientId === pid); },
+  addReview(data) {
+    const all = this.getReviews();
+    if (all.some(r => r.bookingId === data.bookingId)) throw new Error('Booking ini sudah pernah diulas.');
+    const booking = this.getBookings().find(b => b.id === data.bookingId);
+    if (!booking || booking.status !== 'completed') throw new Error('Janji temu tidak ditemukan atau belum selesai.');
+    const patient = this.getUserById(booking.patientId);
+    const r = {
+      id: uid(), bookingId: data.bookingId, nurseId: booking.nurseId, patientId: booking.patientId,
+      patientName: patient?.name || 'Pasien', rating: data.rating, comment: data.comment || '', createdAt: dStr(),
+    };
+    all.push(r); this.saveReviews(all);
+    // Hitung ulang rating rata-rata & jumlah ulasan, sama seperti RPC recompute_nurse_rating di Supabase.
+    const nurseReviews = this.getReviewsByNurse(booking.nurseId);
+    const avg = nurseReviews.reduce((s, x) => s + x.rating, 0) / nurseReviews.length;
+    const nurse = this.getUserById(booking.nurseId);
+    if (nurse) this.updateUser(booking.nurseId, { np: { ...nurse.np, rating: Math.round(avg * 10) / 10, reviews: nurseReviews.length } });
+    return r;
   },
 
   // Donations

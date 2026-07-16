@@ -192,6 +192,15 @@ function patientProfileToRow(data) {
   return row;
 }
 
+function rowToReview(row) {
+  if (!row) return null;
+  return {
+    id: row.id, bookingId: row.booking_id, nurseId: row.nurse_id,
+    patientId: row.patient_id, patientName: row.patient_name,
+    rating: row.rating, comment: row.comment || '', createdAt: shortDate(row.created_at),
+  };
+}
+
 function rowToDonation(row) {
   if (!row) return null;
   return {
@@ -361,6 +370,20 @@ const Cloud = {
   async deletePatientProfile(id) {
     await apiFetch('db', { action:'delete', table:'patient_profiles', id });
     return true;
+  },
+
+  // Reviews (rating perawat)
+  async getReviewsByNurse(nurseId) {
+    const d = await apiFetch('db', { action:'select', table:'reviews', filters:{ nurse_id:`eq.${nurseId}`, order:'created_at.desc' } });
+    return (d.data || []).map(rowToReview);
+  },
+  async getReviewsByPatient(patientId) {
+    const d = await apiFetch('db', { action:'select', table:'reviews', filters:{ patient_id:`eq.${patientId}` } });
+    return (d.data || []).map(rowToReview);
+  },
+  async addReview(data) {
+    const d = await apiFetch('db', { action:'insert', table:'reviews', data:{ booking_id: data.bookingId, rating: data.rating, comment: data.comment } });
+    return rowToReview(d.data?.[0]);
   },
 
   // Donations
@@ -557,6 +580,10 @@ const Store = {
   async addPatientProfile(data)            { return this.backend==='remote' ? Cloud.addPatientProfile(data) : DB.addPatientProfile(data); },
   async updatePatientProfile(id, data)     { return this.backend==='remote' ? Cloud.updatePatientProfile(id, data) : DB.updatePatientProfile(id, data); },
   async deletePatientProfile(id)           { return this.backend==='remote' ? Cloud.deletePatientProfile(id) : DB.deletePatientProfile(id); },
+
+  async getReviewsByNurse(nurseId)  { return this.backend==='remote' ? Cloud.getReviewsByNurse(nurseId) : DB.getReviewsByNurse(nurseId); },
+  async getReviewsByPatient(pid)    { return this.backend==='remote' ? Cloud.getReviewsByPatient(pid) : DB.getReviewsByPatient(pid); },
+  async addReview(data)             { return this.backend==='remote' ? Cloud.addReview(data) : DB.addReview(data); },
 
   async getDonationsByUser(uid)     { return this.backend==='remote' ? Cloud.getDonationsByUser(uid) : DB.getDonationsByUser(uid); },
   async getDonationsByCampaign(cid) { return this.backend==='remote' ? Cloud.getDonationsByCampaign(cid) : DB.getDonationsByCampaign(cid); },

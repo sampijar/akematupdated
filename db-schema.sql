@@ -183,6 +183,35 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_profile_id UUID REFERENCES
 -- dan tetap ada meski profil pasiennya kemudian dihapus.
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_profile_name TEXT;
 
+-- ── Ulasan & Rating Perawat ──────────────────────────────────
+-- Satu ulasan per booking (UNIQUE booking_id) — cuma bisa dibuat kalau
+-- booking-nya benar-benar milik pasien tsb & sudah 'completed' (lihat
+-- pengecekan di api/db.js). rating/review_count di nurse_profiles
+-- dihitung ulang lewat RPC recompute_nurse_rating tiap ada ulasan baru
+-- (rata-rata dihitung di database, bukan read-modify-write dari app, biar
+-- tidak rawan race condition kalau dua ulasan masuk bersamaan).
+CREATE TABLE IF NOT EXISTS reviews (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id   UUID REFERENCES bookings(id) UNIQUE,
+  nurse_id     UUID REFERENCES users(id),
+  patient_id   UUID REFERENCES users(id),
+  patient_name TEXT NOT NULL,
+  rating       INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment      TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_reviews_nurse ON reviews(nurse_id);
+
+CREATE OR REPLACE FUNCTION recompute_nurse_rating(p_nurse_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE nurse_profiles SET
+    rating       = COALESCE((SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE nurse_id = p_nurse_id), 0),
+    review_count = (SELECT COUNT(*) FROM reviews WHERE nurse_id = p_nurse_id)
+  WHERE user_id = p_nurse_id;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ── Row Level Security (RLS) ───────────────────────────────
 ALTER TABLE users     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nurse_profiles ENABLE ROW LEVEL SECURITY;
@@ -192,6 +221,7 @@ ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payouts   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patient_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
 -- Policies: semua user bisa baca data publik
 -- DROP IF EXISTS dulu di tiap policy/trigger supaya seluruh file ini AMAN
@@ -201,6 +231,7 @@ ALTER TABLE patient_profiles ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public read nurses"    ON nurse_profiles;
 DROP POLICY IF EXISTS "Public read campaigns" ON campaigns;
 DROP POLICY IF EXISTS "Public read donations" ON donations;
+DROP POLICY IF EXISTS "Public read reviews"   ON reviews;
 DROP POLICY IF EXISTS "Own bookings"  ON bookings;
 DROP POLICY IF EXISTS "Own profile"   ON users;
 DROP POLICY IF EXISTS "Own payouts"   ON payouts;
@@ -209,6 +240,7 @@ DROP POLICY IF EXISTS "Own patient profiles" ON patient_profiles;
 CREATE POLICY "Public read nurses"    ON nurse_profiles FOR SELECT USING (true);
 CREATE POLICY "Public read campaigns" ON campaigns      FOR SELECT USING (true);
 CREATE POLICY "Public read donations" ON donations      FOR SELECT USING (true);
+CREATE POLICY "Public read reviews"   ON reviews         FOR SELECT USING (true);
 
 -- User hanya bisa lihat data sendiri
 CREATE POLICY "Own bookings"  ON bookings USING (auth.uid() = patient_id OR auth.uid() = nurse_id);
