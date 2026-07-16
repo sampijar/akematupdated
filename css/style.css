@@ -496,11 +496,11 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
 
-/* ── Specialty grid cards ─────────────────────────────────── */
-.spec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
-.spec-card{border:none;border-radius:18px;padding:24px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px;transition:transform var(--tr),box-shadow var(--tr);text-decoration:none;box-shadow:var(--sh-sm);-webkit-tap-highlight-color:transparent}
-.spec-card:hover{transform:translateY(-4px);box-shadow:var(--sh-md)}
-.spec-card:active{transform:scale(.96)}
-.spec-icon{font-size:2.1rem;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15))}
-.spec-label{font-family:var(--font-d);font-weight:800;font-size:.86rem;color:#fff;line-height:1.3}
-.spec-sub{font-size:.7rem;color:rgba(255,255,255,.88);font-weight:600}
+/* ── Menu cepat: grid ikon kecil ala Gojek (GoRide/GoFood/dst) ──
+   Satu ikon = satu tujuan, tanpa kartu besar/subtitle — dipindai
+   sekilas, bukan dibaca. */
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:18px 8px}
+.qt{display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;text-align:center;-webkit-tap-highlight-color:transparent;transition:transform .12s ease}
+.qt:active{transform:scale(.93)}
+.qt-icon{width:54px;height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.55rem;line-height:1}
+.qt-label{font-family:var(--font-d);font-weight:600;font-size:.72rem;color:var(--ink);line-height:1.25}

@@ -192,15 +192,18 @@ function renderMobileTabbar(){
 }
 
 // ── Home ───────────────────────────────────────────────────
+// Grid ikon kecil ala menu Gojek (GoRide/GoFood/dst) — satu ikon = satu tujuan,
+// tanpa judul besar/subtitle, biar padat dan cepat dipindai.
+function quickTile(icon, label, color, href, spec){
+  return '<a href="'+href+'"'+(spec?' data-spec="'+esc(spec)+'"':'')+' class="qt">'+
+    '<span class="qt-icon" style="background:'+color+'26">'+icon+'</span>'+
+    '<span class="qt-label">'+esc(label)+'</span>'+
+  '</a>';
+}
 function specGridHTML(){
-  return SPECIALTIES.map(s=>{
-    const color = CAM_COLORS[s]||'#1F4D3F';
-    return '<a href="#perawat" data-spec="'+s+'" class="spec-card" style="background:linear-gradient(145deg,'+color+' 0%,'+color+'CC 100%)">'+
-      '<span class="spec-icon">'+SPECIALTY_ICONS[s]+'</span>'+
-      '<span class="spec-label">'+esc(s)+'</span>'+
-      '<span class="spec-sub">Lihat perawat →</span>'+
-    '</a>';
-  }).join('');
+  const tiles = SPECIALTIES.map(s=>quickTile(SPECIALTY_ICONS[s], s.replace('Perawat ',''), CAM_COLORS[s]||'#1F4D3F', '#perawat', s));
+  tiles.push(quickTile('❤️', 'Donasi', '#E8714A', '#donasi'));
+  return tiles.join('');
 }
 function wireSpecGrid(){
   document.getElementById('specGrid')?.addEventListener('click', (e)=>{
@@ -229,7 +232,7 @@ async function renderHome(){
     </section>
     <section class="pub-section" style="padding-top:8px">
       <div class="container">
-        <div class="spec-grid" id="specGrid">${specGridHTML()}</div>
+        <div class="quick-grid" id="specGrid">${specGridHTML()}</div>
       </div>
     </section>
     <section class="pub-section alt">
@@ -321,14 +324,14 @@ async function renderHome(){
     </div>
   </section>
 
-  <!-- Specialties showcase -->
+  <!-- Menu cepat -->
   <section class="pub-section alt">
     <div class="container">
       <div class="section-head">
-        <p class="eyebrow">Spesialisasi perawat</p>
-        <h2>7 bidang keahlian tersedia</h2>
+        <p class="eyebrow">Menu cepat</p>
+        <h2>Semua yang Anda butuhkan</h2>
       </div>
-      <div class="spec-grid" id="specGrid">${specGridHTML()}</div>
+      <div class="quick-grid" id="specGrid">${specGridHTML()}</div>
     </div>
   </section>
 
