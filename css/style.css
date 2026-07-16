@@ -300,6 +300,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 /* ── Filters ─────────────────────────────────────────────── */
 .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;align-items:center}
 .search-wrap{position:relative;flex:1;min-width:180px}
+#nurseFilters select{flex:1;min-width:150px}
 .search-wrap input{padding-left:34px}
 .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--soft)}
 .search-icon svg{width:15px;height:15px}
@@ -474,6 +475,11 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 @media(max-width:480px){
   .role-pick-grid{grid-template-columns:minmax(0,1fr)}
   .amount-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+  /* Filter pencarian perawat: search + 2 dropdown + tombol jadi susah
+     dipencet kalau dijejer sempit — di HP ditumpuk 1 kolom penuh. */
+  #nurseFilters{flex-direction:column;align-items:stretch}
+  #nurseFilters .search-wrap,#nurseFilters select,#nurseFilters .f-chip{width:100%;min-width:0}
 
   /* Halaman marketing (pengunjung belum login) dipadatkan drastis di HP —
      hero/statistik/kartu peran dulu makan hampir 3 layar penuh sebelum

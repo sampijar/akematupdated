@@ -390,20 +390,19 @@ async function renderNurseList(){
           <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
           <input type="text" id="nurseSearch" placeholder="Cari nama, spesialisasi, kota…" />
         </div>
-        <select id="nurseSpec" style="max-width:200px">
+        <select id="nurseSpec">
           <option value="">Semua spesialisasi</option>
           ${SPECIALTIES.map(s=>'<option value="'+s+'"'+(s===preSpec?' selected':'')+'>'+s+'</option>').join('')}
         </select>
-        <select id="nurseEdu" style="max-width:190px">
+        <select id="nurseEdu">
           <option value="">Semua pendidikan</option>
           ${EDUCATION_LEVELS.map(e=>'<option value="'+e+'">'+e+'</option>').join('')}
         </select>
-        <button class="f-chip active" id="availFilter" data-avail="0">Semua</button>
-        <button class="f-chip" id="availFilterOn" data-avail="1">Tersedia sekarang</button>
+        <button class="f-chip" id="availFilterOn" data-avail="1">✓ Tersedia sekarang</button>
       </div>
 
       <div class="nurse-grid" id="nurseGrid">
-        ${initialList.map(n=>nurseCard(n)).join('') || emptyState('Tidak ada perawat yang cocok dengan filter.')}
+        ${initialList.map(n=>nurseCard(n)).join('') || nurseEmptyState(allNurses.length)}
       </div>
     </div>
   </section>
@@ -416,23 +415,46 @@ async function renderNurseList(){
     const spec = document.getElementById('nurseSpec')?.value   || '';
     const edu  = document.getElementById('nurseEdu')?.value    || '';
     const list = filterNurses(allNurses, { q, specialty: spec, education: edu, avail });
-    document.getElementById('nurseGrid').innerHTML = list.map(n=>nurseCard(n)).join('') || emptyState('Tidak ada perawat yang cocok dengan filter.');
+    document.getElementById('nurseGrid').innerHTML = list.map(n=>nurseCard(n)).join('') || nurseEmptyState(allNurses.length, true);
   };
   document.getElementById('nurseSearch')?.addEventListener('input', grid);
   document.getElementById('nurseSpec')?.addEventListener('change', grid);
   document.getElementById('nurseEdu')?.addEventListener('change', grid);
-  document.getElementById('availFilter')?.addEventListener('click', ()=>{
-    avail=false;
-    document.getElementById('availFilter').classList.add('active');
-    document.getElementById('availFilterOn').classList.remove('active');
-    grid();
-  });
   document.getElementById('availFilterOn')?.addEventListener('click', ()=>{
-    avail=true;
-    document.getElementById('availFilterOn').classList.add('active');
-    document.getElementById('availFilter').classList.remove('active');
+    avail = !avail;
+    document.getElementById('availFilterOn').classList.toggle('active', avail);
     grid();
   });
+  document.getElementById('nurseGrid')?.addEventListener('click', (ev)=>{
+    if(ev.target.id === 'btnResetNurseFilters'){
+      document.getElementById('nurseSearch').value = '';
+      document.getElementById('nurseSpec').value = '';
+      document.getElementById('nurseEdu').value = '';
+      avail = false;
+      document.getElementById('availFilterOn')?.classList.remove('active');
+      grid();
+    }
+  });
+}
+
+// Kosongnya "belum ada perawat sama sekali" vs "tidak ada yang cocok dengan
+// filter aktif" butuh pesan & aksi yang beda supaya pengguna tahu harus
+// ngapain, bukan cuma mentok di ikon kotak surat.
+function nurseEmptyState(totalNurses, isFiltered){
+  if(totalNurses === 0){
+    return '<div class="empty-state"><div class="empty-icon">👩‍⚕️</div>'
+      + '<p>Belum ada perawat terdaftar di platform saat ini.</p>'
+      + '<p style="font-size:.82rem;margin-top:4px">Butuh bantuan segera? Hubungi tim Akemat, kami bantu carikan.</p>'
+      + '<a href="https://wa.me/6285196407117" target="_blank" class="btn btn-primary btn-sm" style="margin-top:14px">💬 Hubungi via WhatsApp</a>'
+      + '</div>';
+  }
+  if(isFiltered){
+    return '<div class="empty-state"><div class="empty-icon">🔍</div>'
+      + '<p>Tidak ada perawat yang cocok dengan filter ini.</p>'
+      + '<button type="button" class="btn btn-outline btn-sm" id="btnResetNurseFilters" style="margin-top:14px">Reset Filter</button>'
+      + '</div>';
+  }
+  return emptyState('Tidak ada perawat yang cocok.');
 }
 
 function nurseCard(n){
@@ -697,7 +719,6 @@ async function renderCampaignList(){
       <div class="section-head">
         <p class="eyebrow">Campaign donasi</p>
         <h2>Bantu mereka yang membutuhkan perawatan</h2>
-        <p class="lead">5% biaya layanan digunakan untuk operasional platform. 95% donasi langsung ke campaign.</p>
       </div>
       <div class="filter-row">
         <div class="search-wrap">
@@ -813,11 +834,6 @@ async function renderCampaignDetail(id){
           <span style="color:${p>=100?'var(--success)':'var(--soft)'}">${p>=100?'✅ Target tercapai!':'Butuh '+rpFmt(c.target-c.current)+' lagi'}</span>
         </div>
         <button class="btn btn-accent btn-full" onclick="openDonateModal('${c.id}')">Donasi Sekarang ❤️</button>
-
-        <!-- Fee info -->
-        <div style="background:var(--bg-alt);border-radius:var(--r-sm);padding:10px;margin-top:12px;font-size:.76rem;color:var(--soft);line-height:1.5">
-          ℹ️ <strong style="color:var(--primary)">Transparansi:</strong> 95% donasi langsung ke campaign. 5% biaya layanan platform.
-        </div>
 
         ${doms.length?'<div class="donors-list"><h4 style="font-family:var(--font-d);font-weight:700;font-size:.84rem;margin:0 0 10px">Donatur terakhir</h4>'+doms.map(d=>'<div class="donor-item"><span class="donor-name">'+(d.anonymous?'Anonim':esc(d.donorName))+'</span><span class="donor-amount">'+rpFmt(d.amount)+'</span></div>').join('')+'</div>':''}      </div>
     </div>
