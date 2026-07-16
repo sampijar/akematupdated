@@ -215,8 +215,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .ff .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pw-field{position:relative}
 .pw-field input{padding-right:44px}
-.pw-toggle{position:absolute;top:50%;right:4px;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;font-size:1rem;line-height:1;padding:8px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.pw-toggle:hover{background:var(--bg-alt)}
+.pw-toggle{position:absolute;top:50%;right:4px;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:var(--soft);line-height:1;padding:8px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.pw-toggle svg{width:18px;height:18px}
+.pw-toggle:hover{background:var(--bg-alt);color:var(--primary)}
 /* Ruang aman di bawah supaya tombol WhatsApp mengambang (fixed, bottom:28px)
    tidak menutupi tombol submit / rincian harga di widget booking & donasi & form auth. */
 .book-widget,.donate-widget,.auth-card{margin-bottom:90px}
