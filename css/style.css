@@ -310,12 +310,17 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .f-chip.active{border-color:var(--primary);background:var(--primary);color:#fff}
 
 /* ── Toast ───────────────────────────────────────────────── */
-#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--primary);color:#fff;padding:11px 22px;border-radius:999px;font-family:var(--font-d);font-weight:600;font-size:.84rem;box-shadow:var(--sh-md);z-index:200;transition:transform .3s ease;white-space:nowrap}
-#toast.vis{transform:translateX(-50%) translateY(0)}
+/* Disembunyikan lewat opacity+pointer-events, BUKAN cuma didorong pakai
+   translateY jarak tetap — jarak tetap gampang meleset begitu posisi
+   "bottom" toast berubah (mis. dinaikkan di HP biar tidak ketutup tab
+   bar), karena translateY yang sama jadi tidak cukup jauh buat
+   benar-benar keluar layar dan ujungnya "nyangkut" keliatan sedikit. */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(8px);opacity:0;pointer-events:none;background:var(--primary);color:#fff;padding:11px 22px;border-radius:999px;font-family:var(--font-d);font-weight:600;font-size:.84rem;box-shadow:var(--sh-md);z-index:200;transition:transform .25s ease,opacity .25s ease;white-space:nowrap}
+#toast.vis{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
 /* Toast fixed di bawah viewport nabrak tombol CTA modal (mis. "Konfirmasi
    Donasi") kalau modal lagi terbuka — pindah ke atas supaya tidak tumpang
    tindih dengan tombol/isi modal. */
-body.modal-open #toast{bottom:auto;top:14px;transform:translateX(-50%) translateY(-60px)}
+body.modal-open #toast{bottom:auto;top:14px;transform:translateX(-50%) translateY(-8px)}
 body.modal-open #toast.vis{transform:translateX(-50%) translateY(0)}
 #toast.ts{background:var(--success)}
 #toast.te{background:var(--danger)}
