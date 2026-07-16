@@ -1,10 +1,10 @@
 'use strict';
 /**
- * payment.js — iPaymu frontend integration
+ * payment.js — DOKU Checkout frontend integration
  * Dipanggil dari app.js untuk donasi dan booking payment
  */
 
-const PAYMENT_API = '/api/ipaymu-payment';
+const PAYMENT_API = '/api/doku-payment';
 
 // ── Helpers ────────────────────────────────────────────────
 function rpFmtP(n){ return 'Rp '+Number(n||0).toLocaleString('id-ID'); }

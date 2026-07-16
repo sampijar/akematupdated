@@ -678,11 +678,11 @@ async function renderNurseDetail(id){
         buyerPhone:  u.phone||'08000000000',
       });
     } catch(err){
-      // Janji temu tersimpan (belum lunas) tapi redirect ke iPaymu gagal — tampilkan
+      // Janji temu tersimpan (belum lunas) tapi redirect ke DOKU gagal — tampilkan
       // alasan sebenarnya, jangan sembunyikan di balik pesan sukses yang menyesatkan.
       toast('Janji temu tersimpan, tapi gagal membuka pembayaran: '+(err.message||'coba lagi.'), 'e');
       setTimeout(()=>navigate('#dashboard'), 1800);
-      console.error('[Payment] iPaymu redirect failed:', err.message);
+      console.error('[Payment] DOKU redirect failed:', err.message);
     }
     if(btn2){ btn2.disabled=false; btn2.textContent=orig2; }
   });
@@ -793,7 +793,7 @@ async function renderCampaignDetail(id){
         </div>
 
         <!-- Campaign penerima dana — nomor rekening TIDAK ditampilkan ke publik.
-             Semua donasi wajib lewat payment gateway platform (iPaymu), bukan
+             Semua donasi wajib lewat payment gateway platform (DOKU), bukan
              transfer langsung, jadi pengunjung cukup tahu program terverifikasi
              + atas nama siapa dananya, tanpa data rekening mentah. -->
         <div style="background:var(--bg-alt);border-radius:var(--r-sm);padding:14px;margin-bottom:18px">
@@ -1604,7 +1604,7 @@ function renderFAQ(){
     { q:'Apakah data rekening saya aman?', cat:'Rekening', a:'Ya. Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan Akemat yang berwenang. Kami tidak pernah membagikan data rekening kepada pihak ketiga.' },
     { q:'Bagaimana cara daftar sebagai perawat mitra?', cat:'Akun', a:'Klik Daftar dan pilih peran Perawat. Lengkapi data: nama, kontak, spesialisasi, pendidikan, kota, tarif per jam, bio, dan jadwal ketersediaan. Tambahkan data rekening untuk pencairan. Tim kami akan melakukan verifikasi dalam 2-3 hari kerja.' },
     { q:'Berapa perawat menerima dari setiap janji temu?', cat:'Janji Temu Perawat', a:'Perawat menerima 80% dari total nilai janji temu. Contoh: tarif Rp 150.000/jam x 3 jam = Rp 450.000 total. Perawat menerima Rp 360.000 (80%). Penghasilan dicairkan setiap minggu.', highlight:'Penghasilan Anda = tarif per jam x durasi x 80%' },
-    { q:'Apakah ada garansi keamanan bertransaksi?', cat:'Janji Temu Perawat', a:'Ya. Semua pembayaran janji temu diproses melalui iPaymu (payment gateway berlisensi Bank Indonesia). Data transaksi dienkripsi dengan standar industri.' },
+    { q:'Apakah ada garansi keamanan bertransaksi?', cat:'Janji Temu Perawat', a:'Ya. Semua pembayaran janji temu diproses melalui DOKU (payment gateway berlisensi Bank Indonesia). Data transaksi dienkripsi dengan standar industri.' },
   ];
   const faqCats = ['Janji Temu Perawat','Donasi','Rekening','Akun'];
 
@@ -1822,18 +1822,18 @@ async function openDonateModal(campaignId){
     btn.disabled=true; btn.textContent='Memproses…';
     try {
       // Simpan metadata donasi (belum lunas) — baru dikreditkan ke campaign
-      // setelah iPaymu mengonfirmasi pembayaran di payment-return.html
+      // setelah DOKU mengonfirmasi pembayaran di payment-return.html
       await Payment.payDonation({
         amount: amt, campaignId: cid,
         campaignTitle: cam.title, buyerName: name,
         buyerEmail: email, buyerPhone: phone,
         anonymous: anon, donorId: u?.id||'guest',
       });
-      // Jika berhasil, browser sudah diarahkan ke halaman pembayaran iPaymu.
+      // Jika berhasil, browser sudah diarahkan ke halaman pembayaran DOKU.
     } catch(err) {
-      // Pembayaran WAJIB lewat iPaymu — jangan catat donasi tanpa pembayaran nyata.
+      // Pembayaran WAJIB lewat DOKU — jangan catat donasi tanpa pembayaran nyata.
       toast('Gagal membuat transaksi pembayaran: '+(err.message||'coba lagi.'), 'e');
-      console.error('[Payment] iPaymu error:', err.message);
+      console.error('[Payment] DOKU error:', err.message);
     }
     btn.disabled=false; btn.textContent=orig;
   };
@@ -1972,7 +1972,7 @@ function emptyState(msg){
   return '<div class="empty-state"><div class="empty-icon">📭</div><p>' + msg + '</p></div>';
 }
 
-// ── openPayBook: trigger iPaymu payment for booking ──────────
+// ── openPayBook: trigger DOKU payment for booking ──────────
 async function openPayBook(bookingId){
   const u = Store.getCurrentUser();
   if(!u){ toast('Silakan login terlebih dahulu.','e'); return; }
@@ -1992,7 +1992,7 @@ async function openPayBook(bookingId){
   } catch(err) {
     toast('Gagal membuka pembayaran: '+(err.message||'coba lagi.')+' — mengarahkan ke WhatsApp.', 'e');
     window.open('https://wa.me/6285196407117?text='+encodeURIComponent('Halo Akemat, saya ingin bayar janji temu '+bk.service+' ('+bk.date+'). Nama: '+u.name),'_blank');
-    console.error('[Payment] iPaymu redirect failed:', err.message);
+    console.error('[Payment] DOKU redirect failed:', err.message);
   }
 }
 window.openPayBook = openPayBook;

@@ -45,9 +45,15 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
 (async()=>{
   const params = new URLSearchParams(location.search);
   const stored = JSON.parse(sessionStorage.getItem('akemat_tx')||'{}');
-  const trxId  = params.get('trx_id') || stored.transactionId || '';
-  const urlSt  = params.get('status')  || '';
-  const ref    = params.get('reference_id') || stored.referenceId || '';
+  // DOKU redirect balik ke callback_url_result — nama query param persis
+  // yang mereka kirim belum sempat dikonfirmasi dari dokumentasi "Order
+  // Status for Checkout Page", jadi jangan percaya status dari URL begitu
+  // saja. invoice_number (referenceId) yang kita simpan sendiri di
+  // sessionStorage sebelum redirect selalu bisa diandalkan sebagai kunci
+  // untuk tanya status asli ke DOKU (lihat action:'status' di bawah).
+  const trxId  = params.get('invoice_number') || params.get('order_id') || stored.referenceId || '';
+  const urlSt  = params.get('status') || params.get('transaction_status') || '';
+  const ref    = stored.referenceId || params.get('invoice_number') || '';
   const amt    = stored.amount || params.get('amount') || '';
   const buyer  = stored.buyerName || '';
   const prod   = stored.productName || 'Pembayaran';
@@ -61,7 +67,7 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
     det.style.display='block';
     det.innerHTML=rows.map(([l,v])=>`<div class="dr"><span class="lbl">${l}</span><span class="val">${v||'—'}</span></div>`).join('');
   }
-  // Catat pembayaran HANYA setelah iPaymu mengonfirmasi status berhasil — ini
+  // Catat pembayaran HANYA setelah DOKU mengonfirmasi status berhasil — ini
   // satu-satunya tempat donasi/booking dianggap lunas & dikreditkan. Store
   // memilih backend (Supabase kalau sudah dikonfigurasi, localStorage kalau
   // belum) sama seperti index.html.
@@ -89,22 +95,29 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
   function fail(){ ico.textContent='❌'; ttl.textContent='Pembayaran Gagal / Dibatalkan'; dsc.textContent='Transaksi tidak berhasil. Silakan coba lagi atau hubungi kami.'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali</a><a href="https://wa.me/6285196407117" target="_blank" class="btn btn-o">Hubungi WA</a>'; sessionStorage.removeItem('akemat_tx'); }
   function pend(tid){ ico.textContent='⏳'; ttl.textContent='Menunggu Pembayaran'; dsc.textContent='Transaksi menunggu konfirmasi pembayaran.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',amt?'Rp '+Number(amt).toLocaleString('id-ID'):'—']]); note.style.display='block'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a>'; }
 
-  const ok_st = ['berhasil','success','paid','1'];
-  const fail_st= ['gagal','failed','cancel','cancelled','-1'];
+  const ok_st = ['berhasil','success','paid','1','settlement'];
+  const fail_st= ['gagal','failed','cancel','cancelled','expired','-1'];
 
-  if(ok_st.includes(urlSt.toLowerCase()))  return await ok(trxId, amt);
-  if(fail_st.includes(urlSt.toLowerCase())) return fail();
-
+  // Jangan langsung percaya status dari query string redirect DOKU — selalu
+  // konfirmasi ke DOKU langsung lewat invoice_number sebelum mengkreditkan
+  // donasi/booking. urlSt cuma dipakai untuk teks status awal yang lebih
+  // ramah selagi menunggu hasil cek di bawah.
   if(trxId){
-    chk.textContent='Mengonfirmasi status ke iPaymu…';
+    chk.textContent='Mengonfirmasi status ke DOKU…';
     try{
-      const r=await fetch('/api/ipaymu-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',transactionId:trxId})});
+      const r=await fetch('/api/doku-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',transactionId:trxId})});
       const d=await r.json();
-      const st=String(d?.data?.Status||d?.data?.status||'').toLowerCase();
-      if(ok_st.includes(st)) return await ok(trxId, d?.data?.Amount||amt);
+      const st=String(d?.data?.transaction?.status||d?.data?.order?.status||d?.data?.status||'').toLowerCase();
+      if(ok_st.includes(st)) return await ok(trxId, d?.data?.order?.amount||amt);
       if(fail_st.includes(st)) return fail();
+      if(ok_st.includes(urlSt.toLowerCase()))  return await ok(trxId, amt);
+      if(fail_st.includes(urlSt.toLowerCase())) return fail();
       pend(trxId);
-    }catch{ pend(trxId); }
+    }catch{
+      if(ok_st.includes(urlSt.toLowerCase()))  return await ok(trxId, amt);
+      if(fail_st.includes(urlSt.toLowerCase())) return fail();
+      pend(trxId);
+    }
   } else {
     pend('');
     dsc.textContent='Jika sudah transfer, konfirmasi via WhatsApp ke 0851 9640 7117.';
