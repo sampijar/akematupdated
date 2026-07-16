@@ -174,7 +174,6 @@ CREATE TABLE IF NOT EXISTS patient_profiles (
   updated_at   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_patient_profiles_account ON patient_profiles(account_id);
-CREATE TRIGGER trg_pp_updated BEFORE UPDATE ON patient_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Booking dibuat oleh akun (patient_id = siapa yang login & bayar) TAPI
 -- untuk pasien tertentu (patient_profile_id) — dua hal ini bisa beda orang.
@@ -195,6 +194,18 @@ ALTER TABLE payouts   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patient_profiles ENABLE ROW LEVEL SECURITY;
 
 -- Policies: semua user bisa baca data publik
+-- DROP IF EXISTS dulu di tiap policy/trigger supaya seluruh file ini AMAN
+-- dijalankan ulang kapan saja (CREATE POLICY/CREATE TRIGGER polos, beda
+-- dari CREATE TABLE/INDEX, tidak punya IF NOT EXISTS di Postgres — re-run
+-- tanpa DROP dulu akan gagal dengan error "already exists").
+DROP POLICY IF EXISTS "Public read nurses"    ON nurse_profiles;
+DROP POLICY IF EXISTS "Public read campaigns" ON campaigns;
+DROP POLICY IF EXISTS "Public read donations" ON donations;
+DROP POLICY IF EXISTS "Own bookings"  ON bookings;
+DROP POLICY IF EXISTS "Own profile"   ON users;
+DROP POLICY IF EXISTS "Own payouts"   ON payouts;
+DROP POLICY IF EXISTS "Own patient profiles" ON patient_profiles;
+
 CREATE POLICY "Public read nurses"    ON nurse_profiles FOR SELECT USING (true);
 CREATE POLICY "Public read campaigns" ON campaigns      FOR SELECT USING (true);
 CREATE POLICY "Public read donations" ON donations      FOR SELECT USING (true);
@@ -224,10 +235,17 @@ RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_users_updated     ON users;
+DROP TRIGGER IF EXISTS trg_bookings_updated  ON bookings;
+DROP TRIGGER IF EXISTS trg_campaigns_updated ON campaigns;
+DROP TRIGGER IF EXISTS trg_np_updated        ON nurse_profiles;
+DROP TRIGGER IF EXISTS trg_pp_updated        ON patient_profiles;
+
 CREATE TRIGGER trg_users_updated     BEFORE UPDATE ON users         FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_bookings_updated  BEFORE UPDATE ON bookings      FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_campaigns_updated BEFORE UPDATE ON campaigns     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_np_updated        BEFORE UPDATE ON nurse_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_pp_updated        BEFORE UPDATE ON patient_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ── RPC: tambah saldo campaign secara atomik ────────────────
 -- Dipanggil lewat POST {SUPABASE_URL}/rest/v1/rpc/increment_campaign.
