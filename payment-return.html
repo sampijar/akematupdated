@@ -96,7 +96,7 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
   function pend(tid){ ico.textContent='⏳'; ttl.textContent='Menunggu Pembayaran'; dsc.textContent='Transaksi menunggu konfirmasi pembayaran.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',amt?'Rp '+Number(amt).toLocaleString('id-ID'):'—']]); note.style.display='block'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a>'; }
 
   const ok_st = ['berhasil','success','paid','1','settlement'];
-  const fail_st= ['gagal','failed','cancel','cancelled','expired','-1'];
+  const fail_st= ['gagal','failed','cancel','cancelled','expired','order_expired','-1'];
 
   // Jangan langsung percaya status dari query string redirect DOKU — selalu
   // konfirmasi ke DOKU langsung lewat invoice_number sebelum mengkreditkan
