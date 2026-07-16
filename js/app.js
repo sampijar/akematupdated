@@ -704,8 +704,6 @@ async function renderCampaignList(){
           <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
           <input type="text" id="camSearch" placeholder="Cari campaign…" />
         </div>
-        <button class="f-chip active" data-cat="">Semua</button>
-        ${SPECIALTIES.map(s=>chipHTML(s,SPECIALTY_ICONS[s]+' '+s.replace('Perawat ',''),false)).join('')}
       </div>
       <div class="campaign-grid" id="camGrid">
         ${campaigns.map(c=>campaignCard(c)).join('') || emptyState('Belum ada campaign.')}
@@ -715,23 +713,10 @@ async function renderCampaignList(){
   </section>
   ${renderFooterSection()}`;
 
-  let cat = '';
   document.getElementById('camSearch')?.addEventListener('input', filterCam);
-  document.querySelectorAll('[data-cat]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      document.querySelectorAll('[data-cat]').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      cat = btn.dataset.cat;
-      filterCam();
-    });
-  });
   function filterCam(){
     const q  = document.getElementById('camSearch')?.value.toLowerCase()||'';
-    const list = campaigns.filter(c=>{
-      const matchQ  = !q || c.title.toLowerCase().includes(q) || c.category?.toLowerCase().includes(q);
-      const matchCat= !cat || c.category === cat;
-      return matchQ && matchCat;
-    });
+    const list = campaigns.filter(c=>!q || c.title.toLowerCase().includes(q) || c.category?.toLowerCase().includes(q));
     document.getElementById('camGrid').innerHTML = list.map(c=>campaignCard(c)).join('') || emptyState('Tidak ada campaign yang cocok.');
   }
 }
@@ -843,7 +828,7 @@ async function renderCampaignDetail(id){
   const shareUrl  = location.origin + location.pathname + '#donasi/' + c.id;
   const shareText = 'Yuk bantu wujudkan "' + c.title + '" di Akemat Foundation. Sudah terkumpul ' + rpFmt(c.current) + ' dari target ' + rpFmt(c.target) + '.';
   const waLink = document.getElementById('shareWaLink');
-  if(waLink) waLink.href = 'https://wa.me/?text=' + encodeURIComponent(shareText + ' ' + shareUrl);
+  if(waLink) waLink.href = 'https://wa.me/6285196407117?text=' + encodeURIComponent('Halo Akemat Foundation, saya ingin tanya soal campaign "' + c.title + '" — ' + shareUrl);
   document.getElementById('btnShareCampaign')?.addEventListener('click', async ()=>{
     if(navigator.share){
       try { await navigator.share({ title: c.title, text: shareText, url: shareUrl }); }
@@ -1028,8 +1013,8 @@ function renderRegister(){
         </div>
         <div class="role-pick" data-role="donor">
           <div class="role-pick-icon">❤️</div>
-          <div class="role-pick-name">Donatur</div>
-          <div class="role-pick-desc">Buat &amp; kelola donasi</div>
+          <div class="role-pick-name">Penggalang Dana</div>
+          <div class="role-pick-desc">Buat &amp; kelola campaign donasi</div>
         </div>
       </div>
 
@@ -1389,7 +1374,7 @@ function sidebarHTML(u, activePage){
     <div class="sb-user">
       <div class="sb-avatar">${initials(u.name)}</div>
       <div class="sb-name">${esc(u.name)}</div>
-      <div class="sb-role">${{patient:'Pasien',nurse:'Perawat',donor:'Donatur'}[u.role]}</div>
+      <div class="sb-role">${{patient:'Pasien',nurse:'Perawat',donor:'Penggalang Dana'}[u.role]}</div>
       ${u.role!=='patient'?'<div class="sb-bank"><span class="sb-bank-status '+(bankOk?'ok':'warn')+'">'+(bankOk?'&#10003; Rekening terdaftar':'&#9888; Rekening belum diisi')+'</span></div>':u.ktpStatus==='pending'?'<div class="sb-bank"><span class="sb-bank-status warn">&#128206; KTP belum diverifikasi</span></div>':''}
     </div>
     <nav class="sb-nav">
@@ -1408,7 +1393,6 @@ function afterDash(){ document.getElementById('btnLogout')?.addEventListener('cl
 
 async function renderPatientDash(u){
   const [bookings, donations] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id)]);
-  const totalPaid = bookings.filter(b=>b.paymentStatus==='paid').reduce((s,b)=>s+(b.totalCost||0),0);
   const campaignIds = [...new Set(donations.map(d=>d.campaignId).filter(Boolean))];
   const campaignMap = new Map((await Promise.all(campaignIds.map(cid=>Store.getCampaignById(cid)))).filter(Boolean).map(c=>[c.id,c]));
 
@@ -1421,18 +1405,10 @@ async function renderPatientDash(u){
         <p>Kelola janji temu perawat dan riwayat donasi Anda.</p>
         ${u.ktpStatus==='pending'?'<div class="bank-warning" style="margin-top:10px;max-width:500px;border-color:#FDE68A;background:#FFFBEB">&#128206; Upload KTP Anda di <a href="#profil">Profil</a> untuk verifikasi identitas sebelum janji temu pertama.</div>':''}
       </div>
-      <div class="stat-row">
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#EEF2FF"><svg viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
-          <div><div class="stat-val">${bookings.length}</div><div class="stat-lbl">Total janji temu</div></div>
-        </div>
+      <div class="stat-row" style="grid-template-columns:minmax(0,1fr);max-width:280px">
         <div class="stat-card">
           <div class="stat-icon" style="background:#F0FDF4"><svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2"><path d="M12 21s-7-4.35-9-9a4.5 4.5 0 0 1 8-3 4.5 4.5 0 0 1 8 3c-1 4.5-7 9-7 9z"/></svg></div>
           <div><div class="stat-val">${donations.length}</div><div class="stat-lbl">Donasi diberikan</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#FFF7ED"><svg viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg></div>
-          <div><div class="stat-val">${rpFmt(totalPaid)}</div><div class="stat-lbl">Total bayar janji temu</div></div>
         </div>
       </div>
 
@@ -1524,7 +1500,7 @@ async function renderDonorDash(u){
     ${sidebarHTML(u)}
     <div class="dash-main">
       <div class="dash-head">
-        <h2>Dashboard Donatur</h2>
+        <h2>Dashboard Penggalang Dana</h2>
         <p>Kelola campaign donasi dan riwayat kontribusi Anda.</p>
       </div>
       <div class="stat-row">
@@ -1569,10 +1545,10 @@ function renderTNC(){
   html += '<h3>3.3 Pembatalan &amp; Refund</h3><ul><li>Pembatalan oleh pasien minimal 24 jam sebelum jadwal: refund 100%.</li><li>Pembatalan kurang dari 24 jam: dikenakan biaya admin 10%.</li><li>Pembatalan sepihak oleh perawat tanpa alasan valid: refund 100% ke pasien.</li><li>Proses refund dilakukan dalam 3–5 hari kerja.</li></ul>';
   html += '<h3>3.4 Rekening Perawat</h3><ul><li>Perawat wajib mengisi data rekening bank yang valid untuk pencairan penghasilan.</li><li>Pencairan dilakukan setiap minggu untuk janji temu yang berstatus selesai.</li><li>Verifikasi rekening dilakukan oleh tim Akemat dalam 1×24 jam kerja.</li></ul></div>';
   html += '<div class="tnc-section"><h2>4. Kampanye Donasi</h2>';
-  html += '<h3>4.1 Pembuatan Campaign</h3><ul><li>Donatur yang terverifikasi dapat membuat kampanye donasi untuk membantu pembiayaan layanan perawatan.</li><li>Akemat Foundation berhak menolak atau menghapus kampanye yang tidak sesuai ketentuan.</li></ul>';
+  html += '<h3>4.1 Pembuatan Campaign</h3><ul><li>Penggalang Dana yang terverifikasi dapat membuat kampanye donasi untuk membantu pembiayaan layanan perawatan.</li><li>Akemat Foundation berhak menolak atau menghapus kampanye yang tidak sesuai ketentuan.</li></ul>';
   html += '<h3>4.2 Biaya Layanan Donasi</h3><ul><li><strong>Dari setiap donasi: 95% disalurkan ke kampanye; 5% adalah biaya layanan platform.</strong></li><li>Biaya layanan mencakup verifikasi kampanye, operasional sistem pembayaran, dan akuntabilitas donasi.</li></ul>';
   html += '<h3>4.3 Rekening Penerima Campaign</h3><ul><li>Pemilik kampanye wajib mendaftarkan rekening bank yang valid sebagai tujuan pencairan donasi.</li><li>Pencairan dilakukan setelah kampanye berakhir atau mencapai target, setelah proses verifikasi.</li></ul>';
-  html += '<h3>4.4 Tanggung Jawab Donatur</h3><ul><li>Donasi yang sudah dikirim tidak dapat ditarik kembali kecuali kampanye dibatalkan oleh Akemat Foundation.</li></ul></div>';
+  html += '<h3>4.4 Tanggung Jawab Penggalang Dana</h3><ul><li>Donasi yang sudah dikirim tidak dapat ditarik kembali kecuali kampanye dibatalkan oleh Akemat Foundation.</li></ul></div>';
   html += '<div class="tnc-section"><h2>5. Privasi Data</h2>';
   html += '<ul><li>Data pribadi pengguna hanya digunakan untuk keperluan layanan platform.</li><li>Akemat Foundation tidak menjual atau membagikan data pengguna kepada pihak ketiga untuk tujuan komersial.</li><li>Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan yang berwenang.</li></ul></div>';
   html += '<div class="tnc-section"><h2>6. Larangan Penggunaan</h2>';
@@ -1598,7 +1574,7 @@ function renderFAQ(){
     { q:'Apa saja jenjang pendidikan perawat?', cat:'Janji Temu Perawat', a:'D3 Keperawatan, D4 Keperawatan, Ners/Profesi Ners, dan Spesialis Keperawatan. Jenjang pendidikan ditampilkan transparan di profil setiap perawat.' },
     { q:'Bagaimana cara berdonasi?', cat:'Donasi', a:'(1) Kunjungi halaman Donasi. (2) Pilih campaign yang ingin Anda dukung. (3) Klik Donasi. (4) Pilih nominal atau masukkan jumlah sendiri. (5) Isi nama, email, dan no HP. (6) Konfirmasi donasi.' },
     { q:'Kapan donasi saya dicairkan ke penerima?', cat:'Donasi', a:'Pencairan donasi dilakukan setelah kampanye berakhir atau mencapai target, setelah proses verifikasi oleh tim Akemat. Pemilik campaign wajib mengisi data rekening bank yang valid. Proses transfer 3-7 hari kerja.' },
-    { q:'Bagaimana cara membuat campaign donasi?', cat:'Donasi', a:'Daftar sebagai Donatur, lengkapi profil termasuk data rekening bank, lalu klik + Buat Campaign di dashboard. Isi judul, cerita, target dana, deadline, dan kategori. Campaign akan melalui proses review 1-2 hari kerja sebelum tayang.' },
+    { q:'Bagaimana cara membuat campaign donasi?', cat:'Donasi', a:'Daftar sebagai Penggalang Dana, lengkapi profil termasuk data rekening bank, lalu klik + Buat Campaign di dashboard. Isi judul, cerita, target dana, deadline, dan kategori. Campaign akan melalui proses review 1-2 hari kerja sebelum tayang.' },
     { q:'Bagaimana jika perawat tidak datang sesuai jadwal?', cat:'Janji Temu Perawat', a:'Segera hubungi tim Akemat via WhatsApp. Jika perawat membatalkan sepihak tanpa alasan valid, Anda akan mendapat refund 100%. Kami juga akan membantu mencarikan perawat pengganti.' },
     { q:'Apa itu rekening pencairan dan mengapa wajib diisi?', cat:'Rekening', a:'Rekening pencairan adalah rekening bank yang digunakan Akemat untuk mentransfer penghasilan (perawat) atau donasi (pemilik campaign). Tanpa data rekening yang valid, pembayaran tidak dapat diproses. Verifikasi dalam 1x24 jam kerja.' },
     { q:'Apakah data rekening saya aman?', cat:'Rekening', a:'Ya. Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan Akemat yang berwenang. Kami tidak pernah membagikan data rekening kepada pihak ketiga.' },
@@ -1802,10 +1778,7 @@ async function openDonateModal(campaignId){
 
   function updateDonTotal(){
     const amt = selAmt || parseInt(document.getElementById('donCustomAmt')?.value)||0;
-    const fee = Math.round(amt*FEE.DONATION);
-    document.getElementById('donTotalDisp').textContent  = rpFmt(amt);
-    document.getElementById('donFeeDisp').textContent    = rpFmt(fee);
-    document.getElementById('donNetDisp').textContent    = rpFmt(amt-fee);
+    document.getElementById('donTotalDisp').textContent = rpFmt(amt);
   }
 
   document.getElementById('btnSubmitDonation').onclick=async()=>{
@@ -1815,7 +1788,7 @@ async function openDonateModal(campaignId){
     const phone = document.getElementById('donBuyerPhone')?.value.trim();
     const anon  = document.getElementById('donAnon')?.checked;
     const cid   = document.getElementById('donCamId')?.value;
-    if(amt<1000){ toast('Minimal donasi Rp 1.000.','e'); return; }
+    if(amt<15000){ toast('Minimal donasi Rp 15.000.','e'); return; }
     if(!name||!email||!phone){ toast('Nama, email, dan no HP wajib diisi.','e'); return; }
     const btn = document.getElementById('btnSubmitDonation');
     const orig = btn.textContent;
@@ -1848,7 +1821,7 @@ function openBookingModal(nurseId){
 
 function openCreateCampaignModal(){
   const u = Store.getCurrentUser();
-  if(!u||u.role!=='donor'){ toast('Hanya donatur yang bisa membuat campaign.','e'); return; }
+  if(!u||u.role!=='donor'){ toast('Hanya Penggalang Dana yang bisa membuat campaign.','e'); return; }
   openModal('modalCreateCampaign');
 
   let imageDataUrl = '';
@@ -1874,7 +1847,9 @@ function openCreateCampaignModal(){
     }
   };
 
-  document.getElementById('btnCreateCampaign').onclick=async ()=>{
+  document.getElementById('btnCreateCampaign').onclick=async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return; // cegah double-tap bikin campaign dua kali
     const title    = document.getElementById('ccTitle')?.value.trim();
     const story    = document.getElementById('ccStory')?.value.trim();
     const target   = parseInt(document.getElementById('ccTarget')?.value)||0;
@@ -1885,12 +1860,20 @@ function openCreateCampaignModal(){
     const accOwner = document.getElementById('ccAccOwner')?.value.trim();
     if(!title||!story||!target||!deadline){ toast('Lengkapi semua field wajib.','e'); return; }
     if(!bankName||!accNum||!accOwner){ toast('Data rekening wajib diisi agar donasi bisa dicairkan.','e'); return; }
-    await Store.addCampaign({
-      title, story, target, deadline, category,
-      createdBy: u.id, creatorName: u.name,
-      verified: false, imageUrl: imageDataUrl,
-      bankInfo: { bankName, accountNumber:accNum, accountName:accOwner, verified:false },
-    });
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Menyimpan…';
+    try {
+      await Store.addCampaign({
+        title, story, target, deadline, category,
+        createdBy: u.id, creatorName: u.name,
+        verified: false, imageUrl: imageDataUrl,
+        bankInfo: { bankName, accountNumber:accNum, accountName:accOwner, verified:false },
+      });
+    } catch(e) {
+      toast('Gagal membuat campaign: '+(e.message||'coba lagi.'),'e');
+      btn.disabled = false; btn.textContent = orig;
+      return;
+    }
     closeModal('modalCreateCampaign');
     toast('Campaign berhasil dibuat!','s');
     renderDonorDash(Store.getCurrentUser());

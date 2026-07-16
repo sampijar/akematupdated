@@ -463,7 +463,12 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
   .mobile-tabbar a.active .mt-icon{transform:translateY(-1px) scale(1.08)}
   .mobile-tabbar a:active .mt-icon{transform:scale(.88)}
   body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
-  .wa-fab{bottom:calc(78px + env(safe-area-inset-bottom))!important}
+  /* Pill dengan label teks "Chat Kami" gampang nutupin tombol CTA (mis.
+     "Donasi" di kartu campaign paling bawah, "+ Janji Temu Baru") karena
+     posisinya fixed — di HP diciutkan jadi bulat ikon saja supaya area
+     yang ketutup jauh lebih kecil. */
+  .wa-fab{bottom:calc(78px + env(safe-area-inset-bottom))!important;padding:12px!important;gap:0}
+  .wa-fab .wa-title{display:none}
   #toast{bottom:calc(78px + env(safe-area-inset-bottom))!important}
 }
 @media(max-width:480px){
