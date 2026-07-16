@@ -498,6 +498,9 @@ async function renderNurseDetail(id){
   const n = await Store.getUserById(id);
   if(!n || !n.np){ app.innerHTML='<div class="container" style="padding:60px 0"><p>Perawat tidak ditemukan.</p></div>'; return; }
   const p = n.np;
+  const currentUser = Store.getCurrentUser();
+  const patientProfiles = currentUser?.role==='patient' ? await Store.getPatientProfiles(currentUser.id) : [];
+  const bookableProfiles = patientProfiles.filter(pp => pp.ktpStatus !== 'pending');
 
   app.innerHTML = `
   <div class="container nurse-detail-wrap">
@@ -571,6 +574,12 @@ async function renderNurseDetail(id){
         <div class="book-price">${rpFmt(p.price)} <small>/ jam</small></div>
 
         ${!p.avail ? '<div class="bank-warning">⚠️ Perawat ini sedang tidak tersedia. Coba cari perawat lain.</div>' : ''}
+
+        ${currentUser?.role==='patient' ? (
+          bookableProfiles.length
+            ? '<div class="ff"><label>Untuk pasien</label><select id="bkPatientProfile">'+bookableProfiles.map(pp=>'<option value="'+pp.id+'">'+esc(pp.name)+' ('+esc(pp.relationship)+')'+(pp.ktpStatus!=='verified'?' — menunggu verifikasi KTP':'')+'</option>').join('')+'</select></div>'
+            : '<div class="bank-warning">⚠️ Anda belum punya profil pasien dengan KTP terunggah. <a href="#profil">Tambahkan di halaman Profil</a> dulu sebelum membuat janji temu.</div>'
+        ) : ''}
 
         <div class="ff">
           <label>Tanggal kunjungan</label>
@@ -677,6 +686,9 @@ async function renderNurseDetail(id){
     const u = Store.getCurrentUser();
     if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
     if(u.role !== 'patient'){ toast('Hanya pasien yang bisa membuat janji temu dengan perawat.','e'); return; }
+    const patientProfileId = document.getElementById('bkPatientProfile')?.value;
+    if(!patientProfileId){ toast('Tambahkan profil pasien (dengan KTP) di halaman Profil terlebih dahulu.','e'); return; }
+    const patientProfileName = bookableProfiles.find(pp=>pp.id===patientProfileId)?.name || '';
     const date    = document.getElementById('bkDate')?.value;
     const time    = document.querySelector('.time-btn.active')?.dataset.time || '09:00';
     const dur     = selDur;
@@ -688,7 +700,7 @@ async function renderNurseDetail(id){
 
     const total = p.price * dur;
     const booking = await Store.addBooking({
-      patientId: u.id, nurseId: n.id,
+      patientId: u.id, nurseId: n.id, patientProfileId, patientProfileName,
       nurseName: n.name, nurseSpecialty: p.specialty,
       service, date, time, duration: dur, address, notes,
       totalCost: total,
@@ -1220,8 +1232,8 @@ function statusBadge(status){
 
 function nurseBookingTable(bookings, viewerRole){
   if(!bookings.length) return emptyState(viewerRole==='patient' ? 'Belum ada janji temu. <a href="#perawat">Cari perawat sekarang</a>.' : 'Belum ada janji temu masuk.');
-  return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Layanan &amp; Tanggal</th><th>Durasi</th><th>Anda Terima</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
-    bookings.map(b=>'<tr><td><div style="font-size:.84rem;font-weight:600">'+esc(b.service)+'</div><div style="font-size:.74rem;color:var(--soft);margin-top:2px">'+esc(b.date)+' &middot; '+esc(b.time)+'</div></td><td style="font-size:.82rem">'+b.duration+' jam</td><td style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap">'+rpFmt(b.nursePay||Math.round((b.totalCost||0)*0.8))+'</td><td>'+statusBadge(b.status)+'</td><td style="white-space:nowrap">'+bookingActionsFor(b, viewerRole)+'</td></tr>').join('')+
+  return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Layanan &amp; Tanggal</th><th>Pasien</th><th>Durasi</th><th>Anda Terima</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
+    bookings.map(b=>'<tr><td><div style="font-size:.84rem;font-weight:600">'+esc(b.service)+'</div><div style="font-size:.74rem;color:var(--soft);margin-top:2px">'+esc(b.date)+' &middot; '+esc(b.time)+'</div></td><td style="font-size:.82rem">'+esc(b.patientProfileName||'—')+'</td><td style="font-size:.82rem">'+b.duration+' jam</td><td style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap">'+rpFmt(b.nursePay||Math.round((b.totalCost||0)*0.8))+'</td><td>'+statusBadge(b.status)+'</td><td style="white-space:nowrap">'+bookingActionsFor(b, viewerRole)+'</td></tr>').join('')+
     '</tbody></table></div>';
 }
 
@@ -1332,14 +1344,16 @@ async function renderAdminDash(){
   if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
   app.innerHTML = '<div class="container" style="padding:40px 20px;text-align:center"><p>Memuat…</p></div>';
 
-  let ktps = [], camps = [];
+  let ktps = [], patKtps = [], camps = [];
   try {
-    const [rk, rc] = await Promise.all([
+    const [rk, rpk, rc] = await Promise.all([
       apiFetch('admin', { action:'listPendingKtp' }),
+      apiFetch('admin', { action:'listPendingPatientKtp' }),
       apiFetch('admin', { action:'listPendingCampaigns' }),
     ]);
-    ktps  = rk.data  || [];
-    camps = rc.data || [];
+    ktps     = rk.data  || [];
+    patKtps = rpk.data || [];
+    camps    = rc.data  || [];
   } catch(e) {
     app.innerHTML = '<div class="container" style="padding:60px 20px;text-align:center;max-width:420px;margin:0 auto">'+
       '<div style="font-size:2.5rem;margin-bottom:10px">🔒</div>'+
@@ -1362,6 +1376,18 @@ async function renderAdminDash(){
       '<button class="btn btn-outline btn-sm" data-reject-ktp="'+k.id+'">✕ Tolak</button>'+
       '</div></div></div></div>';
   }
+  function patKtpCard(k){
+    return '<div class="dash-section" style="margin-bottom:12px">'+
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+
+      (k.ktp_url?'<img src="'+k.ktp_url+'" alt="Foto KTP" style="width:160px;border-radius:var(--r-sm);border:1px solid var(--border)" />':'<div style="width:160px;height:100px;background:var(--bg-alt);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:.76rem">Tidak ada foto</div>')+
+      '<div style="flex:1;min-width:180px">'+
+      '<div style="font-family:var(--font-d);font-weight:700">'+esc(k.name)+' <span style="font-weight:400;color:var(--soft);font-size:.8rem">('+esc(k.relationship)+')</span></div>'+
+      '<div style="font-size:.74rem;color:var(--soft);margin-top:4px">Diunggah: '+esc((k.created_at||'').slice(0,10))+'</div>'+
+      '<div class="acts" style="margin-top:10px;display:flex;gap:8px">'+
+      '<button class="btn btn-primary btn-sm" data-approve-pkt="'+k.id+'">✓ Setujui</button>'+
+      '<button class="btn btn-outline btn-sm" data-reject-pkt="'+k.id+'">✕ Tolak</button>'+
+      '</div></div></div></div>';
+  }
   function campCard(c){
     return '<div class="dash-section" style="margin-bottom:12px">'+
       '<div style="font-family:var(--font-d);font-weight:700">'+esc(c.title)+'</div>'+
@@ -1376,8 +1402,10 @@ async function renderAdminDash(){
   app.innerHTML = '<div class="container" style="padding:32px 20px;max-width:760px;margin:0 auto">'+
     '<h2 style="margin-bottom:4px">Panel Admin</h2>'+
     '<p style="color:var(--soft);font-size:.86rem;margin-bottom:24px">Review manual — dipakai sampai verifikasi otomatis dibangun (kalau nanti diputuskan).</p>'+
-    '<h3 style="margin-bottom:10px">🪪 KTP Menunggu Verifikasi ('+ktps.length+')</h3>'+
+    '<h3 style="margin-bottom:10px">🪪 KTP Akun Menunggu Verifikasi ('+ktps.length+')</h3>'+
     (ktps.length ? ktps.map(ktpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
+    '<h3 style="margin:24px 0 10px">🧑‍🤝‍🧑 KTP Profil Pasien Menunggu Verifikasi ('+patKtps.length+')</h3>'+
+    (patKtps.length ? patKtps.map(patKtpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
     '<h3 style="margin:24px 0 10px">💰 Campaign Menunggu Verifikasi ('+camps.length+')</h3>'+
     (camps.length ? camps.map(campCard).join('') : '<p style="color:var(--soft);font-size:.84rem">Tidak ada yang menunggu.</p>')+
     '</div>';
@@ -1388,8 +1416,36 @@ async function renderAdminDash(){
   }
   document.querySelectorAll('[data-approve-ktp]').forEach(b=>b.addEventListener('click',()=>runAction('approveKtp', b.dataset.approveKtp, 'KTP disetujui.')));
   document.querySelectorAll('[data-reject-ktp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Tolak KTP ini? Status kembali ke belum diunggah.')) runAction('rejectKtp', b.dataset.rejectKtp, 'KTP ditolak.'); }));
+  document.querySelectorAll('[data-approve-pkt]').forEach(b=>b.addEventListener('click',()=>runAction('approvePatientKtp', b.dataset.approvePkt, 'KTP pasien disetujui.')));
+  document.querySelectorAll('[data-reject-pkt]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Tolak KTP pasien ini? Status kembali ke belum diunggah.')) runAction('rejectPatientKtp', b.dataset.rejectPkt, 'KTP pasien ditolak.'); }));
   document.querySelectorAll('[data-approve-camp]').forEach(b=>b.addEventListener('click',()=>runAction('approveCampaign', b.dataset.approveCamp, 'Campaign disetujui.')));
   document.querySelectorAll('[data-delete-camp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Hapus campaign ini? Tidak bisa dibatalkan.')) runAction('deleteCampaign', b.dataset.deleteCamp, 'Campaign dihapus.'); }));
+}
+
+// ── Profil Pasien (multi-pasien per akun, tiap profil punya KTP sendiri) ──
+function patientProfilesSection(profiles){
+  function card(p){
+    var cls = p.ktpStatus==='verified' ? 'verified' : p.ktpStatus==='uploaded' ? 'pending' : 'empty';
+    var lbl = p.ktpStatus==='verified' ? '✓ Terverifikasi' : p.ktpStatus==='uploaded' ? '⏳ Menunggu verifikasi' : '❌ KTP belum diunggah';
+    return '<div class="dash-section" style="margin-bottom:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'+
+      '<div><div style="font-family:var(--font-d);font-weight:700">'+esc(p.name)+'</div>'+
+      '<div style="font-size:.78rem;color:var(--soft)">'+esc(p.relationship)+'</div></div>'+
+      '<span class="bank-status '+cls+'">'+lbl+'</span>'+
+      '</div>'+
+      (p.ktpUrl?'<img src="'+p.ktpUrl+'" alt="Foto KTP '+esc(p.name)+'" style="max-width:160px;border-radius:var(--r-sm);border:1px solid var(--border);margin-top:10px;display:block" />':'')+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">'+
+      '<label class="btn btn-outline btn-sm" style="cursor:pointer">📎 '+(p.ktpUrl?'Ganti KTP':'Upload KTP')+'<input type="file" accept="image/jpeg,image/png" style="display:none" data-ktp-for="'+p.id+'" /></label>'+
+      '<button class="btn btn-outline btn-sm" data-edit-pp="'+p.id+'">Edit</button>'+
+      '<button class="btn btn-danger btn-sm" data-delete-pp="'+p.id+'">Hapus</button>'+
+      '</div></div>';
+  }
+  return '<div class="dash-section">'+
+    '<div class="dash-sh"><h3>🧑‍🤝‍🧑 Profil Pasien</h3><button class="btn btn-accent btn-sm" id="btnAddPatientProfile">+ Tambah Pasien</button></div>'+
+    '<p style="font-size:.78rem;color:var(--soft);margin:0">Data orang yang akan dirawat saat buat janji temu — bisa lebih dari satu (mis. anggota keluarga). Wajib ada minimal 1 profil dengan KTP terunggah sebelum bisa membuat janji temu.</p>'+
+    (profiles.length ? '' : '<p style="font-size:.84rem;color:var(--soft);margin-top:12px">Belum ada profil pasien. Tambahkan dulu sebelum membuat janji temu.</p>')+
+    '</div>'+
+    profiles.map(card).join('');
 }
 
 function ktpSection(u){
@@ -1467,7 +1523,7 @@ function sidebarHTML(u, activePage){
       <div class="sb-avatar">${initials(u.name)}</div>
       <div class="sb-name">${esc(u.name)}</div>
       <div class="sb-role">${{patient:'Pasien',nurse:'Perawat',donor:'Penggalang Dana'}[u.role]}</div>
-      ${u.role!=='patient'?'<div class="sb-bank"><span class="sb-bank-status '+(bankOk?'ok':'warn')+'">'+(bankOk?'&#10003; Rekening terdaftar':'&#9888; Rekening belum diisi')+'</span></div>':u.ktpStatus==='pending'?'<div class="sb-bank"><span class="sb-bank-status warn">&#128206; KTP belum diverifikasi</span></div>':''}
+      ${u.role!=='patient'?'<div class="sb-bank"><span class="sb-bank-status '+(bankOk?'ok':'warn')+'">'+(bankOk?'&#10003; Rekening terdaftar':'&#9888; Rekening belum diisi')+'</span></div>':''}
     </div>
     <nav class="sb-nav">
       ${(links[u.role]||[]).map(function([href,icon,label]){return '<a href="'+href+'" class="'+(location.hash===href?'active':'')+'"><span>'+icon+'</span> '+label+'</a>';}).join('')}
@@ -1484,9 +1540,10 @@ function sidebarHTML(u, activePage){
 function afterDash(){ document.getElementById('btnLogout')?.addEventListener('click',async ()=>{ await Store.logout(); toast('Berhasil keluar.'); navigate('#'); }); }
 
 async function renderPatientDash(u){
-  const [bookings, donations] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id)]);
+  const [bookings, donations, patientProfiles] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id), Store.getPatientProfiles(u.id)]);
   const campaignIds = [...new Set(donations.map(d=>d.campaignId).filter(Boolean))];
   const campaignMap = new Map((await Promise.all(campaignIds.map(cid=>Store.getCampaignById(cid)))).filter(Boolean).map(c=>[c.id,c]));
+  const needsPatientProfile = !patientProfiles.some(p=>p.ktpStatus!=='pending');
 
   app.innerHTML = `
   <div class="dash-wrap">
@@ -1495,7 +1552,7 @@ async function renderPatientDash(u){
       <div class="dash-head">
         <h2>Selamat datang, ${esc(u.name.split(' ')[0])}!</h2>
         <p>Kelola janji temu perawat dan riwayat donasi Anda.</p>
-        ${u.ktpStatus==='pending'?'<div class="bank-warning" style="margin-top:10px;max-width:500px;border-color:#FDE68A;background:#FFFBEB">&#128206; Upload KTP Anda di <a href="#profil">Profil</a> untuk verifikasi identitas sebelum janji temu pertama.</div>':''}
+        ${needsPatientProfile?'<div class="bank-warning" style="margin-top:10px;max-width:500px;border-color:#FDE68A;background:#FFFBEB">&#128206; Tambahkan profil pasien &amp; unggah KTP di <a href="#profil">Profil</a> sebelum membuat janji temu pertama.</div>':''}
       </div>
       <div class="stat-row" style="grid-template-columns:minmax(0,1fr);max-width:280px">
         <div class="stat-card">
@@ -1741,6 +1798,8 @@ async function renderProfile(){
   if (u.role === 'nurse') {
     [nurseAvailable, nursePayouts] = await Promise.all([Store.getNurseAvailablePayout(u.id), Store.getPayoutsByUser(u.id)]);
   }
+  let patientProfiles = [];
+  if (u.role === 'patient') patientProfiles = await Store.getPatientProfiles(u.id);
 
   app.innerHTML = `
   <div class="dash-wrap">
@@ -1767,13 +1826,67 @@ async function renderProfile(){
       <!-- Nurse profile extra -->
       ${u.role==='nurse'?nurseProfileSection(u):''}
 
-      ${ktpSection(u)}
+      ${u.role==='patient'?patientProfilesSection(patientProfiles):ktpSection(u)}
       ${u.role!=='patient'?bankStatusSection(u):''}
       ${u.role==='nurse'?nursePayoutSection(u, nurseAvailable, nursePayouts):''}
     </div>
   </div>`;
 
   afterDash();
+
+  if (u.role === 'patient') {
+    function openPPModal(p){
+      document.getElementById('ppModalTitle').textContent = p ? '🧑‍🤝‍🧑 Edit Profil Pasien' : '🧑‍🤝‍🧑 Tambah Profil Pasien';
+      document.getElementById('ppId').value = p ? p.id : '';
+      document.getElementById('ppName').value = p ? p.name : '';
+      document.getElementById('ppRelationship').value = p ? p.relationship : 'Diri Sendiri';
+      document.getElementById('ppDob').value = p ? p.dob : '';
+      document.getElementById('ppGender').value = p ? p.gender : '';
+      document.getElementById('ppPhone').value = p ? p.phone : '';
+      document.getElementById('ppAddress').value = p ? p.address : '';
+      document.getElementById('ppNotes').value = p ? p.notes : '';
+      openModal('modalPatientProfile');
+    }
+    document.getElementById('btnAddPatientProfile')?.addEventListener('click', ()=>openPPModal(null));
+    document.querySelectorAll('[data-edit-pp]').forEach(b=>b.addEventListener('click', ()=>{
+      openPPModal(patientProfiles.find(p=>p.id===b.dataset.editPp));
+    }));
+    document.querySelectorAll('[data-delete-pp]').forEach(b=>b.addEventListener('click', async ()=>{
+      if(!confirm('Hapus profil pasien ini? Riwayat janji temu yang sudah ada tetap tersimpan.')) return;
+      try { await Store.deletePatientProfile(b.dataset.deletePp); toast('Profil pasien dihapus.','s'); renderProfile(); }
+      catch(e){ toast('Gagal menghapus: '+(e.message||'coba lagi.'),'e'); }
+    }));
+    document.getElementById('btnSavePatientProfile')?.addEventListener('click', async ()=>{
+      const id   = document.getElementById('ppId')?.value;
+      const name = document.getElementById('ppName')?.value.trim();
+      if(!name){ toast('Nama wajib diisi.','e'); return; }
+      const data = {
+        name, relationship: document.getElementById('ppRelationship')?.value,
+        dob: document.getElementById('ppDob')?.value, gender: document.getElementById('ppGender')?.value,
+        phone: document.getElementById('ppPhone')?.value.trim(), address: document.getElementById('ppAddress')?.value.trim(),
+        notes: document.getElementById('ppNotes')?.value.trim(),
+      };
+      try {
+        if(id) await Store.updatePatientProfile(id, data);
+        else   await Store.addPatientProfile({ accountId: u.id, ...data });
+        closeModal('modalPatientProfile');
+        toast('Profil pasien disimpan.','s');
+        renderProfile();
+      } catch(e){ toast('Gagal menyimpan: '+(e.message||'coba lagi.'),'e'); }
+    });
+    document.querySelectorAll('[data-ktp-for]').forEach(input=>input.addEventListener('change', async ()=>{
+      const file = input.files?.[0];
+      if(!file) return;
+      if(file.size > 5*1024*1024){ toast('Ukuran file maksimal 5MB.','e'); input.value=''; return; }
+      const pid = input.dataset.ktpFor;
+      try {
+        const dataUrl = await fileToResizedDataUrl(file, 1400, 0.85);
+        await Store.updatePatientProfile(pid, { ktpUrl: dataUrl, ktpStatus: 'uploaded' });
+        toast('KTP berhasil diunggah. Menunggu verifikasi tim Akemat.','s');
+        renderProfile();
+      } catch(e){ toast(e.message||'Gagal mengunggah KTP.','e'); }
+    }));
+  }
 
   document.getElementById('btnAjukanPencairanNurse')?.addEventListener('click', async ()=>{
     const available = await Store.getNurseAvailablePayout(u.id);

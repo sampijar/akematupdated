@@ -147,6 +147,7 @@ function rowToBooking(row) {
   if (!row) return null;
   return {
     id: row.id, patientId: row.patient_id, nurseId: row.nurse_id,
+    patientProfileId: row.patient_profile_id || '', patientProfileName: row.patient_profile_name || '',
     nurseName: row.nurse_name, nurseSpecialty: row.nurse_specialty,
     service: row.service, date: row.booking_date, time: row.booking_time,
     duration: row.duration_hours, address: row.address, notes: row.notes || '',
@@ -159,11 +160,33 @@ function rowToBooking(row) {
 function bookingToRow(data) {
   const row = {};
   const map = {
-    patientId:'patient_id', nurseId:'nurse_id', nurseName:'nurse_name', nurseSpecialty:'nurse_specialty',
+    patientId:'patient_id', nurseId:'nurse_id', patientProfileId:'patient_profile_id',
+    patientProfileName:'patient_profile_name', nurseName:'nurse_name', nurseSpecialty:'nurse_specialty',
     service:'service', date:'booking_date', time:'booking_time', duration:'duration_hours',
     address:'address', notes:'notes', totalCost:'total_cost', platformFee:'platform_fee',
     nursePay:'nurse_pay', status:'status', referenceId:'reference_id', transactionId:'transaction_id',
     paymentStatus:'payment_status',
+  };
+  Object.keys(map).forEach(k => { if (k in data) row[map[k]] = data[k]; });
+  return row;
+}
+
+function rowToPatientProfile(row) {
+  if (!row) return null;
+  return {
+    id: row.id, accountId: row.account_id, name: row.name,
+    relationship: row.relationship || 'Diri Sendiri', dob: row.dob || '',
+    gender: row.gender || '', phone: row.phone || '', address: row.address || '',
+    notes: row.notes || '', ktpStatus: row.ktp_status || 'pending', ktpUrl: row.ktp_url || '',
+    createdAt: shortDate(row.created_at),
+  };
+}
+
+function patientProfileToRow(data) {
+  const row = {};
+  const map = {
+    name:'name', relationship:'relationship', dob:'dob', gender:'gender',
+    phone:'phone', address:'address', notes:'notes', ktpStatus:'ktp_status', ktpUrl:'ktp_url',
   };
   Object.keys(map).forEach(k => { if (k in data) row[map[k]] = data[k]; });
   return row;
@@ -314,6 +337,30 @@ const Cloud = {
     const row = bookingToRow(data);
     const d = await apiFetch('db', { action:'update', table:'bookings', id, data: row });
     return rowToBooking(d.data?.[0]);
+  },
+
+  // Patient profiles (multi-pasien per akun)
+  async getPatientProfiles(accountId) {
+    const d = await apiFetch('db', { action:'select', table:'patient_profiles', filters:{ account_id:`eq.${accountId}`, order:'created_at.asc' } });
+    return (d.data || []).map(rowToPatientProfile);
+  },
+  async getPatientProfileById(id) {
+    const d = await apiFetch('db', { action:'select', table:'patient_profiles', filters:{ id:`eq.${id}`, limit:1 } });
+    return rowToPatientProfile(d.data?.[0]);
+  },
+  async addPatientProfile(data) {
+    const row = patientProfileToRow(data);
+    const d = await apiFetch('db', { action:'insert', table:'patient_profiles', data: row });
+    return rowToPatientProfile(d.data?.[0]);
+  },
+  async updatePatientProfile(id, data) {
+    const row = patientProfileToRow(data);
+    const d = await apiFetch('db', { action:'update', table:'patient_profiles', id, data: row });
+    return rowToPatientProfile(d.data?.[0]);
+  },
+  async deletePatientProfile(id) {
+    await apiFetch('db', { action:'delete', table:'patient_profiles', id });
+    return true;
   },
 
   // Donations
@@ -504,6 +551,12 @@ const Store = {
   async getBookings()               { return this.backend==='remote' ? Cloud.getBookings() : DB.getBookings(); },
   async addBooking(data)            { return this.backend==='remote' ? Cloud.addBooking(data) : DB.addBooking(data); },
   async updateBooking(id, data)     { return this.backend==='remote' ? Cloud.updateBooking(id, data) : DB.updateBooking(id, data); },
+
+  async getPatientProfiles(accountId)      { return this.backend==='remote' ? Cloud.getPatientProfiles(accountId) : DB.getPatientProfiles(accountId); },
+  async getPatientProfileById(id)          { return this.backend==='remote' ? Cloud.getPatientProfileById(id) : DB.getPatientProfileById(id); },
+  async addPatientProfile(data)            { return this.backend==='remote' ? Cloud.addPatientProfile(data) : DB.addPatientProfile(data); },
+  async updatePatientProfile(id, data)     { return this.backend==='remote' ? Cloud.updatePatientProfile(id, data) : DB.updatePatientProfile(id, data); },
+  async deletePatientProfile(id)           { return this.backend==='remote' ? Cloud.deletePatientProfile(id) : DB.deletePatientProfile(id); },
 
   async getDonationsByUser(uid)     { return this.backend==='remote' ? Cloud.getDonationsByUser(uid) : DB.getDonationsByUser(uid); },
   async getDonationsByCampaign(cid) { return this.backend==='remote' ? Cloud.getDonationsByCampaign(cid) : DB.getDonationsByCampaign(cid); },

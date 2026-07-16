@@ -153,6 +153,37 @@ ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;
 -- yang sudah dikecilkan sebelum diunggah).
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS image_url TEXT;
 
+-- ── Profil Pasien (multi-pasien per akun) ───────────────────
+-- Satu akun (role='patient') bisa punya lebih dari satu profil pasien —
+-- mis. orang tua booking-kan perawat untuk anak/pasangan/ortu-nya sendiri.
+-- Tiap profil punya KTP & status verifikasi sendiri (terpisah dari KTP
+-- akun) karena secara identitas memang orang yang berbeda.
+CREATE TABLE IF NOT EXISTS patient_profiles (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  account_id   UUID REFERENCES users(id) ON DELETE CASCADE,
+  name         TEXT NOT NULL,
+  relationship TEXT DEFAULT 'Diri Sendiri',
+  dob          DATE,
+  gender       TEXT,
+  phone        TEXT,
+  address      TEXT,
+  notes        TEXT,
+  ktp_status   TEXT DEFAULT 'pending' CHECK (ktp_status IN ('pending','uploaded','verified')),
+  ktp_url      TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_patient_profiles_account ON patient_profiles(account_id);
+CREATE TRIGGER trg_pp_updated BEFORE UPDATE ON patient_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Booking dibuat oleh akun (patient_id = siapa yang login & bayar) TAPI
+-- untuk pasien tertentu (patient_profile_id) — dua hal ini bisa beda orang.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_profile_id UUID REFERENCES patient_profiles(id);
+-- Nama pasien disalin ke booking saat dibuat (sama seperti nurse_name/
+-- nurse_specialty) supaya perawat & tabel riwayat tidak perlu join —
+-- dan tetap ada meski profil pasiennya kemudian dihapus.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_profile_name TEXT;
+
 -- ── Row Level Security (RLS) ───────────────────────────────
 ALTER TABLE users     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nurse_profiles ENABLE ROW LEVEL SECURITY;
@@ -161,6 +192,7 @@ ALTER TABLE bookings  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE donations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payouts   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE patient_profiles ENABLE ROW LEVEL SECURITY;
 
 -- Policies: semua user bisa baca data publik
 CREATE POLICY "Public read nurses"    ON nurse_profiles FOR SELECT USING (true);
@@ -174,6 +206,7 @@ CREATE POLICY "Own payouts"   ON payouts  USING (
   auth.uid() = user_id
   OR campaign_id IN (SELECT id FROM campaigns WHERE created_by = auth.uid())
 );
+CREATE POLICY "Own patient profiles" ON patient_profiles USING (auth.uid() = account_id);
 
 -- ── Indexes ────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_bookings_patient  ON bookings(patient_id);

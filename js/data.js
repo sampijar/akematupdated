@@ -50,6 +50,7 @@ const KEYS = {
   BOOKINGS: 'ak3_bookings',
   DONATIONS:'ak3_donations',
   PAYOUTS:  'ak3_payouts',
+  PATIENT_PROFILES: 'ak3_patient_profiles',
   SEEDED:   'ak3_v3_seeded',
 };
 
@@ -334,6 +335,27 @@ const DB = {
     const i  = bs.findIndex(b => b.id === id);
     if (i < 0) return null;
     bs[i] = { ...bs[i], ...data }; this.saveBookings(bs); return bs[i];
+  },
+
+  // Patient profiles (multi-pasien per akun)
+  getPatientProfiles(accountId)  { return JSON.parse(localStorage.getItem(KEYS.PATIENT_PROFILES) || '[]').filter(p => p.accountId === accountId); },
+  saveAllPatientProfiles(list)   { localStorage.setItem(KEYS.PATIENT_PROFILES, JSON.stringify(list)); },
+  getPatientProfileById(id)      { return JSON.parse(localStorage.getItem(KEYS.PATIENT_PROFILES) || '[]').find(p => p.id === id) || null; },
+  addPatientProfile(data) {
+    const all = JSON.parse(localStorage.getItem(KEYS.PATIENT_PROFILES) || '[]');
+    const p = { id: uid(), relationship: 'Diri Sendiri', ktpStatus: 'pending', createdAt: dStr(), ...data };
+    all.push(p); this.saveAllPatientProfiles(all); return p;
+  },
+  updatePatientProfile(id, data) {
+    const all = JSON.parse(localStorage.getItem(KEYS.PATIENT_PROFILES) || '[]');
+    const i = all.findIndex(p => p.id === id);
+    if (i < 0) return null;
+    all[i] = { ...all[i], ...data }; this.saveAllPatientProfiles(all); return all[i];
+  },
+  deletePatientProfile(id) {
+    const all = JSON.parse(localStorage.getItem(KEYS.PATIENT_PROFILES) || '[]');
+    this.saveAllPatientProfiles(all.filter(p => p.id !== id));
+    return true;
   },
 
   // Donations

@@ -87,6 +87,21 @@ module.exports = async (req, res) => {
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 
+    if (action === 'listPendingPatientKtp') {
+      const r = await sb('patient_profiles?ktp_status=eq.uploaded&select=id,name,relationship,account_id,ktp_url,created_at&order=created_at.asc', 'GET');
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+    }
+    if (action === 'approvePatientKtp') {
+      if (!id) return res.status(400).json({ error: 'id wajib' });
+      const r = await sb(`patient_profiles?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'verified' });
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+    }
+    if (action === 'rejectPatientKtp') {
+      if (!id) return res.status(400).json({ error: 'id wajib' });
+      const r = await sb(`patient_profiles?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'pending' });
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+    }
+
     if (action === 'listPendingCampaigns') {
       const r = await sb('campaigns?is_verified=eq.false&select=id,title,creator_name,category,target,bank_name,bank_account_name,bank_account_number,bank_verified,created_at&order=created_at.asc', 'GET');
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });

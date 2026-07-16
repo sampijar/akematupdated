@@ -352,6 +352,53 @@
     </div>
   </div>
 
+  <!-- ── Modal: Tambah/Edit Profil Pasien ────────────────── -->
+  <div class="modal-overlay" id="modalPatientProfile" role="dialog" aria-modal="true" aria-labelledby="ppModalTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="ppModalTitle">🧑‍🤝‍🧑 Profil Pasien</h3>
+        <button class="modal-x" aria-label="Tutup">✕</button>
+      </div>
+      <p style="font-size:.84rem;color:var(--soft);margin-bottom:18px">Data orang yang akan dirawat — bisa diri sendiri atau anggota keluarga. Tiap profil butuh KTP sendiri untuk verifikasi.</p>
+      <input type="hidden" id="ppId" />
+      <div class="ff">
+        <label for="ppName">Nama lengkap</label>
+        <input type="text" id="ppName" placeholder="Nama sesuai KTP" />
+      </div>
+      <div class="ff">
+        <label for="ppRelationship">Hubungan dengan Anda</label>
+        <select id="ppRelationship">
+          <option>Diri Sendiri</option>
+          <option>Orang Tua</option>
+          <option>Anak</option>
+          <option>Pasangan</option>
+          <option>Saudara</option>
+          <option>Lainnya</option>
+        </select>
+      </div>
+      <div class="profile-grid">
+        <div class="ff"><label for="ppDob">Tanggal lahir (opsional)</label><input type="date" id="ppDob" /></div>
+        <div class="ff"><label for="ppGender">Jenis kelamin (opsional)</label><select id="ppGender"><option value="">—</option><option>Laki-laki</option><option>Perempuan</option></select></div>
+      </div>
+      <div class="ff">
+        <label for="ppPhone">No. HP (opsional)</label>
+        <input type="tel" id="ppPhone" placeholder="08xx… — kosongkan kalau sama dengan akun" />
+      </div>
+      <div class="ff">
+        <label for="ppAddress">Alamat (opsional)</label>
+        <input type="text" id="ppAddress" placeholder="Kosongkan kalau sama dengan akun" />
+      </div>
+      <div class="ff">
+        <label for="ppNotes">Catatan kondisi (opsional)</label>
+        <textarea id="ppNotes" rows="2" placeholder="Riwayat penyakit, alergi, kebutuhan khusus…"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <button class="btn btn-primary" id="btnSavePatientProfile" style="flex:2">Simpan Profil Pasien</button>
+        <button class="btn btn-ghost" onclick="closeModal('modalPatientProfile')" style="flex:1">Batal</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Modal: Konfirmasi Booking (dari nurse detail) ── -->
   <!-- Booking langsung diproses di halaman detail perawat, tidak butuh modal terpisah -->
 

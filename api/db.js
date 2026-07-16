@@ -133,6 +133,40 @@ module.exports = async (req, res) => {
       return denied();
     }
 
+    // ── patient_profiles ───────────────────────────────────
+    if (table === 'patient_profiles') {
+      if (!uid) return authRequired();
+      if (action === 'select') {
+        const params = new URLSearchParams(filters || {});
+        params.set('account_id', `eq.${uid}`); // paksa cuma profil milik akun sendiri
+        const r = await sbRequest(`patient_profiles?${params}`, 'GET');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'insert') {
+        const clean = { ...data, account_id: uid };
+        delete clean.ktp_status; delete clean.ktp_url; // upload KTP lewat update terpisah
+        const r = await sbRequest('patient_profiles', 'POST', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'update') {
+        const targetId = id || filters?.id?.replace(/^eq\./, '');
+        if (!targetId) return res.status(400).json({ error: 'id wajib' });
+        const clean = { ...data };
+        if ('ktp_status' in clean && clean.ktp_status !== 'uploaded' && clean.ktp_status !== 'pending') delete clean.ktp_status;
+        const params = new URLSearchParams({ id: `eq.${targetId}`, account_id: `eq.${uid}` });
+        const r = await sbRequest(`patient_profiles?${params}`, 'PATCH', clean);
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'delete') {
+        const targetId = id || filters?.id?.replace(/^eq\./, '');
+        if (!targetId) return res.status(400).json({ error: 'id wajib' });
+        const params = new URLSearchParams({ id: `eq.${targetId}`, account_id: `eq.${uid}` });
+        const r = await sbRequest(`patient_profiles?${params}`, 'DELETE');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true } : { error: r.data });
+      }
+      return denied();
+    }
+
     // ── campaigns ──────────────────────────────────────────
     if (table === 'campaigns') {
       if (action === 'select') {
@@ -181,6 +215,10 @@ module.exports = async (req, res) => {
         if (!uid) return authRequired();
         const clean = { ...data, patient_id: uid, status: 'pending', payment_status: 'unpaid' };
         delete clean.transaction_id; delete clean.reference_id;
+        if (clean.patient_profile_id) {
+          const own = await sbRequest(`patient_profiles?id=eq.${clean.patient_profile_id}&account_id=eq.${uid}&select=id`, 'GET');
+          if (!own.data?.length) return res.status(400).json({ error: 'Profil pasien tidak valid.' });
+        }
         const r = await sbRequest('bookings', 'POST', clean);
         return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
       }
