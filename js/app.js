@@ -143,6 +143,11 @@ async function route(){
     case 'faq':      renderFAQ();         break;
     default:         await renderHome();
   }
+  // Restart animasi fade-in tiap ganti halaman (class sudah ada = tidak replay
+  // begitu saja, jadi dipaksa reflow di antara remove/add).
+  app.classList.remove('page-transition');
+  void app.offsetWidth;
+  app.classList.add('page-transition');
   window.scrollTo(0,0);
 }
 
