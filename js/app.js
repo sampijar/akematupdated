@@ -255,7 +255,7 @@ async function renderHome(){
         <div class="role-card" onclick="navigate('#register')">
           <div class="role-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M12 14c-5 0-8 2.5-8 4v1h16v-1c0-1.5-3-4-8-4z"/></svg></div>
           <h3>Daftar Jadi Perawat</h3>
-          <p>Bergabunglah sebagai mitra perawat. Anda menerima 80% dari setiap booking yang berhasil dilakukan.</p>
+          <p>Bergabunglah sebagai mitra perawat. Anda menerima 80% dari setiap janji temu yang berhasil dilakukan.</p>
           <a href="#register" class="btn btn-outline btn-sm" style="margin-top:8px;align-self:flex-start">Daftar mitra →</a>
         </div>
       </div>
@@ -552,7 +552,7 @@ async function renderNurseDetail(id){
           Buat Janji Temu
         </button>
         <p style="font-size:.72rem;color:var(--soft);text-align:center;margin-top:8px;line-height:1.5">
-          Pembayaran dikonfirmasi via WhatsApp setelah booking. 
+          Pembayaran dikonfirmasi via WhatsApp setelah janji temu dibuat. 
           <a href="#tnc">Syarat & Ketentuan</a> berlaku.
         </p>
       </div>
@@ -601,7 +601,7 @@ async function renderNurseDetail(id){
   document.getElementById('btnBook')?.addEventListener('click', async ()=>{
     const u = Store.getCurrentUser();
     if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
-    if(u.role !== 'patient'){ toast('Hanya pasien yang bisa memesan perawat.','e'); return; }
+    if(u.role !== 'patient'){ toast('Hanya pasien yang bisa membuat janji temu dengan perawat.','e'); return; }
     const date    = document.getElementById('bkDate')?.value;
     const time    = document.querySelector('.time-btn.active')?.dataset.time || '09:00';
     const dur     = selDur;
@@ -632,9 +632,9 @@ async function renderNurseDetail(id){
         buyerPhone:  u.phone||'08000000000',
       });
     } catch(err){
-      // Booking tersimpan (belum lunas) tapi redirect ke iPaymu gagal — tampilkan
+      // Janji temu tersimpan (belum lunas) tapi redirect ke iPaymu gagal — tampilkan
       // alasan sebenarnya, jangan sembunyikan di balik pesan sukses yang menyesatkan.
-      toast('Booking tersimpan, tapi gagal membuka pembayaran: '+(err.message||'coba lagi.'), 'e');
+      toast('Janji temu tersimpan, tapi gagal membuka pembayaran: '+(err.message||'coba lagi.'), 'e');
       setTimeout(()=>navigate('#dashboard'), 1800);
       console.error('[Payment] iPaymu redirect failed:', err.message);
     }
@@ -1165,7 +1165,7 @@ function statusBadge(status){
 }
 
 function nurseBookingTable(bookings, viewerRole){
-  if(!bookings.length) return emptyState(viewerRole==='patient' ? 'Belum ada booking. <a href="#perawat">Cari perawat sekarang</a>.' : 'Belum ada booking masuk.');
+  if(!bookings.length) return emptyState(viewerRole==='patient' ? 'Belum ada janji temu. <a href="#perawat">Cari perawat sekarang</a>.' : 'Belum ada janji temu masuk.');
   return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Layanan &amp; Tanggal</th><th>Durasi</th><th>Anda Terima</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
     bookings.map(b=>'<tr><td><div style="font-size:.84rem;font-weight:600">'+esc(b.service)+'</div><div style="font-size:.74rem;color:var(--soft);margin-top:2px">'+esc(b.date)+' &middot; '+esc(b.time)+'</div></td><td style="font-size:.82rem">'+b.duration+' jam</td><td style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap">'+rpFmt(b.nursePay||Math.round((b.totalCost||0)*0.8))+'</td><td>'+statusBadge(b.status)+'</td><td style="white-space:nowrap">'+bookingActionsFor(b, viewerRole)+'</td></tr>').join('')+
     '</tbody></table></div>';
@@ -1259,7 +1259,7 @@ function bankStatusSection(u){
   var bankDisplay=bank.accountNumber?'<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:18px;margin:14px 0"><div class="bank-display"><span class="bank-display-name">'+esc(bank.bankName)+'</span><span class="bank-display-num">'+esc(bank.accountNumber)+'</span><span class="bank-display-owner">a.n. '+esc(bank.accountName)+'</span></div></div>':'';
   return '<div class="dash-section">'+
     '<div class="dash-sh"><h3>🏦 Rekening Pencairan Dana</h3><span class="bank-status '+verCls+'">'+verLbl+'</span></div>'+
-    '<div class="bank-warning">⚠️ <strong>Wajib diisi:</strong> Data rekening diperlukan untuk pencairan pembayaran booking dan donasi.</div>'+
+    '<div class="bank-warning">⚠️ <strong>Wajib diisi:</strong> Data rekening diperlukan untuk pencairan pembayaran janji temu dan donasi.</div>'+
     bankDisplay+
     '<div class="profile-grid" style="margin-top:14px">'+
     '<div class="ff full"><label>Nama Bank</label><select id="bankNameInput">'+optionHTML('','Pilih bank…',!bank.bankName)+BANKS.map(function(b){return optionHTML(b,b,bank.bankName===b);}).join('')+'</select></div>'+
@@ -1276,7 +1276,7 @@ function ktpSection(u){
   var lbl    = status==='verified' ? '✓ Terverifikasi' : status==='uploaded' ? '⏳ Menunggu verifikasi' : '❌ Belum diunggah';
   return '<div class="dash-section">'+
     '<div class="dash-sh"><h3>📎 Verifikasi Identitas (KTP)</h3><span class="bank-status '+cls+'">'+lbl+'</span></div>'+
-    '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diunggah sebelum booking/campaign pertama Anda. Format JPG/PNG/PDF maks. 2MB.</p>'+
+    '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diunggah sebelum janji temu/campaign pertama Anda. Format JPG/PNG/PDF maks. 2MB.</p>'+
     '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:var(--bg-alt)">'+
     '<span style="font-size:1.4rem">🪪</span>'+
     '<div><div style="font-family:var(--font-d);font-weight:600;font-size:.84rem;color:var(--primary)" id="ktpFilename">'+(status!=='pending'?'KTP tersimpan — klik untuk ganti':'Pilih file KTP')+'</div>'+
@@ -1372,13 +1372,13 @@ async function renderPatientDash(u){
     <div class="dash-main">
       <div class="dash-head">
         <h2>Selamat datang, ${esc(u.name.split(' ')[0])}!</h2>
-        <p>Kelola booking perawat dan riwayat donasi Anda.</p>
-        ${u.ktpStatus==='pending'?'<div class="bank-warning" style="margin-top:10px;max-width:500px;border-color:#FDE68A;background:#FFFBEB">&#128206; Upload KTP Anda di <a href="#profil">Profil</a> untuk verifikasi identitas sebelum booking pertama.</div>':''}
+        <p>Kelola janji temu perawat dan riwayat donasi Anda.</p>
+        ${u.ktpStatus==='pending'?'<div class="bank-warning" style="margin-top:10px;max-width:500px;border-color:#FDE68A;background:#FFFBEB">&#128206; Upload KTP Anda di <a href="#profil">Profil</a> untuk verifikasi identitas sebelum janji temu pertama.</div>':''}
       </div>
       <div class="stat-row">
         <div class="stat-card">
           <div class="stat-icon" style="background:#EEF2FF"><svg viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
-          <div><div class="stat-val">${bookings.length}</div><div class="stat-lbl">Total booking</div></div>
+          <div><div class="stat-val">${bookings.length}</div><div class="stat-lbl">Total janji temu</div></div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#F0FDF4"><svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2"><path d="M12 21s-7-4.35-9-9a4.5 4.5 0 0 1 8-3 4.5 4.5 0 0 1 8 3c-1 4.5-7 9-7 9z"/></svg></div>
@@ -1386,13 +1386,13 @@ async function renderPatientDash(u){
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#FFF7ED"><svg viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg></div>
-          <div><div class="stat-val">${rpFmt(totalPaid)}</div><div class="stat-lbl">Total bayar booking</div></div>
+          <div><div class="stat-val">${rpFmt(totalPaid)}</div><div class="stat-lbl">Total bayar janji temu</div></div>
         </div>
       </div>
 
       <!-- Bookings table -->
       <div class="dash-section">
-        <div class="dash-sh"><h3>Riwayat Booking Perawat</h3><a href="#perawat" class="btn btn-primary btn-sm">+ Booking Baru</a></div>
+        <div class="dash-sh"><h3>Riwayat Janji Temu Perawat</h3><a href="#perawat" class="btn btn-primary btn-sm">+ Janji Temu Baru</a></div>
         ${nurseBookingTable(bookings, 'patient')}
       </div>
 
@@ -1427,7 +1427,7 @@ async function renderNurseDash(u){
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#EEF2FF"><svg viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
-          <div><div class="stat-val">${bookings.length}</div><div class="stat-lbl">Total booking masuk</div></div>
+          <div><div class="stat-val">${bookings.length}</div><div class="stat-lbl">Total janji temu masuk</div></div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#FFF7ED"><svg viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
@@ -1443,14 +1443,14 @@ async function renderNurseDash(u){
             <input type="checkbox" id="availToggle" ${p.avail?'checked':''}>
             <span class="toggle-track"></span>
           </label>
-          <span class="toggle-label" id="availLabel">${p.avail?'✅ Saya tersedia untuk booking':'⏸ Saya tidak tersedia'}</span>
+          <span class="toggle-label" id="availLabel">${p.avail?'✅ Saya tersedia untuk janji temu':'⏸ Saya tidak tersedia'}</span>
         </div>
         <p style="font-size:.82rem;color:var(--soft);margin-top:8px">Nonaktifkan jika sedang cuti atau penuh jadwal.</p>
       </div>
 
       <!-- Bookings -->
       <div class="dash-section">
-        <div class="dash-sh"><h3>Permintaan & Riwayat Booking</h3></div>
+        <div class="dash-sh"><h3>Permintaan & Riwayat Janji Temu</h3></div>
         ${nurseBookingTable(bookings, 'nurse')}
       </div>
     </div>
@@ -1460,7 +1460,7 @@ async function renderNurseDash(u){
   document.getElementById('availToggle')?.addEventListener('change', async function(){
     const np = {...(u.np||{}), avail: this.checked};
     await Store.updateUser(u.id, {np});
-    document.getElementById('availLabel').textContent = this.checked?'✅ Saya tersedia untuk booking':'⏸ Saya tidak tersedia';
+    document.getElementById('availLabel').textContent = this.checked?'✅ Saya tersedia untuk janji temu':'⏸ Saya tidak tersedia';
     toast(this.checked?'Status tersedia diaktifkan.':'Status dinonaktifkan.','s');
   });
 }
@@ -1518,10 +1518,10 @@ function renderTNC(){
   html += '<h3>2.1 Pendaftaran</h3><ul><li>Pengguna wajib mendaftar dengan identitas asli dan data yang benar.</li><li>Setiap pengguna hanya diperbolehkan memiliki satu akun aktif.</li><li>Akemat Foundation berhak menonaktifkan akun yang terindikasi melanggar ketentuan.</li></ul>';
   html += '<h3>2.2 Keamanan Akun</h3><ul><li>Pengguna bertanggung jawab penuh atas kerahasiaan kata sandi dan keamanan akun.</li><li>Segera laporkan ke kami jika terdapat akses tidak sah ke akun Anda.</li></ul></div>';
   html += '<div class="tnc-section"><h2>3. Layanan Perawat (Home Care)</h2>';
-  html += '<h3>3.1 Booking &amp; Pembayaran</h3><ul><li>Pasien memesan perawat melalui platform dan melakukan pembayaran sesuai tarif yang tertera.</li><li><strong>Struktur biaya booking:</strong> 80% diterima perawat; 20% adalah biaya platform Akemat Foundation.</li><li>Biaya platform digunakan untuk operasional, verifikasi perawat, pengembangan aplikasi, dan layanan pelanggan.</li><li>Tarif per jam ditetapkan oleh perawat dan ditampilkan secara transparan di profil masing-masing.</li></ul>';
+  html += '<h3>3.1 Janji Temu &amp; Pembayaran</h3><ul><li>Pasien membuat janji temu dengan perawat melalui platform dan melakukan pembayaran sesuai tarif yang tertera.</li><li><strong>Struktur biaya janji temu:</strong> 80% diterima perawat; 20% adalah biaya platform Akemat Foundation.</li><li>Biaya platform digunakan untuk operasional, verifikasi perawat, pengembangan aplikasi, dan layanan pelanggan.</li><li>Tarif per jam ditetapkan oleh perawat dan ditampilkan secara transparan di profil masing-masing.</li></ul>';
   html += '<h3>3.2 Verifikasi Perawat</h3><ul><li>Perawat yang bergabung wajib menyerahkan dokumen identitas, ijazah keperawatan, dan STR untuk proses verifikasi.</li><li>Perawat yang belum terverifikasi ditandai secara jelas di platform.</li></ul>';
   html += '<h3>3.3 Pembatalan &amp; Refund</h3><ul><li>Pembatalan oleh pasien minimal 24 jam sebelum jadwal: refund 100%.</li><li>Pembatalan kurang dari 24 jam: dikenakan biaya admin 10%.</li><li>Pembatalan sepihak oleh perawat tanpa alasan valid: refund 100% ke pasien.</li><li>Proses refund dilakukan dalam 3–5 hari kerja.</li></ul>';
-  html += '<h3>3.4 Rekening Perawat</h3><ul><li>Perawat wajib mengisi data rekening bank yang valid untuk pencairan penghasilan.</li><li>Pencairan dilakukan setiap minggu untuk booking yang berstatus selesai.</li><li>Verifikasi rekening dilakukan oleh tim Akemat dalam 1×24 jam kerja.</li></ul></div>';
+  html += '<h3>3.4 Rekening Perawat</h3><ul><li>Perawat wajib mengisi data rekening bank yang valid untuk pencairan penghasilan.</li><li>Pencairan dilakukan setiap minggu untuk janji temu yang berstatus selesai.</li><li>Verifikasi rekening dilakukan oleh tim Akemat dalam 1×24 jam kerja.</li></ul></div>';
   html += '<div class="tnc-section"><h2>4. Kampanye Donasi</h2>';
   html += '<h3>4.1 Pembuatan Campaign</h3><ul><li>Donatur yang terverifikasi dapat membuat kampanye donasi untuk membantu pembiayaan layanan perawatan.</li><li>Akemat Foundation berhak menolak atau menghapus kampanye yang tidak sesuai ketentuan.</li></ul>';
   html += '<h3>4.2 Biaya Layanan Donasi</h3><ul><li><strong>Dari setiap donasi: 95% disalurkan ke kampanye; 5% adalah biaya layanan platform.</strong></li><li>Biaya layanan mencakup verifikasi kampanye, operasional sistem pembayaran, dan akuntabilitas donasi.</li></ul>';
@@ -1544,58 +1544,75 @@ function renderTNC(){
 function renderFAQ(){
   const faqs = [
     { q:'Apa itu Akemat Foundation?', a:'Akemat Foundation adalah yayasan kemanusiaan yang mempertemukan pasien/keluarga dengan perawat profesional untuk layanan home care (perawatan di rumah). Kami juga menyediakan platform donasi untuk membantu pembiayaan perawatan bagi yang membutuhkan.' },
-    { q:'Bagaimana cara memesan perawat?', a:'(1) Daftar atau login sebagai pasien. (2) Klik Cari Perawat dan filter berdasarkan spesialisasi, kota, dan ketersediaan. (3) Pilih perawat dan klik Pesan. (4) Isi detail tanggal, waktu, durasi, dan alamat. (5) Konfirmasi booking — perawat akan menghubungi Anda via WhatsApp.' },
-    { q:'Berapa biaya platform untuk booking perawat?', a:'Platform Akemat mengambil 20% dari total nilai booking. Artinya, jika Anda membayar Rp 300.000, perawat menerima Rp 240.000 (80%) dan Rp 60.000 (20%) masuk ke operasional platform. Rincian ini selalu ditampilkan transparan sebelum Anda konfirmasi booking.', highlight:'Pasien bayar: 100% → Perawat terima: 80% → Platform: 20%' },
-    { q:'Berapa biaya layanan untuk donasi?', a:'Dari setiap donasi yang masuk, 95% langsung disalurkan ke campaign dan 5% adalah biaya layanan platform. Biaya ini mencakup verifikasi campaign, sistem pembayaran, dan operasional.', highlight:'Donasi Anda: 100% → Campaign terima: 95% → Platform: 5%' },
-    { q:'Apakah perawat di Akemat sudah terverifikasi?', a:'Perawat dengan lencana Terverifikasi telah melalui proses verifikasi dokumen identitas, ijazah keperawatan, dan STR (Surat Tanda Registrasi). Perawat yang belum terverifikasi diberi label jelas.' },
-    { q:'Apa saja spesialisasi perawat yang tersedia?', a:'Akemat memiliki 7 spesialisasi: Perawat Jiwa, Perawat Anak & Bayi, Perawat Lansia, Perawat Medical Bedah, Perawat Luka, Perawat Maternitas, dan Perawat Paliatif.' },
-    { q:'Apa saja jenjang pendidikan perawat?', a:'D3 Keperawatan, D4 Keperawatan, Ners/Profesi Ners, dan Spesialis Keperawatan. Jenjang pendidikan ditampilkan transparan di profil setiap perawat.' },
-    { q:'Bagaimana cara berdonasi?', a:'(1) Kunjungi halaman Donasi. (2) Pilih campaign yang ingin Anda dukung. (3) Klik Donasi. (4) Pilih nominal atau masukkan jumlah sendiri. (5) Isi nama, email, dan no HP. (6) Konfirmasi donasi.' },
-    { q:'Kapan donasi saya dicairkan ke penerima?', a:'Pencairan donasi dilakukan setelah kampanye berakhir atau mencapai target, setelah proses verifikasi oleh tim Akemat. Pemilik campaign wajib mengisi data rekening bank yang valid. Proses transfer 3-7 hari kerja.' },
-    { q:'Bagaimana cara membuat campaign donasi?', a:'Daftar sebagai Donatur, lengkapi profil termasuk data rekening bank, lalu klik + Buat Campaign di dashboard. Isi judul, cerita, target dana, deadline, dan kategori. Campaign akan melalui proses review 1-2 hari kerja sebelum tayang.' },
-    { q:'Bagaimana jika perawat tidak datang sesuai jadwal?', a:'Segera hubungi tim Akemat via WhatsApp. Jika perawat membatalkan sepihak tanpa alasan valid, Anda akan mendapat refund 100%. Kami juga akan membantu mencarikan perawat pengganti.' },
-    { q:'Apa itu rekening pencairan dan mengapa wajib diisi?', a:'Rekening pencairan adalah rekening bank yang digunakan Akemat untuk mentransfer penghasilan (perawat) atau donasi (pemilik campaign). Tanpa data rekening yang valid, pembayaran tidak dapat diproses. Verifikasi dalam 1x24 jam kerja.' },
-    { q:'Apakah data rekening saya aman?', a:'Ya. Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan Akemat yang berwenang. Kami tidak pernah membagikan data rekening kepada pihak ketiga.' },
-    { q:'Bagaimana cara daftar sebagai perawat mitra?', a:'Klik Daftar dan pilih peran Perawat. Lengkapi data: nama, kontak, spesialisasi, pendidikan, kota, tarif per jam, bio, dan jadwal ketersediaan. Tambahkan data rekening untuk pencairan. Tim kami akan melakukan verifikasi dalam 2-3 hari kerja.' },
-    { q:'Berapa perawat menerima dari setiap booking?', a:'Perawat menerima 80% dari total nilai booking. Contoh: tarif Rp 150.000/jam x 3 jam = Rp 450.000 total. Perawat menerima Rp 360.000 (80%). Penghasilan dicairkan setiap minggu.', highlight:'Penghasilan Anda = tarif per jam x durasi x 80%' },
-    { q:'Apakah ada garansi keamanan bertransaksi?', a:'Ya. Semua pembayaran booking diproses melalui iPaymu (payment gateway berlisensi Bank Indonesia). Data transaksi dienkripsi dengan standar industri.' },
+    { q:'Bagaimana cara membuat janji temu dengan perawat?', cat:'Janji Temu Perawat', a:'(1) Daftar atau login sebagai pasien. (2) Klik Cari Perawat dan filter berdasarkan spesialisasi, kota, dan ketersediaan. (3) Pilih perawat dan klik Buat Janji. (4) Isi detail tanggal, waktu, durasi, dan alamat. (5) Konfirmasi janji temu — perawat akan menghubungi Anda via WhatsApp.' },
+    { q:'Berapa biaya platform untuk janji temu perawat?', cat:'Janji Temu Perawat', a:'Platform Akemat mengambil 20% dari total nilai janji temu. Artinya, jika Anda membayar Rp 300.000, perawat menerima Rp 240.000 (80%) dan Rp 60.000 (20%) masuk ke operasional platform. Rincian ini selalu ditampilkan transparan sebelum Anda konfirmasi janji temu.', highlight:'Pasien bayar: 100% → Perawat terima: 80% → Platform: 20%' },
+    { q:'Berapa biaya layanan untuk donasi?', cat:'Donasi', a:'Dari setiap donasi yang masuk, 95% langsung disalurkan ke campaign dan 5% adalah biaya layanan platform. Biaya ini mencakup verifikasi campaign, sistem pembayaran, dan operasional.', highlight:'Donasi Anda: 100% → Campaign terima: 95% → Platform: 5%' },
+    { q:'Apakah perawat di Akemat sudah terverifikasi?', cat:'Janji Temu Perawat', a:'Perawat dengan lencana Terverifikasi telah melalui proses verifikasi dokumen identitas, ijazah keperawatan, dan STR (Surat Tanda Registrasi). Perawat yang belum terverifikasi diberi label jelas.' },
+    { q:'Apa saja spesialisasi perawat yang tersedia?', cat:'Janji Temu Perawat', a:'Akemat memiliki 7 spesialisasi: Perawat Jiwa, Perawat Anak & Bayi, Perawat Lansia, Perawat Medical Bedah, Perawat Luka, Perawat Maternitas, dan Perawat Paliatif.' },
+    { q:'Apa saja jenjang pendidikan perawat?', cat:'Janji Temu Perawat', a:'D3 Keperawatan, D4 Keperawatan, Ners/Profesi Ners, dan Spesialis Keperawatan. Jenjang pendidikan ditampilkan transparan di profil setiap perawat.' },
+    { q:'Bagaimana cara berdonasi?', cat:'Donasi', a:'(1) Kunjungi halaman Donasi. (2) Pilih campaign yang ingin Anda dukung. (3) Klik Donasi. (4) Pilih nominal atau masukkan jumlah sendiri. (5) Isi nama, email, dan no HP. (6) Konfirmasi donasi.' },
+    { q:'Kapan donasi saya dicairkan ke penerima?', cat:'Donasi', a:'Pencairan donasi dilakukan setelah kampanye berakhir atau mencapai target, setelah proses verifikasi oleh tim Akemat. Pemilik campaign wajib mengisi data rekening bank yang valid. Proses transfer 3-7 hari kerja.' },
+    { q:'Bagaimana cara membuat campaign donasi?', cat:'Donasi', a:'Daftar sebagai Donatur, lengkapi profil termasuk data rekening bank, lalu klik + Buat Campaign di dashboard. Isi judul, cerita, target dana, deadline, dan kategori. Campaign akan melalui proses review 1-2 hari kerja sebelum tayang.' },
+    { q:'Bagaimana jika perawat tidak datang sesuai jadwal?', cat:'Janji Temu Perawat', a:'Segera hubungi tim Akemat via WhatsApp. Jika perawat membatalkan sepihak tanpa alasan valid, Anda akan mendapat refund 100%. Kami juga akan membantu mencarikan perawat pengganti.' },
+    { q:'Apa itu rekening pencairan dan mengapa wajib diisi?', cat:'Rekening', a:'Rekening pencairan adalah rekening bank yang digunakan Akemat untuk mentransfer penghasilan (perawat) atau donasi (pemilik campaign). Tanpa data rekening yang valid, pembayaran tidak dapat diproses. Verifikasi dalam 1x24 jam kerja.' },
+    { q:'Apakah data rekening saya aman?', cat:'Rekening', a:'Ya. Data rekening disimpan secara terenkripsi dan hanya dapat diakses oleh tim keuangan Akemat yang berwenang. Kami tidak pernah membagikan data rekening kepada pihak ketiga.' },
+    { q:'Bagaimana cara daftar sebagai perawat mitra?', cat:'Akun', a:'Klik Daftar dan pilih peran Perawat. Lengkapi data: nama, kontak, spesialisasi, pendidikan, kota, tarif per jam, bio, dan jadwal ketersediaan. Tambahkan data rekening untuk pencairan. Tim kami akan melakukan verifikasi dalam 2-3 hari kerja.' },
+    { q:'Berapa perawat menerima dari setiap janji temu?', cat:'Janji Temu Perawat', a:'Perawat menerima 80% dari total nilai janji temu. Contoh: tarif Rp 150.000/jam x 3 jam = Rp 450.000 total. Perawat menerima Rp 360.000 (80%). Penghasilan dicairkan setiap minggu.', highlight:'Penghasilan Anda = tarif per jam x durasi x 80%' },
+    { q:'Apakah ada garansi keamanan bertransaksi?', cat:'Janji Temu Perawat', a:'Ya. Semua pembayaran janji temu diproses melalui iPaymu (payment gateway berlisensi Bank Indonesia). Data transaksi dienkripsi dengan standar industri.' },
   ];
+  const faqCats = ['Janji Temu Perawat','Donasi','Rekening','Akun'];
+
+  function faqItemHTML(f, i){
+    var h = '<div class="faq-item">';
+    h += '<button class="faq-q" data-faq="'+i+'">'+esc(f.q)+'<span class="faq-icon">+</span></button>';
+    h += '<div class="faq-a" id="faq-a-'+i+'">'+esc(f.a);
+    if(f.highlight) h += '<div class="faq-highlight">&#128161; <strong>'+esc(f.highlight)+'</strong></div>';
+    h += '</div></div>';
+    return h;
+  }
+
+  function renderFaqList(activeCat){
+    const list = activeCat==='Semua' ? faqs : faqs.filter(f=>f.cat===activeCat);
+    const listEl = document.getElementById('faqList');
+    listEl.innerHTML = list.map((f,i)=>faqItemHTML(f, faqs.indexOf(f))).join('') || emptyState('Belum ada pertanyaan di kategori ini.');
+    listEl.querySelectorAll('.faq-q').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var idx = btn.dataset.faq;
+        var ans = document.getElementById('faq-a-'+idx);
+        var open = btn.classList.toggle('open');
+        ans.classList.toggle('open', open);
+      });
+    });
+  }
 
   var faqHTML = '<div class="tnc-faq-page">';
   faqHTML += '<p class="eyebrow">Pertanyaan umum</p>';
   faqHTML += '<h1>FAQ — Pertanyaan yang Sering Ditanyakan</h1>';
   faqHTML += '<p class="lead">Temukan jawaban atas pertanyaan umum seputar Akemat Foundation. Tidak menemukan jawaban? <a href="https://wa.me/6285196407117">Hubungi kami</a>.</p>';
-  faqHTML += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">';
+  faqHTML += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px" id="faqCatRow">';
   faqHTML += '<button class="f-chip active" data-faq-cat="Semua">Semua</button>';
-  ['Booking Perawat','Donasi','Rekening','Akun'].forEach(function(cat){
+  faqCats.forEach(function(cat){
     faqHTML += '<button class="f-chip" data-faq-cat="'+cat+'">'+cat+'</button>';
   });
-  faqHTML += '</div><div id="faqList">';
-  faqs.forEach(function(f, i){
-    faqHTML += '<div class="faq-item">';
-    faqHTML += '<button class="faq-q" data-faq="'+i+'">'+esc(f.q)+'<span class="faq-icon">+</span></button>';
-    faqHTML += '<div class="faq-a" id="faq-a-'+i+'">'+esc(f.a);
-    if(f.highlight) faqHTML += '<div class="faq-highlight">&#128161; <strong>'+esc(f.highlight)+'</strong></div>';
-    faqHTML += '</div></div>';
-  });
-  faqHTML += '</div>';
+  faqHTML += '</div><div id="faqList"></div>';
   faqHTML += '<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:24px;margin-top:32px;text-align:center">';
   faqHTML += '<h3 style="margin-bottom:8px">Masih ada pertanyaan?</h3>';
   faqHTML += '<p style="margin-bottom:16px">Tim kami siap membantu Senin-Sabtu, 08.00-17.00 WIB.</p>';
-  faqHTML += '<a href="https://wa.me/6285196407117" target="_blank" class="btn btn-primary">WhatsApp Kami</a> ';
-  faqHTML += '<a href="mailto:customercare@akematfoundation.org" class="btn btn-outline" style="margin-left:8px">Email Kami</a> ';
-  faqHTML += '<a href="#tnc" class="btn btn-ghost" style="margin-left:8px">Syarat &amp; Ketentuan</a>';
-  faqHTML += '</div></div>';
+  faqHTML += '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">';
+  faqHTML += '<a href="https://wa.me/6285196407117" target="_blank" class="btn btn-primary">WhatsApp Kami</a>';
+  faqHTML += '<a href="mailto:customercare@akematfoundation.org" class="btn btn-outline">Email Kami</a>';
+  faqHTML += '<a href="#tnc" class="btn btn-ghost">Syarat &amp; Ketentuan</a>';
+  faqHTML += '</div></div></div>';
 
   app.innerHTML = faqHTML + renderFooterSection();
 
-  document.querySelectorAll('.faq-q').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      var idx = btn.dataset.faq;
-      var ans = document.getElementById('faq-a-'+idx);
-      var open = btn.classList.toggle('open');
-      ans.classList.toggle('open', open);
-    });
+  renderFaqList('Semua');
+  document.getElementById('faqCatRow')?.addEventListener('click', function(e){
+    const chip = e.target.closest('[data-faq-cat]');
+    if(!chip) return;
+    document.querySelectorAll('#faqCatRow .f-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    renderFaqList(chip.dataset.faqCat);
   });
 }
 
@@ -1779,7 +1796,7 @@ async function openDonateModal(campaignId){
 function openBookingModal(nurseId){
   const u = Store.getCurrentUser();
   if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
-  if(u.role!=='patient'){ toast('Hanya pasien yang bisa memesan perawat.','e'); return; }
+  if(u.role!=='patient'){ toast('Hanya pasien yang bisa membuat janji temu dengan perawat.','e'); return; }
   navigate('#perawat/'+nurseId);
 }
 
@@ -1865,10 +1882,10 @@ window.updateBooking = async (id, status)=>{
   if(status==='confirmed'||status==='completed'){
     const bookings = await Store.getBookings();
     const bk = bookings.find(b=>b.id===id);
-    if(!bk || bk.paymentStatus!=='paid'){ toast('Booking belum dibayar oleh pasien.','e'); return; }
+    if(!bk || bk.paymentStatus!=='paid'){ toast('Janji temu belum dibayar oleh pasien.','e'); return; }
   }
   await Store.updateBooking(id, {status});
-  toast({confirmed:'Booking dikonfirmasi!',cancelled:'Booking ditolak.',completed:'Booking selesai!'}[status]||'Updated','s');
+  toast({confirmed:'Janji temu dikonfirmasi!',cancelled:'Janji temu ditolak.',completed:'Janji temu selesai!'}[status]||'Updated','s');
   renderDashboard();
 };
 
@@ -1915,7 +1932,7 @@ async function openPayBook(bookingId){
   if(!u){ toast('Silakan login terlebih dahulu.','e'); return; }
   const bookings = await Store.getBookingsByPatient(u.id);
   const bk = bookings.find(b=>b.id===bookingId);
-  if(!bk){ toast('Booking tidak ditemukan.','e'); return; }
+  if(!bk){ toast('Janji temu tidak ditemukan.','e'); return; }
   try {
     await Payment.payBooking({
       bookingId:   bk.id,
@@ -1928,7 +1945,7 @@ async function openPayBook(bookingId){
     });
   } catch(err) {
     toast('Gagal membuka pembayaran: '+(err.message||'coba lagi.')+' — mengarahkan ke WhatsApp.', 'e');
-    window.open('https://wa.me/6285196407117?text='+encodeURIComponent('Halo Akemat, saya ingin bayar booking '+bk.service+' ('+bk.date+'). Nama: '+u.name),'_blank');
+    window.open('https://wa.me/6285196407117?text='+encodeURIComponent('Halo Akemat, saya ingin bayar janji temu '+bk.service+' ('+bk.date+'). Nama: '+u.name),'_blank');
     console.error('[Payment] iPaymu redirect failed:', err.message);
   }
 }
