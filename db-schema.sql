@@ -130,7 +130,9 @@ CREATE TABLE IF NOT EXISTS donations (
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ── Transactions (iPaymu log) ──────────────────────────────
+-- ── Transactions (peninggalan integrasi iPaymu lama, sebelum pindah ke
+--    DOKU — tidak dipakai kode manapun lagi saat ini. Aman dihapus lewat
+--    Supabase SQL Editor: DROP TABLE IF EXISTS transactions;) ───────────
 CREATE TABLE IF NOT EXISTS transactions (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   reference_id   TEXT UNIQUE NOT NULL,
