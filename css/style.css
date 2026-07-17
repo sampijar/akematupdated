@@ -91,12 +91,6 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 @keyframes app-spin{to{transform:rotate(360deg)}}
 .app-loading.inline{min-height:0;padding:48px 20px}
 
-/* ── Progress bar tipis di atas layar tiap pindah halaman — feedback
-   instan kalau fetch data agak lama, bukannya app kelihatan diam/macet. */
-#route-progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--accent),var(--primary));z-index:999;opacity:0;transition:width .3s ease,opacity .2s ease}
-#route-progress.active{opacity:1;width:70%;transition:width 1.2s cubic-bezier(.1,.6,.2,1)}
-#route-progress.done{opacity:0;width:100%;transition:width .2s ease,opacity .3s ease .1s}
-
 /* ── Skeleton shimmer — placeholder kartu selagi data dimuat ────── */
 .skel{background:linear-gradient(90deg,var(--bg-alt) 25%,#e8e4da 37%,var(--bg-alt) 63%);background-size:400% 100%;animation:skel-sweep 1.4s ease infinite;border-radius:var(--r-sm)}
 @keyframes skel-sweep{0%{background-position:100% 0}100%{background-position:0 0}}
@@ -457,10 +451,13 @@ body.modal-open #toast.vis{transform:translateX(-50%) translateY(0)}
   .sb-nav{padding:0;flex:none}
   .dash-main{padding:18px}
   .stat-row{grid-template-columns:minmax(0,1fr)}
-  .nav{position:absolute;top:100%;left:0;right:0;background:var(--bg);border-bottom:1px solid var(--border);flex-direction:column;align-items:stretch;padding:14px 20px 18px;gap:14px;display:none}
-  .nav[data-open="true"]{display:flex}
-  .nav ul{flex-direction:column;gap:12px}
-  .nav-toggle{display:flex}
+  /* Menu hamburger persis menduplikat tab bar bawah (Cari Perawat, Donasi,
+     Akun sudah selalu terlihat di sana) — dihilangkan total di HP, bukan
+     cuma disembunyikan sebagian, mengikuti pola app populer (Gojek dkk.)
+     yang tidak punya hamburger sama sekali di mobile. FAQ & Syarat &
+     Ketentuan tetap bisa diakses lewat footer. */
+  .nav,.nav[data-open="true"]{display:none!important}
+  .nav-toggle{display:none!important}
   .role-pick-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .nurse-grid,.campaign-grid{grid-template-columns:minmax(0,1fr)}
   /* Footer multi-kolom ala website dipangkas di HP — navigasi utamanya

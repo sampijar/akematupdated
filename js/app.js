@@ -178,22 +178,7 @@ const app = document.getElementById('app');
 
 function navigate(hash){ location.hash = hash; }
 
-function routeProgressStart(){
-  const bar = document.getElementById('route-progress');
-  if(!bar) return;
-  bar.classList.remove('done');
-  void bar.offsetWidth;
-  bar.classList.add('active');
-}
-function routeProgressDone(){
-  const bar = document.getElementById('route-progress');
-  if(!bar) return;
-  bar.classList.remove('active');
-  bar.classList.add('done');
-}
-
 async function route(){
-  routeProgressStart();
   const hash  = location.hash.replace('#','') || '';
   const parts = hash.split('/');
   const page  = parts[0];
@@ -222,7 +207,6 @@ async function route(){
   app.classList.add('page-transition');
   window.scrollTo(0,0);
   trackPageView();
-  routeProgressDone();
 }
 
 window.addEventListener('hashchange', route);
