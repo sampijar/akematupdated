@@ -931,7 +931,7 @@ function renderLogin(){
     try {
       const u = await Store.login(identifier, pass);
       toast('Selamat datang, '+u.name.split(' ')[0]+'!','s');
-      navigate('#dashboard');
+      navigate('#home');
     } catch(e) {
       err.textContent = e.message || 'Email/No. HP atau password salah.';
     } finally {
