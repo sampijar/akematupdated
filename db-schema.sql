@@ -388,7 +388,7 @@ ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 -- 3. Copy-paste isi file ini → Run
 -- 4. Buka Authentication → Providers → aktifkan Email
 -- 5. Salin URL & API Keys dari Settings → API
--- 6. Tambahkan ke Netlify Environment Variables:
+-- 6. Tambahkan ke Vercel Environment Variables:
 --    SUPABASE_URL = https://xxxx.supabase.co
 --    SUPABASE_ANON_KEY = eyJxxx...
 --    SUPABASE_SERVICE_KEY = eyJxxx...

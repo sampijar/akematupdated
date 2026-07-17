@@ -7,7 +7,7 @@
 // index.html — ini satu-satunya cara memaksa pengguna PWA/TWA (terutama di
 // HP, yang jarang hard-refresh) mengambil versi terbaru. Lupa menaikkan ini
 // = pengguna lama bisa terjebak di versi lama tanpa batas waktu.
-const CACHE_NAME = 'akemat-v51';
+const CACHE_NAME = 'akemat-v52';
 
 // File yang di-cache untuk offline pertama kali dibuka
 const STATIC_ASSETS = [
@@ -71,8 +71,8 @@ self.addEventListener('fetch', (event) => {
   // Lewati request non-GET
   if (event.request.method !== 'GET') return;
 
-  // Lewati Netlify Functions / Vercel API — selalu ke network, jangan cache.
-  if (url.pathname.startsWith('/.netlify/') || url.pathname.startsWith('/api/')) {
+  // Lewati Vercel API — selalu ke network, jangan cache.
+  if (url.pathname.startsWith('/api/')) {
     return;
   }
 

@@ -1,6 +1,5 @@
 .env
 .env.local
-.netlify/
 node_modules/
 
 # Android signing material / build output — NEVER commit these.
