@@ -53,7 +53,7 @@ async function parsePaymentResponse(res) {
   catch { throw new Error('Server pembayaran tidak merespons dengan benar (HTTP '+res.status+'). Coba lagi sebentar lagi.'); }
 }
 
-// ── Core: create iPaymu redirect payment ──────────────────
+// ── Core: create DOKU redirect payment ────────────────────
 async function createPayment({ amount, productName, description, referenceId, buyerName, buyerEmail, buyerPhone }){
   const res = await fetch(PAYMENT_API, {
     method:  'POST',

@@ -60,6 +60,7 @@ function rowToUser(row, npRow) {
   const u = {
     id: row.id, name: row.name, email: row.email, phone: row.phone,
     role: row.role, address: row.address || '', organization: row.organization || '',
+    dob: row.dob || '', gender: row.gender || '',
     ktpStatus: row.ktp_status || 'pending', ktpUrl: row.ktp_url || '', phoneVerified: true,
     bankInfo: {
       bankName: row.bank_name || '', accountNumber: row.bank_account_number || '',
@@ -84,6 +85,8 @@ function userUpdateToRow(data) {
   if ('phone' in data) row.phone = data.phone;
   if ('address' in data) row.address = data.address;
   if ('organization' in data) row.organization = data.organization;
+  if ('dob' in data) row.dob = data.dob;
+  if ('gender' in data) row.gender = data.gender;
   if ('ktpStatus' in data) row.ktp_status = data.ktpStatus;
   if ('ktpUrl' in data) row.ktp_url = data.ktpUrl;
   if (data.bankInfo) {
@@ -395,8 +398,11 @@ const Cloud = {
     const d = await apiFetch('db', { action:'select', table:'donations', filters:{ campaign_id:`eq.${cid}`, order:'created_at.desc' } });
     return (d.data || []).map(rowToDonation);
   },
-  // Dipanggil HANYA setelah pembayaran iPaymu terkonfirmasi (payment-return.html) —
-  // sama seperti DB.addDonation di localStorage, campaign hanya bertambah kalau paymentStatus:'paid'.
+  // CATATAN: sejak perbaikan keamanan api/db.js, insert ke tabel donations lewat
+  // endpoint umum ('db') ditolak — donasi "paid" cuma dibuat lewat
+  // api/doku-payment.js action:'confirm' (lihat payment-return.html). Fungsi ini
+  // praktis tidak lagi dipanggil untuk backend 'remote', dibiarkan ada untuk
+  // konsistensi bentuk dengan DB.addDonation (backend 'local'/localStorage).
   async addDonation(data) {
     if (data.referenceId) {
       const existing = await apiFetch('db', { action:'select', table:'donations', filters:{ reference_id:`eq.${data.referenceId}`, limit:1 } });

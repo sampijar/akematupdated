@@ -1843,8 +1843,10 @@ async function renderProfile(){
           <div class="ff"><label>Nama lengkap</label><input type="text" id="profName" value="${esc(u.name)}" /></div>
           <div class="ff"><label>No. HP</label><input type="tel" id="profPhone" value="${esc(u.phone||'')}" /></div>
           <div class="ff full"><label>Email</label><input type="email" id="profEmail" value="${esc(u.email)}" readonly style="opacity:.6" /></div>
-          ${u.role==='patient'?'<div class="ff full"><label>Alamat</label><input type="text" id="profAddr" value="'+esc(u.address||'')+'" /></div>':''}
-          ${u.role==='donor'?'<div class="ff full"><label>Organisasi / Instansi</label><input type="text" id="profOrg" value="'+esc(u.organization||'')+'" /></div>':''}
+          <div class="ff"><label>Tanggal lahir</label><input type="date" id="profDob" value="${esc(u.dob||'')}" /></div>
+          <div class="ff"><label>Jenis kelamin</label><select id="profGender"><option value="">Pilih…</option><option value="Laki-laki" ${u.gender==='Laki-laki'?'selected':''}>Laki-laki</option><option value="Perempuan" ${u.gender==='Perempuan'?'selected':''}>Perempuan</option></select></div>
+          <div class="ff full"><label>Alamat</label><input type="text" id="profAddr" value="${esc(u.address||'')}" /></div>
+          ${u.role==='donor'?'<div class="ff full"><label>Organisasi / Instansi (opsional)</label><input type="text" id="profOrg" value="'+esc(u.organization||'')+'" /></div>':''}
         </div>
         <button class="btn btn-primary btn-sm" id="btnSaveProfile" style="margin-top:4px">Simpan Profil</button>
       </div>
@@ -1885,13 +1887,13 @@ async function renderProfile(){
     document.getElementById('btnSavePatientProfile')?.addEventListener('click', async ()=>{
       const id   = document.getElementById('ppId')?.value;
       const name = document.getElementById('ppName')?.value.trim();
-      if(!name){ toast('Nama wajib diisi.','e'); return; }
-      const data = {
-        name, relationship: document.getElementById('ppRelationship')?.value,
-        dob: document.getElementById('ppDob')?.value, gender: document.getElementById('ppGender')?.value,
-        phone: document.getElementById('ppPhone')?.value.trim(), address: document.getElementById('ppAddress')?.value.trim(),
-        notes: document.getElementById('ppNotes')?.value.trim(),
-      };
+      const relationship = document.getElementById('ppRelationship')?.value;
+      const dob    = document.getElementById('ppDob')?.value;
+      const gender = document.getElementById('ppGender')?.value;
+      const phone  = document.getElementById('ppPhone')?.value.trim();
+      const address= document.getElementById('ppAddress')?.value.trim();
+      if(!name||!relationship||!dob||!gender||!phone||!address){ toast('Lengkapi semua data wajib (kecuali Catatan kondisi).','e'); return; }
+      const data = { name, relationship, dob, gender, phone, address, notes: document.getElementById('ppNotes')?.value.trim() };
       try {
         if(id) await Store.updatePatientProfile(id, data);
         else   await Store.addPatientProfile({ accountId: u.id, ...data });
@@ -1950,12 +1952,14 @@ async function renderProfile(){
 
   // Profile form save handlers
   document.getElementById('btnSaveProfile')?.addEventListener('click', async ()=>{
-    const name  = document.getElementById('profName')?.value.trim();
-    const phone = document.getElementById('profPhone')?.value.trim();
-    if(!name){ toast('Nama wajib diisi.','e'); return; }
-    const upd = { name, phone };
-    if(u.role==='patient') upd.address      = document.getElementById('profAddr')?.value.trim();
-    if(u.role==='donor')   upd.organization = document.getElementById('profOrg')?.value.trim();
+    const name   = document.getElementById('profName')?.value.trim();
+    const phone  = document.getElementById('profPhone')?.value.trim();
+    const dob    = document.getElementById('profDob')?.value;
+    const gender = document.getElementById('profGender')?.value;
+    const address= document.getElementById('profAddr')?.value.trim();
+    if(!name||!phone||!dob||!gender||!address){ toast('Lengkapi semua data wajib (kecuali Organisasi).','e'); return; }
+    const upd = { name, phone, dob, gender, address };
+    if(u.role==='donor') upd.organization = document.getElementById('profOrg')?.value.trim();
     await Store.updateUser(u.id, upd);
     toast('Profil berhasil disimpan.','s');
   });

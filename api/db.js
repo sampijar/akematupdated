@@ -74,7 +74,7 @@ async function sbRequest(pathAndQuery, method, bodyObj, extraHeaders) {
 }
 
 const PUBLIC_USER_FIELDS = 'id,name,role,created_at';
-const OWN_USER_FIELDS    = 'id,name,email,phone,role,address,organization,ktp_status,ktp_url,bank_name,bank_account_number,bank_account_name,bank_verified,created_at';
+const OWN_USER_FIELDS    = 'id,name,email,phone,role,address,organization,dob,gender,ktp_status,ktp_url,bank_name,bank_account_number,bank_account_name,bank_verified,created_at';
 
 module.exports = async (req, res) => {
   setCors(res);

@@ -87,7 +87,12 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
       await (typeof Store !== 'undefined' ? Store.init() : Promise.resolve());
       const isLocal = typeof Store !== 'undefined' && Store.backend === 'local';
 
-      if (!isLocal && stored?.type) {
+      if (!isLocal) {
+        // stored.type hilang (mis. sessionStorage kehapus/beda tab) berarti kita
+        // tidak tahu ini donasi atau booking, jadi TIDAK bisa aman memanggil
+        // confirm — jangan tebak-tebak & jangan pernah nampilkan "Berhasil"
+        // tanpa benar-benar terkonfirmasi lewat action:'confirm'.
+        if (!stored?.type) { pend(trxId); dsc.textContent='Konfirmasi via WhatsApp ke 0851 9640 7117 dengan referensi: '+ref; return; }
         const r = await fetch('/api/doku-payment', {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
@@ -104,12 +109,14 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
         return pend(trxId);
       }
 
-      // Fallback lokal (localStorage, tanpa Supabase) — cek status manual & catat sendiri di klien.
+      // Mode 'local' (tanpa Supabase, cuma localStorage browser sendiri) — tidak
+      // ada backend nyata yang perlu diamankan, jadi tetap pakai jalur lama:
+      // cek status manual & catat sendiri di klien.
       const r=await fetch('/api/doku-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',transactionId:trxId})});
       const d=await r.json();
       const st=String(d?.data?.transaction?.status||d?.data?.order?.status||d?.data?.status||'').toLowerCase();
       const paidLocal = ok_st.includes(st) || ok_st.includes(urlSt.toLowerCase());
-      if (paidLocal && typeof Store !== 'undefined' && stored?.type) {
+      if (paidLocal && stored?.type) {
         if (stored.type === 'donation' && stored.campaignId) {
           await Store.addDonation({ campaignId: stored.campaignId, donorId: stored.donorId||'guest', donorName: stored.buyerName||buyer||'Donatur', amount: Number(stored.amount||d?.data?.order?.amount||amt)||0, anonymous: !!stored.anonymous, referenceId: ref, transactionId: trxId, paymentStatus:'paid' });
         } else if (stored.type === 'booking' && stored.bookingId) {

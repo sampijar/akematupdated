@@ -144,6 +144,12 @@ CREATE TABLE IF NOT EXISTS payouts (
   processed_at        TIMESTAMPTZ
 );
 
+-- Tanggal lahir & jenis kelamin akun — sebelumnya cuma ada di patient_profiles,
+-- disamakan ke users juga supaya data pribadi yang wajib diisi konsisten di
+-- semua role (pasien/perawat/penggalang dana), bukan cuma pasien.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS dob    DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT;
+
 -- Kolom ringkasan total yang sudah dicairkan (memudahkan query saldo tanpa agregasi payouts)
 ALTER TABLE users     ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;

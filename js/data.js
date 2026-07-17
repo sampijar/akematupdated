@@ -327,7 +327,7 @@ const DB = {
     const totalCost   = data.totalCost || 0;
     const platformFee = Math.round(totalCost * FEE.BOOKING);
     const nursePay    = totalCost - platformFee;
-    // paymentStatus selalu dimulai 'unpaid' — hanya berubah 'paid' setelah dikonfirmasi iPaymu
+    // paymentStatus selalu dimulai 'unpaid' — hanya berubah 'paid' setelah dikonfirmasi DOKU
     const b = { id: uid(), status: 'pending', createdAt: dStr(), platformFee, nursePay, ...data, paymentStatus: data.paymentStatus === 'paid' ? 'paid' : 'unpaid' };
     bs.push(b); this.saveBookings(bs); return b;
   },
@@ -388,7 +388,7 @@ const DB = {
   saveDonations(d)          { localStorage.setItem(KEYS.DONATIONS, JSON.stringify(d)); },
   getDonationsByUser(uid)   { return this.getDonations().filter(d => d.donorId === uid); },
   getDonationsByCampaign(cid){ return this.getDonations().filter(d => d.campaignId === cid); },
-  // Dipanggil HANYA setelah pembayaran iPaymu terkonfirmasi (lihat payment-return.html).
+  // Dipanggil HANYA setelah pembayaran DOKU terkonfirmasi (lihat payment-return.html).
   // Campaign hanya bertambah jika paymentStatus:'paid' — mencegah donasi "tercatat" tanpa pembayaran nyata.
   addDonation(data) {
     if (data.referenceId && this.getDonations().some(d => d.referenceId === data.referenceId)) {
