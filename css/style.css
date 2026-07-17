@@ -93,6 +93,14 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .header-search-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .header-avatar-btn{flex-shrink:0;text-decoration:none}
 
+/* ── Baris link "Bantuan & Informasi" di halaman Profil (ala Gojek) ── */
+.help-link-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 2px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--ink)}
+.help-link-row:last-child{border-bottom:none}
+.help-link-icon{display:flex;color:var(--primary);width:20px;height:20px;flex-shrink:0}
+.help-link-icon svg{width:100%;height:100%}
+.help-link-chevron{display:flex;color:var(--soft);width:16px;height:16px;flex-shrink:0}
+.help-link-chevron svg{width:100%;height:100%}
+
 /* ── Loading state (tampil sebentar saat pertama buka / pindah
    halaman yang perlu fetch data) — supaya tidak terasa "diam kosong". */
 .app-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:60vh;color:var(--soft);font-family:var(--font-d);font-weight:600;font-size:.88rem}
@@ -512,8 +520,11 @@ body.modal-open #toast.vis{transform:translateX(-50%) translateY(0)}
      "Donasi" di kartu campaign paling bawah, "+ Janji Temu Baru") karena
      posisinya fixed — di HP diciutkan jadi bulat ikon saja supaya area
      yang ketutup jauh lebih kecil. */
-  .wa-fab{bottom:calc(78px + env(safe-area-inset-bottom))!important;padding:12px!important;gap:0}
-  .wa-fab .wa-title{display:none}
+  /* Di HP, tombol ini menutupi konten & terasa mengganggu (bukan pola app
+     native) — kontak CS dipindah ke halaman Profil (ala Gojek: "Help &
+     reports" ada di dalam profil, bukan tombol mengambang). Desktop tetap
+     ada seperti biasa. */
+  .wa-fab{display:none}
   #toast{bottom:calc(78px + env(safe-area-inset-bottom))!important}
 }
 @media(max-width:480px){
