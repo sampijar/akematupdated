@@ -45,7 +45,17 @@ async function apiFetch(endpoint, body) {
   let data;
   try { data = JSON.parse(text); }
   catch { throw new Error('Server tidak merespons dengan benar (HTTP '+res.status+').'); }
-  if (!res.ok) throw new Error(data.error || 'Request gagal');
+  if (!res.ok) {
+    // api/db.js kadang meneruskan error mentah dari Supabase/PostgREST apa
+    // adanya, yang bentuknya OBJECT (mis. {message, details, hint}), bukan
+    // string — kalau langsung dilempar ke "new Error(objek)", hasilnya
+    // "[object Object]" yang tidak informatif sama sekali ke pengguna.
+    const raw = data.error;
+    const msg = typeof raw === 'string' ? raw
+      : (raw?.message || raw?.hint || raw?.details || (raw ? JSON.stringify(raw) : null))
+      || 'Request gagal (HTTP '+res.status+').';
+    throw new Error(msg);
+  }
   return data;
 }
 
