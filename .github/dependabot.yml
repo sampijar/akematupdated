@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # Belum ada npm dependency terpasang sekarang (semua library dimuat lewat
+  # CDN di browser) — konfigurasi ini disiapkan supaya begitu ada package
+  # ditambahkan ke package.json (mis. untuk fungsi Vercel), Dependabot
+  # otomatis membuka PR kalau ada celah keamanan yang diketahui publik.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

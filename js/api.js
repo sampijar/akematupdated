@@ -54,7 +54,9 @@ async function apiFetch(endpoint, body) {
     const msg = typeof raw === 'string' ? raw
       : (raw?.message || raw?.hint || raw?.details || (raw ? JSON.stringify(raw) : null))
       || 'Request gagal (HTTP '+res.status+').';
-    throw new Error(msg);
+    const err = new Error(msg);
+    if (data.code) err.code = data.code; // mis. 'OTP_REQUIRED' — lihat api/admin.js
+    throw err;
   }
   return data;
 }

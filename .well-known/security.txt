@@ -1,0 +1,5 @@
+Contact: mailto:customercare@akematfoundation.org
+Contact: https://wa.me/6285196407117
+Expires: 2027-07-17T00:00:00.000Z
+Preferred-Languages: id, en
+Canonical: https://akematfoundation.org/.well-known/security.txt

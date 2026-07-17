@@ -15,7 +15,17 @@
  * Di Vercel Dashboard → Project → Settings → Environment Variables:
  *   ADMIN_EMAILS = email1@akematfoundation.org,email2@akematfoundation.org
  * (harus sama persis dengan email akun yang dipakai login di app)
+ *
+ * 2FA: selain email+password (Supabase Auth), setiap aksi di sini WAJIB
+ * menyertakan bukti OTP WhatsApp yang masih berlaku (adminOtpProof),
+ * terikat ke nomor HP akun admin itu SENDIRI (diambil dari database,
+ * bukan dipercaya dari klien). Proof-nya didapat lewat alur OTP yang
+ * sudah ada di /api/fazpass-otp (action:'send' lalu 'verify') — tidak
+ * ada integrasi OTP baru, cuma dipakai ulang & diwajibkan khusus untuk
+ * akses Panel Admin, supaya akun admin (yang bisa lihat semua KTP & data
+ * rekening) tidak cukup dibobol lewat password saja.
  */
+const { verifyProof } = require('../lib/otpProof');
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
 const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
@@ -81,6 +91,16 @@ module.exports = async (req, res) => {
 
   const body = typeof req.body === 'object' && req.body ? req.body : {};
   const { action, id, data } = body;
+
+  // 2FA — wajib untuk SEMUA aksi di endpoint ini, tanpa kecuali.
+  const meRes = await sb(`users?id=eq.${authUser.id}&select=phone`, 'GET');
+  const adminPhone = meRes.data?.[0]?.phone;
+  if (!adminPhone) {
+    return res.status(400).json({ error: 'Akun admin ini belum punya nomor HP terdaftar, jadi verifikasi 2FA tidak bisa dilakukan. Isi nomor HP di halaman Profil dulu.' });
+  }
+  if (!verifyProof(adminPhone, body.adminOtpProof)) {
+    return res.status(401).json({ error: 'Verifikasi OTP diperlukan untuk mengakses Panel Admin.', code: 'OTP_REQUIRED' });
+  }
 
   try {
     if (action === 'listPendingKtp') {

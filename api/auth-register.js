@@ -14,6 +14,7 @@
  */
 const { verifyProof } = require('../lib/otpProof');
 const { checkRateLimit, clientIp } = require('../lib/rateLimit');
+const { passwordPolicyError } = require('../lib/passwordPolicy');
 
 // SUPABASE_SERVICE_ROLE_KEY = nama yang dipakai integrasi otomatis Vercel⇄Supabase;
 // SUPABASE_SERVICE_KEY = nama yang dipakai dokumentasi kita sendiri. Terima dua-duanya.
@@ -57,6 +58,8 @@ module.exports = async (req, res) => {
   if (!['patient','nurse','donor'].includes(role)) {
     return res.status(400).json({ error:'role tidak valid' });
   }
+  const pwErr = passwordPolicyError(password);
+  if (pwErr) return res.status(400).json({ error: pwErr });
 
   const digits = normalizePhone(phone);
   if (!verifyProof(digits, proof)) {

@@ -3,6 +3,12 @@
 // Akemat Foundation v3 — SPA App
 // =========================================================
 
+// 2FA Panel Admin — bukti OTP WA (dari lib/otpProof.js lewat /api/fazpass-otp,
+// dipakai ulang, lihat komentar di api/admin.js) disimpan di memori saja,
+// bukan localStorage — hilang otomatis kalau tab ditutup/direfresh, dan
+// kadaluarsa sendiri di server setelah 15 menit walau tab tetap terbuka.
+let adminOtpProof = null;
+
 // ── Analytics (GA4, opsional — nonaktif sampai GA_MEASUREMENT_ID diisi
 // di Vercel Environment Variables; lihat api/config.js) ─────
 let _gaId = null;
@@ -21,6 +27,17 @@ function loadAnalytics(id){
 function trackPageView(){
   if(!_gaId || typeof gtag !== 'function') return;
   gtag('event', 'page_view', { page_location: location.href, page_path: location.hash || '#home' });
+}
+
+// ── Aturan kekuatan password ─────────────────────────────────
+// Balikin pesan error (string) kalau password terlalu lemah, atau null
+// kalau sudah cukup kuat. Dicek lagi otoritatif di server (Supabase Auth
+// sendiri juga punya minimum length setting), ini lapisan UX + baseline.
+function passwordStrengthError(pw){
+  if(!pw || pw.length < 8) return 'Password minimal 8 karakter.';
+  if(/^\d+$/.test(pw)) return 'Password tidak boleh cuma angka.';
+  if(/^(.)\1+$/.test(pw)) return 'Password tidak boleh karakter yang sama berulang.';
+  return null;
 }
 
 // ── Utility ────────────────────────────────────────────────
@@ -1061,7 +1078,7 @@ function renderForgotPassword(){
       </div>
 
       <div id="fpStep3" style="display:none;margin-top:14px">
-        ${pwFieldHTML('fpNewPass','Password baru','Min. 6 karakter')}
+        ${pwFieldHTML('fpNewPass','Password baru','Min. 8 karakter, bukan cuma angka')}
         ${pwFieldHTML('fpNewPass2','Konfirmasi password baru','Ulangi password baru')}
         <button class="btn btn-primary btn-full" id="btnFpSavePass">Simpan Password Baru</button>
       </div>
@@ -1122,7 +1139,8 @@ function renderForgotPassword(){
     const pass2 = document.getElementById('fpNewPass2')?.value;
     err.textContent = '';
     if(!verifiedPhone){ err.textContent = 'Verifikasi OTP terlebih dahulu.'; return; }
-    if(!pass || pass.length < 6){ err.textContent = 'Password minimal 6 karakter.'; return; }
+    const pwErr = passwordStrengthError(pass);
+    if(pwErr){ err.textContent = pwErr; return; }
     if(pass !== pass2){ err.textContent = 'Konfirmasi password tidak cocok.'; return; }
     const btn = document.getElementById('btnFpSavePass');
     btn.disabled = true;
@@ -1185,7 +1203,7 @@ function renderRegister(){
         </div>
         <p style="font-size:.74rem;color:var(--soft);margin:6px 0 0" id="otpStatus">Kode dikirim via WhatsApp ke nomor di atas.</p>
       </div>
-      ${pwFieldHTML('regPass','Password','Min. 6 karakter')}
+      ${pwFieldHTML('regPass','Password','Min. 8 karakter, bukan cuma angka')}
 
       <!-- Nurse extra -->
       <div id="nurseExtra" style="display:none">
@@ -1290,7 +1308,8 @@ function renderRegister(){
     const pass = document.getElementById('regPass')?.value;
 
     if(!name||!email||!phone||!pass){ err.textContent='Lengkapi semua field wajib.'; return; }
-    if(pass.length < 6){ err.textContent='Password minimal 6 karakter.'; return; }
+    const pwErr = passwordStrengthError(pass);
+    if(pwErr){ err.textContent = pwErr; return; }
     if(Store.backend==='local' && DB.getUserByEmail(email)){ err.textContent='Email sudah terdaftar.'; return; }
     if(!phoneVerified || phone !== verifiedPhone){ err.textContent='Verifikasi No. HP via WhatsApp (OTP) terlebih dahulu.'; return; }
 
@@ -1461,19 +1480,87 @@ function bankStatusSection(u){
 // ── Admin: review manual KTP & campaign (akses dibatasi server-side
 // lewat ADMIN_EMAILS di api/admin.js, bukan lewat role di tabel users —
 // lihat catatan keamanan di file itu) ─────────────────────────
+// Setiap akses Panel Admin wajib 2FA OTP WA (lihat komentar di api/admin.js)
+// selain email+password — akun admin bisa lihat semua KTP & data rekening,
+// jadi pantas dapat lapisan verifikasi tambahan.
+function renderAdminOtpGate(u){
+  if(!u.phone){
+    app.innerHTML = '<div class="container" style="padding:60px 20px;text-align:center;max-width:420px;margin:0 auto">'+
+      '<div style="font-size:2.5rem;margin-bottom:10px">🔒</div>'+
+      '<h2>Nomor HP belum diisi</h2>'+
+      '<p style="color:var(--soft);margin:8px 0 20px">Verifikasi 2FA Panel Admin butuh nomor HP terdaftar. Isi dulu di halaman Profil.</p>'+
+      '<a href="#profil" class="btn btn-primary">Ke Halaman Profil</a></div>';
+    return;
+  }
+  app.innerHTML = '<div class="container" style="padding:60px 20px;max-width:420px;margin:0 auto">'+
+    '<div style="text-align:center;margin-bottom:20px"><div style="font-size:2.5rem">🔐</div>'+
+    '<h2>Verifikasi 2FA</h2>'+
+    '<p style="color:var(--soft);font-size:.88rem">Panel Admin butuh verifikasi tambahan via WhatsApp ke nomor terdaftar Anda ('+esc(u.phone.replace(/^62/,'0'))+').</p></div>'+
+    '<div id="aoStep1"><button class="btn btn-primary btn-full" id="btnAoSend">Kirim Kode OTP WA</button></div>'+
+    '<div id="aoStep2" style="display:none;margin-top:14px">'+
+    '<div class="ff"><label>Kode OTP WhatsApp</label><input type="text" id="aoCode" inputmode="numeric" maxlength="6" placeholder="6 digit kode" style="letter-spacing:.3em" /></div>'+
+    '<button class="btn btn-primary btn-full" id="btnAoVerify">Verifikasi &amp; Masuk</button></div>'+
+    '<div class="form-error" id="aoErr"></div>'+
+    '</div>';
+
+  let requestId = null;
+  document.getElementById('btnAoSend')?.addEventListener('click', async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    const err = document.getElementById('aoErr'); err.textContent = '';
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Mengirim…';
+    try {
+      requestId = await Otp.send(u.phone);
+      document.getElementById('aoStep1').style.display = 'none';
+      document.getElementById('aoStep2').style.display = 'block';
+      toast('Kode OTP dikirim via WhatsApp.','s');
+    } catch(e) {
+      err.textContent = e.message || 'Gagal mengirim OTP.';
+      btn.disabled = false; btn.textContent = orig;
+    }
+  });
+  document.getElementById('btnAoVerify')?.addEventListener('click', async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    const err = document.getElementById('aoErr'); err.textContent = '';
+    const code = document.getElementById('aoCode')?.value.trim();
+    if(!code){ err.textContent = 'Isi kode OTP.'; return; }
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Memverifikasi…';
+    try {
+      adminOtpProof = await Otp.verify(requestId, code, u.phone);
+      renderAdminDash();
+    } catch(e) {
+      err.textContent = e.message || 'Kode OTP salah atau kadaluarsa.';
+      btn.disabled = false; btn.textContent = orig;
+    }
+  });
+}
+
 async function renderAdminDash(){
   const u = Store.getCurrentUser();
   if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
+  if(!adminOtpProof){ renderAdminOtpGate(u); return; }
   app.innerHTML = '<div class="container" style="padding:40px 20px;text-align:center"><p>Memuat…</p></div>';
+
+  async function adminApi(payload){
+    try {
+      return await apiFetch('admin', { ...payload, adminOtpProof });
+    } catch(e) {
+      if(e.code === 'OTP_REQUIRED'){ adminOtpProof = null; toast('Sesi verifikasi 2FA berakhir, silakan verifikasi ulang.','e'); }
+      throw e;
+    }
+  }
 
   let ktps = [], patKtps = [], camps = [], promos = [], auditLog = [];
   try {
     const [rk, rpk, rc, rp, ra] = await Promise.all([
-      apiFetch('admin', { action:'listPendingKtp' }),
-      apiFetch('admin', { action:'listPendingPatientKtp' }),
-      apiFetch('admin', { action:'listPendingCampaigns' }),
-      apiFetch('admin', { action:'listPromoCodes' }),
-      apiFetch('admin', { action:'listAuditLog' }),
+      adminApi({ action:'listPendingKtp' }),
+      adminApi({ action:'listPendingPatientKtp' }),
+      adminApi({ action:'listPendingCampaigns' }),
+      adminApi({ action:'listPromoCodes' }),
+      adminApi({ action:'listAuditLog' }),
     ]);
     ktps     = rk.data  || [];
     patKtps = rpk.data || [];
@@ -1481,6 +1568,7 @@ async function renderAdminDash(){
     promos   = rp.data  || [];
     auditLog = ra.data  || [];
   } catch(e) {
+    if(!adminOtpProof){ renderAdminOtpGate(u); return; }
     app.innerHTML = '<div class="container" style="padding:60px 20px;text-align:center;max-width:420px;margin:0 auto">'+
       '<div style="font-size:2.5rem;margin-bottom:10px">🔒</div>'+
       '<h2>Akses Ditolak</h2>'+
@@ -1580,7 +1668,7 @@ async function renderAdminDash(){
     '</div></div>';
 
   async function runAction(action, id, okMsg){
-    try { await apiFetch('admin', { action, id }); toast(okMsg,'s'); renderAdminDash(); }
+    try { await adminApi({ action, id }); toast(okMsg,'s'); renderAdminDash(); }
     catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
   }
   document.querySelectorAll('[data-approve-ktp]').forEach(b=>b.addEventListener('click',()=>runAction('approveKtp', b.dataset.approveKtp, 'KTP disetujui.')));
@@ -1592,13 +1680,13 @@ async function renderAdminDash(){
 
   document.querySelectorAll('[data-toggle-promo]').forEach(b=>b.addEventListener('click', async ()=>{
     try {
-      await apiFetch('admin', { action:'togglePromoCode', id:b.dataset.togglePromo, data:{ active: b.dataset.active==='true' } });
+      await adminApi({ action:'togglePromoCode', id:b.dataset.togglePromo, data:{ active: b.dataset.active==='true' } });
       toast('Status kode promo diperbarui.','s'); renderAdminDash();
     } catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
   }));
   document.querySelectorAll('[data-delete-promo]').forEach(b=>b.addEventListener('click', async ()=>{
     if(!confirm('Hapus kode promo ini? Tidak bisa dibatalkan.')) return;
-    try { await apiFetch('admin', { action:'deletePromoCode', id:b.dataset.deletePromo }); toast('Kode promo dihapus.','s'); renderAdminDash(); }
+    try { await adminApi({ action:'deletePromoCode', id:b.dataset.deletePromo }); toast('Kode promo dihapus.','s'); renderAdminDash(); }
     catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
   }));
   document.getElementById('btnCreatePromo')?.addEventListener('click', async (ev)=>{
@@ -1614,7 +1702,7 @@ async function renderAdminDash(){
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Membuat…';
     try {
-      await apiFetch('admin', { action:'createPromoCode', data:{ code, discountType, discountValue, maxDiscount, minAmount, maxUses, active:true, appliesTo:'booking' } });
+      await adminApi({ action:'createPromoCode', data:{ code, discountType, discountValue, maxDiscount, minAmount, maxUses, active:true, appliesTo:'booking' } });
       toast('Kode promo dibuat.','s');
       renderAdminDash();
     } catch(e) {

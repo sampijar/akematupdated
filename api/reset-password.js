@@ -13,6 +13,7 @@
  * itu sekaligus tetap membuktikan OTP benar-benar sudah divalidasi server.
  */
 const { verifyProof } = require('../lib/otpProof');
+const { passwordPolicyError } = require('../lib/passwordPolicy');
 
 // SUPABASE_SERVICE_ROLE_KEY = nama yang dipakai integrasi otomatis Vercel⇄Supabase;
 // SUPABASE_SERVICE_KEY = nama yang dipakai dokumentasi kita sendiri. Terima dua-duanya.
@@ -53,9 +54,8 @@ module.exports = async (req, res) => {
   if (!phone || !proof || !newPassword) {
     return res.status(400).json({ error:'phone, proof, dan newPassword wajib diisi' });
   }
-  if (String(newPassword).length < 6) {
-    return res.status(400).json({ error:'Password minimal 6 karakter' });
-  }
+  const pwErr = passwordPolicyError(newPassword);
+  if (pwErr) return res.status(400).json({ error: pwErr });
 
   const digits = normalizePhone(phone);
   if (!verifyProof(digits, proof)) {
