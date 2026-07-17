@@ -74,7 +74,7 @@ module.exports = async (req, res) => {
   }
 
   const body = typeof req.body === 'object' && req.body ? req.body : {};
-  const { action, id } = body;
+  const { action, id, data } = body;
 
   try {
     if (action === 'listPendingKtp') {
@@ -119,6 +119,46 @@ module.exports = async (req, res) => {
     if (action === 'deleteCampaign') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`campaigns?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true } : { error: r.data });
+    }
+
+    // ── Kode promo ────────────────────────────────────────
+    if (action === 'listPromoCodes') {
+      const r = await sb('promo_codes?select=*&order=created_at.desc', 'GET');
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+    }
+    if (action === 'createPromoCode') {
+      const code = String(data?.code || '').trim().toUpperCase();
+      const discountType = data?.discountType === 'fixed' ? 'fixed' : 'percent';
+      const discountValue = Number(data?.discountValue);
+      if (!code) return res.status(400).json({ error: 'Kode wajib diisi.' });
+      if (!(discountValue > 0)) return res.status(400).json({ error: 'Nilai diskon harus lebih dari 0.' });
+      const row = {
+        code,
+        discount_type: discountType,
+        discount_value: discountValue,
+        max_discount: data?.maxDiscount != null && data.maxDiscount !== '' ? Number(data.maxDiscount) : null,
+        min_amount: data?.minAmount != null && data.minAmount !== '' ? Number(data.minAmount) : 0,
+        max_uses: data?.maxUses != null && data.maxUses !== '' ? Number(data.maxUses) : null,
+        active: data?.active !== false,
+        valid_from: data?.validFrom || null,
+        valid_until: data?.validUntil || null,
+        applies_to: ['booking','donation','all'].includes(data?.appliesTo) ? data.appliesTo : 'booking',
+      };
+      const r = await sb('promo_codes', 'POST', row);
+      if (!r.ok && String(r.data?.message || r.data).includes('duplicate')) {
+        return res.status(409).json({ error: 'Kode promo ini sudah ada.' });
+      }
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+    }
+    if (action === 'togglePromoCode') {
+      if (!id) return res.status(400).json({ error: 'id wajib' });
+      const r = await sb(`promo_codes?id=eq.${encodeURIComponent(id)}`, 'PATCH', { active: !!data?.active });
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+    }
+    if (action === 'deletePromoCode') {
+      if (!id) return res.status(400).json({ error: 'id wajib' });
+      const r = await sb(`promo_codes?id=eq.${encodeURIComponent(id)}`, 'DELETE');
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true } : { error: r.data });
     }
 

@@ -1429,16 +1429,18 @@ async function renderAdminDash(){
   if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
   app.innerHTML = '<div class="container" style="padding:40px 20px;text-align:center"><p>Memuat…</p></div>';
 
-  let ktps = [], patKtps = [], camps = [];
+  let ktps = [], patKtps = [], camps = [], promos = [];
   try {
-    const [rk, rpk, rc] = await Promise.all([
+    const [rk, rpk, rc, rp] = await Promise.all([
       apiFetch('admin', { action:'listPendingKtp' }),
       apiFetch('admin', { action:'listPendingPatientKtp' }),
       apiFetch('admin', { action:'listPendingCampaigns' }),
+      apiFetch('admin', { action:'listPromoCodes' }),
     ]);
     ktps     = rk.data  || [];
     patKtps = rpk.data || [];
     camps    = rc.data  || [];
+    promos   = rp.data  || [];
   } catch(e) {
     app.innerHTML = '<div class="container" style="padding:60px 20px;text-align:center;max-width:420px;margin:0 auto">'+
       '<div style="font-size:2.5rem;margin-bottom:10px">🔒</div>'+
@@ -1484,6 +1486,24 @@ async function renderAdminDash(){
       '</div></div>';
   }
 
+  function promoRow(pc){
+    var discTxt = pc.discount_type==='percent' ? pc.discount_value+'%' : rpFmt(pc.discount_value);
+    var usageTxt = pc.max_uses!=null ? (pc.used_count||0)+' / '+pc.max_uses+' dipakai' : (pc.used_count||0)+' dipakai (tanpa batas)';
+    var statusCls = pc.active ? 'verified' : 'empty';
+    var statusLbl = pc.active ? '✓ Aktif' : '✕ Nonaktif';
+    return '<div class="dash-section" style="margin-bottom:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'+
+      '<div><div style="font-family:var(--font-d);font-weight:700">'+esc(pc.code)+'</div>'+
+      '<div style="font-size:.8rem;color:var(--soft)">Potongan '+discTxt+(pc.min_amount?' · min. '+rpFmt(pc.min_amount):'')+' · berlaku untuk '+esc(pc.applies_to)+'</div>'+
+      '<div style="font-size:.76rem;color:var(--soft);margin-top:2px">'+usageTxt+'</div></div>'+
+      '<span class="bank-status '+statusCls+'">'+statusLbl+'</span>'+
+      '</div>'+
+      '<div class="acts" style="margin-top:10px;display:flex;gap:8px">'+
+      '<button class="btn btn-outline btn-sm" data-toggle-promo="'+pc.id+'" data-active="'+(!pc.active)+'">'+(pc.active?'Nonaktifkan':'Aktifkan')+'</button>'+
+      '<button class="btn btn-danger btn-sm" data-delete-promo="'+pc.id+'">🗑 Hapus</button>'+
+      '</div></div>';
+  }
+
   app.innerHTML = '<div class="container" style="padding:32px 20px">'+
     '<div style="max-width:760px">'+
     '<h2 style="margin-bottom:4px">Panel Admin</h2>'+
@@ -1493,7 +1513,20 @@ async function renderAdminDash(){
     '<h3 style="margin:24px 0 10px">🧑‍🤝‍🧑 KTP Profil Pasien Menunggu Verifikasi ('+patKtps.length+')</h3>'+
     (patKtps.length ? patKtps.map(patKtpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
     '<h3 style="margin:24px 0 10px">💰 Campaign Menunggu Verifikasi ('+camps.length+')</h3>'+
-    (camps.length ? camps.map(campCard).join('') : '<p style="color:var(--soft);font-size:.84rem">Tidak ada yang menunggu.</p>')+
+    (camps.length ? camps.map(campCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
+    '<h3 style="margin:24px 0 10px">🎟️ Kode Promo</h3>'+
+    '<div class="dash-section" style="margin-bottom:12px">'+
+    '<div class="profile-grid">'+
+    '<div class="ff"><label>Kode</label><input type="text" id="pcCode" placeholder="mis. HEMAT10" style="text-transform:uppercase" /></div>'+
+    '<div class="ff"><label>Jenis diskon</label><select id="pcType"><option value="percent">Persen (%)</option><option value="fixed">Potongan tetap (Rp)</option></select></div>'+
+    '<div class="ff"><label>Nilai diskon</label><input type="number" id="pcValue" placeholder="mis. 10 atau 50000" /></div>'+
+    '<div class="ff"><label>Maks. potongan (Rp, opsional)</label><input type="number" id="pcMaxDiscount" placeholder="Kosongkan = tanpa batas" /></div>'+
+    '<div class="ff"><label>Minimal transaksi (Rp)</label><input type="number" id="pcMinAmount" placeholder="0" /></div>'+
+    '<div class="ff"><label>Maks. pemakaian (opsional)</label><input type="number" id="pcMaxUses" placeholder="Kosongkan = tanpa batas" /></div>'+
+    '</div>'+
+    '<button class="btn btn-accent btn-sm" id="btnCreatePromo" style="margin-top:6px">+ Buat Kode Promo</button>'+
+    '</div>'+
+    (promos.length ? promos.map(promoRow).join('') : '<p style="color:var(--soft);font-size:.84rem">Belum ada kode promo.</p>')+
     '</div></div>';
 
   async function runAction(action, id, okMsg){
@@ -1506,6 +1539,39 @@ async function renderAdminDash(){
   document.querySelectorAll('[data-reject-pkt]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Tolak KTP pasien ini? Status kembali ke belum diunggah.')) runAction('rejectPatientKtp', b.dataset.rejectPkt, 'KTP pasien ditolak.'); }));
   document.querySelectorAll('[data-approve-camp]').forEach(b=>b.addEventListener('click',()=>runAction('approveCampaign', b.dataset.approveCamp, 'Campaign disetujui.')));
   document.querySelectorAll('[data-delete-camp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Hapus campaign ini? Tidak bisa dibatalkan.')) runAction('deleteCampaign', b.dataset.deleteCamp, 'Campaign dihapus.'); }));
+
+  document.querySelectorAll('[data-toggle-promo]').forEach(b=>b.addEventListener('click', async ()=>{
+    try {
+      await apiFetch('admin', { action:'togglePromoCode', id:b.dataset.togglePromo, data:{ active: b.dataset.active==='true' } });
+      toast('Status kode promo diperbarui.','s'); renderAdminDash();
+    } catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
+  }));
+  document.querySelectorAll('[data-delete-promo]').forEach(b=>b.addEventListener('click', async ()=>{
+    if(!confirm('Hapus kode promo ini? Tidak bisa dibatalkan.')) return;
+    try { await apiFetch('admin', { action:'deletePromoCode', id:b.dataset.deletePromo }); toast('Kode promo dihapus.','s'); renderAdminDash(); }
+    catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
+  }));
+  document.getElementById('btnCreatePromo')?.addEventListener('click', async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    const code = document.getElementById('pcCode')?.value.trim();
+    const discountType = document.getElementById('pcType')?.value;
+    const discountValue = document.getElementById('pcValue')?.value;
+    const maxDiscount = document.getElementById('pcMaxDiscount')?.value;
+    const minAmount = document.getElementById('pcMinAmount')?.value;
+    const maxUses = document.getElementById('pcMaxUses')?.value;
+    if(!code || !discountValue){ toast('Isi kode dan nilai diskon.','e'); return; }
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Membuat…';
+    try {
+      await apiFetch('admin', { action:'createPromoCode', data:{ code, discountType, discountValue, maxDiscount, minAmount, maxUses, active:true, appliesTo:'booking' } });
+      toast('Kode promo dibuat.','s');
+      renderAdminDash();
+    } catch(e) {
+      toast('Gagal: '+(e.message||'coba lagi.'),'e');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  });
 }
 
 // ── Profil Pasien (multi-pasien per akun, tiap profil punya KTP sendiri) ──
