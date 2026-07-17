@@ -307,10 +307,10 @@ export function renderRegister(){
       <div class="form-error" id="regErr"></div>
       <button class="btn btn-primary btn-full" id="btnRegister" style="background:#1F4D3F !important;color:#FFFFFF !important;font-size:1rem;padding:14px;letter-spacing:.03em;font-weight:800;box-shadow:0 2px 8px rgba(31,77,63,.3)">Daftar Sekarang</button>
       <div style="text-align:center;margin-top:12px;font-size:.82rem;color:var(--soft)">
-        Sudah punya akun? <a href="#login">Masuk</a>
+        Sudah punya akun? <a href="#login" style="text-decoration:underline">Masuk</a>
       </div>
       <div style="text-align:center;margin-top:10px;font-size:.74rem;color:var(--soft)">
-        Dengan mendaftar, Anda menyetujui <a href="#tnc">Syarat &amp; Ketentuan</a> dan <a href="#privasi">Kebijakan Privasi</a> kami.
+        Dengan mendaftar, Anda menyetujui <a href="#tnc" style="text-decoration:underline">Syarat &amp; Ketentuan</a> dan <a href="#privasi" style="text-decoration:underline">Kebijakan Privasi</a> kami.
       </div>
     </div>
   </div>`;

@@ -725,7 +725,7 @@ function campaignCard(c){
 
 
 function patientDonationTable(donations, campaignMap){
-  if(!donations.length) return emptyState('Belum ada donasi. <a href="#donasi">Donasi sekarang</a>.');
+  if(!donations.length) return emptyState('Belum ada donasi. <a href="#donasi" style="text-decoration:underline">Donasi sekarang</a>.');
   return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Campaign</th><th>Donasi</th><th>Tanggal</th></tr></thead><tbody>'+
     donations.map(d=>{
       var cam=campaignMap?.get(d.campaignId);
@@ -740,7 +740,7 @@ function statusBadge(status){
 }
 
 function nurseBookingTable(bookings, viewerRole){
-  if(!bookings.length) return emptyState(viewerRole==='patient' ? 'Belum ada janji temu. <a href="#perawat">Cari perawat sekarang</a>.' : 'Belum ada janji temu masuk.');
+  if(!bookings.length) return emptyState(viewerRole==='patient' ? 'Belum ada janji temu. <a href="#perawat" style="text-decoration:underline">Cari perawat sekarang</a>.' : 'Belum ada janji temu masuk.');
   return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Layanan &amp; Tanggal</th><th>Pasien</th><th>Durasi</th><th>Anda Terima</th><th>Status</th><th>Aksi</th></tr></thead><tbody>'+
     bookings.map(b=>'<tr><td><div style="font-size:.84rem;font-weight:600">'+esc(b.service)+'</div><div style="font-size:.74rem;color:var(--soft);margin-top:2px">'+esc(b.date)+' &middot; '+esc(b.time)+'</div></td><td style="font-size:.82rem">'+esc(b.patientProfileName||'—')+'</td><td style="font-size:.82rem">'+b.duration+' jam</td><td style="font-size:.88rem;font-weight:700;color:var(--success);white-space:nowrap">'+rpFmt(b.nursePay||Math.round((b.totalCost||0)*0.8))+'</td><td>'+statusBadge(b.status)+'</td><td style="white-space:nowrap">'+bookingActionsFor(b, viewerRole)+'</td></tr>').join('')+
     '</tbody></table></div>';
@@ -853,7 +853,7 @@ function bankStatusSection(u){
     '<label class="consent-row" style="margin-bottom:12px">'+
     '<input type="checkbox" id="bankConsent" />'+
     '<span class="consent-box">'+ICON.check+'</span>'+
-    '<span>Saya menyetujui data rekening ini digunakan untuk pencairan dana sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
+    '<span>Saya menyetujui data rekening ini digunakan untuk pencairan dana sesuai <a href="#privasi" target="_blank" style="text-decoration:underline">Kebijakan Privasi</a>.</span></label>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveBank">Simpan Data Rekening</button></div>';
 }
 
@@ -946,7 +946,7 @@ async function renderPatientDash(u){
       <div class="dash-head">
         <h2>Selamat datang, ${esc(u.name.split(' ')[0])}!</h2>
         <p>Kelola janji temu perawat dan riwayat donasi Anda.</p>
-        ${needsPatientProfile?'<div class="bank-warning" style="margin-top:10px;max-width:500px;border-color:#FDE68A;background:#FFFBEB">&#128206; Tambahkan profil pasien &amp; unggah KTP di <a href="#profil">Profil</a> sebelum membuat janji temu pertama.</div>':''}
+        ${needsPatientProfile?'<div class="bank-warning" style="margin-top:10px;max-width:500px;border-color:#FDE68A;background:#FFFBEB">&#128206; Tambahkan profil pasien &amp; unggah KTP di <a href="#profil" style="text-decoration:underline">Profil</a> sebelum membuat janji temu pertama.</div>':''}
       </div>
       <div class="stat-row" style="grid-template-columns:minmax(0,1fr);max-width:280px">
         <div class="stat-card">
@@ -983,7 +983,7 @@ async function renderNurseDash(u){
       <div class="dash-head">
         <h2>Dashboard Perawat</h2>
         <p>Kelola profil, jadwal, dan penghasilan Anda.</p>
-        ${!u.bankInfo?.accountNumber?'<div class="bank-warning" style="margin-top:10px;max-width:500px">&#9888;&#65039; <strong>Penting!</strong> Isi data rekening di <a href="#profil">Profil</a> agar penghasilan bisa dicairkan.</div>':''}
+        ${!u.bankInfo?.accountNumber?'<div class="bank-warning" style="margin-top:10px;max-width:500px">&#9888;&#65039; <strong>Penting!</strong> Isi data rekening di <a href="#profil" style="text-decoration:underline">Profil</a> agar penghasilan bisa dicairkan.</div>':''}
       </div>
       <div class="stat-row">
         <div class="stat-card">

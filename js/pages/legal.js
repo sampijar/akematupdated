@@ -141,7 +141,7 @@ export function renderFAQ(){
   var faqHTML = '<div class="tnc-faq-page">';
   faqHTML += '<p class="eyebrow">Pertanyaan umum</p>';
   faqHTML += '<h1>FAQ — Pertanyaan yang Sering Ditanyakan</h1>';
-  faqHTML += '<p class="lead">Temukan jawaban atas pertanyaan umum seputar Akemat Foundation. Tidak menemukan jawaban? <a href="https://wa.me/6285196407117">Hubungi kami</a>.</p>';
+  faqHTML += '<p class="lead">Temukan jawaban atas pertanyaan umum seputar Akemat Foundation. Tidak menemukan jawaban? <a href="https://wa.me/6285196407117" style="text-decoration:underline">Hubungi kami</a>.</p>';
   faqHTML += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px" id="faqCatRow">';
   faqHTML += '<button class="f-chip active" data-faq-cat="Semua">Semua</button>';
   faqCats.forEach(function(cat){
@@ -149,7 +149,7 @@ export function renderFAQ(){
   });
   faqHTML += '</div><div id="faqList"></div>';
   faqHTML += '<div style="background:var(--bg-alt);border-radius:var(--r-md);padding:24px;margin-top:32px;text-align:center">';
-  faqHTML += '<h3 style="margin-bottom:8px">Masih ada pertanyaan?</h3>';
+  faqHTML += '<h2 style="margin-bottom:8px;font-size:1.08rem">Masih ada pertanyaan?</h2>';
   faqHTML += '<p style="margin-bottom:16px">Tim kami siap membantu Senin-Sabtu, 08.00-17.00 WIB.</p>';
   faqHTML += '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">';
   faqHTML += '<a href="https://wa.me/6285196407117" target="_blank" class="btn btn-primary">WhatsApp Kami</a>';

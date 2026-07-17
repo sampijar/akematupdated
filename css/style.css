@@ -213,7 +213,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .nc-spec{font-size:.78rem;color:var(--soft)}
 .nc-edu{font-size:.74rem;color:var(--soft);margin-top:2px}
 .nc-avail-y{color:var(--success);font-size:.76rem;font-weight:700;font-family:var(--font-d)}
-.nc-avail-n{color:#9CA3AF;font-size:.76rem;font-weight:700;font-family:var(--font-d)}
+.nc-avail-n{color:#6B7280;font-size:.76rem;font-weight:700;font-family:var(--font-d)}
 .nc-stats{display:flex;gap:10px;flex-wrap:wrap}
 .nc-stat{font-size:.76rem;color:var(--soft);display:flex;align-items:center;gap:3px}
 .star{color:#F59E0B}

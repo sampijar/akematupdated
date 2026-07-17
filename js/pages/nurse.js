@@ -231,7 +231,7 @@ export async function renderNurseDetail(id){
         ${currentUser?.role==='patient' ? (
           bookableProfiles.length
             ? '<div class="ff"><label>Untuk pasien</label><select id="bkPatientProfile">'+bookableProfiles.map(pp=>'<option value="'+pp.id+'">'+esc(pp.name)+' ('+esc(pp.relationship)+')'+(pp.ktpStatus!=='verified'?' — menunggu verifikasi KTP':'')+'</option>').join('')+'</select></div>'
-            : '<div class="bank-warning">⚠️ Anda belum punya profil pasien dengan KTP terunggah. <a href="#profil">Tambahkan di halaman Profil</a> dulu sebelum membuat janji temu.</div>'
+            : '<div class="bank-warning">⚠️ Anda belum punya profil pasien dengan KTP terunggah. <a href="#profil" style="text-decoration:underline">Tambahkan di halaman Profil</a> dulu sebelum membuat janji temu.</div>'
         ) : ''}
 
         <div class="ff">

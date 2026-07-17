@@ -26,7 +26,7 @@ function patientProfilesSection(profiles){
       '<label class="consent-row" style="margin-top:10px">'+
       '<input type="checkbox" class="pp-ktp-consent" data-consent-for="'+p.id+'" />'+
       '<span class="consent-box">'+ICON.check+'</span>'+
-      '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
+      '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank" style="text-decoration:underline">Kebijakan Privasi</a>.</span></label>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">'+
       '<label class="btn btn-outline btn-sm" style="cursor:pointer">📎 '+(p.ktpUrl?'Ganti KTP':'Upload KTP')+'<input type="file" accept="image/jpeg,image/png" style="display:none" data-ktp-for="'+p.id+'" /></label>'+
       '<button class="btn btn-outline btn-sm" data-edit-pp="'+p.id+'">Edit</button>'+
@@ -58,7 +58,7 @@ function ktpSection(u){
     '<label class="consent-row" style="margin-top:12px">'+
     '<input type="checkbox" id="ktpConsent" />'+
     '<span class="consent-box">'+ICON.check+'</span>'+
-    '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
+    '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank" style="text-decoration:underline">Kebijakan Privasi</a>.</span></label>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveKtp" style="margin-top:10px">Simpan KTP</button></div>';
 }
 
@@ -177,7 +177,7 @@ export async function renderProfile(){
 
       <div class="dash-section" style="border:1.5px solid #FCA5A5">
         <div class="dash-sh"><h3 style="color:#B91C1C">⚠️ Zona Berbahaya</h3></div>
-        <p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Menghapus akun akan menghapus data pribadi Anda (nama, KTP, rekening) secara permanen dan Anda tidak bisa login lagi. Riwayat transaksi tetap tersimpan untuk kepatuhan hukum (lihat <a href="#privasi" target="_blank">Kebijakan Privasi</a>), tapi sudah tidak terhubung ke identitas Anda.</p>
+        <p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Menghapus akun akan menghapus data pribadi Anda (nama, KTP, rekening) secara permanen dan Anda tidak bisa login lagi. Riwayat transaksi tetap tersimpan untuk kepatuhan hukum (lihat <a href="#privasi" target="_blank" style="text-decoration:underline">Kebijakan Privasi</a>), tapi sudah tidak terhubung ke identitas Anda.</p>
         <button class="btn btn-danger btn-sm" id="btnDeleteAccount">Hapus Akun Saya</button>
       </div>
     </div>
