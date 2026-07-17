@@ -64,8 +64,13 @@ module.exports = async (req, res) => {
 
   const authUser = await getAuthUser(req);
   const email = authUser?.email?.toLowerCase();
-  if (!email || !ADMIN_EMAILS.includes(email)) {
-    return res.status(403).json({ error: 'Akun ini tidak punya akses admin.' });
+  if (!email) {
+    return res.status(403).json({ error: 'Sesi login tidak terdeteksi. Silakan logout lalu login lagi.' });
+  }
+  if (!ADMIN_EMAILS.includes(email)) {
+    // Sertakan email yang terdeteksi (milik akun yang sedang login sendiri, jadi
+    // aman ditampilkan) supaya gampang dicocokkan dengan ADMIN_EMAILS di Vercel.
+    return res.status(403).json({ error: `Akun ini (${email}) tidak punya akses admin.` });
   }
 
   const body = typeof req.body === 'object' && req.body ? req.body : {};
