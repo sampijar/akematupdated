@@ -368,7 +368,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 
 /* ── Custom select (ganti native <select>, biar tidak jadi picker gelap
    bawaan Android yang lepas dari tema app) ─────────────────────── */
-select.csel-native-hidden{display:none}
+select.csel-native-hidden,input.csel-native-hidden{display:none}
 .csel-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;font-family:var(--font-b);font-size:1rem;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--ink);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .csel-trigger span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .csel-trigger .csel-chevron{flex-shrink:0;width:16px;height:16px;color:var(--soft)}
@@ -392,6 +392,41 @@ select.csel-native-hidden{display:none}
   .csel-overlay{align-items:center}
   .csel-sheet{border-radius:var(--r-lg);max-width:380px;animation:none;box-shadow:var(--sh-md)}
 }
+
+/* ── Custom date picker (ganti native <input type="date">, biar tidak jadi
+   kalender gelap OS Android yang lepas dari tema app) ─────────────────── */
+.cdate-trigger{width:100%}
+.cdate-sheet{max-height:78vh}
+.cdate-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-shrink:0}
+.cdate-navbtn{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;border:none;background:var(--bg);color:var(--primary);cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.cdate-navbtn svg{width:17px;height:17px}
+.cdate-navbtn:active{background:var(--border)}
+.cdate-navlabel{flex:1;text-align:center;font-family:var(--font-d);font-weight:700;font-size:.94rem;color:var(--ink);background:transparent;border:none;padding:6px;border-radius:var(--r-sm);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cdate-navlabel:active{background:var(--bg)}
+.cdate-body{overflow-y:auto}
+.cdate-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:.68rem;font-weight:700;color:var(--soft);margin-bottom:4px}
+.cdate-days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cdate-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:50%;font-family:var(--font-b);font-size:.85rem;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cdate-day.empty{cursor:default}
+.cdate-day:not(.empty):active{background:var(--bg)}
+.cdate-day.today{font-weight:700;color:var(--primary)}
+.cdate-day.selected{background:var(--primary);color:#fff;font-weight:700}
+.cdate-months{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cdate-month{padding:14px 6px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--bg);font-family:var(--font-d);font-weight:600;font-size:.85rem;color:var(--ink);cursor:pointer;text-align:center}
+.cdate-month.selected{border-color:var(--primary);background:var(--primary);color:#fff}
+.cdate-years{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:52vh;overflow-y:auto}
+.cdate-year{padding:12px 4px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--bg);font-family:var(--font-d);font-weight:600;font-size:.82rem;color:var(--ink);cursor:pointer;text-align:center}
+.cdate-year.selected{border-color:var(--primary);background:var(--primary);color:#fff}
+
+/* ── Custom checkbox persetujuan (ganti kotak native polos) ───────────── */
+.consent-row{position:relative;display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:.78rem;color:var(--soft);padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--bg);transition:var(--tr)}
+.consent-row input[type="checkbox"]{position:absolute;opacity:0;width:0;height:0}
+.consent-box{flex-shrink:0;width:20px;height:20px;margin-top:1px;border:1.5px solid var(--border);border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;transition:var(--tr)}
+.consent-box svg{width:13px;height:13px;color:#fff;opacity:0;transform:scale(.5);transition:var(--tr)}
+.consent-row input[type="checkbox"]:checked ~ .consent-box{background:var(--primary);border-color:var(--primary)}
+.consent-row input[type="checkbox"]:checked ~ .consent-box svg{opacity:1;transform:scale(1)}
+.consent-row input[type="checkbox"]:focus-visible ~ .consent-box{outline:2px solid var(--primary);outline-offset:2px}
+.consent-row:has(input[type="checkbox"]:checked){border-color:var(--primary-lt);background:var(--card)}
 
 .star-picker{display:flex;gap:6px}
 .star-btn{background:none;border:none;font-size:2rem;line-height:1;color:var(--border);cursor:pointer;padding:2px;transition:transform .12s ease}

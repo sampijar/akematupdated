@@ -73,6 +73,7 @@ const ICON = {
   doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/></svg>',
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5z"/></svg>',
   chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+  chevronLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>',
 };
 function helpLinkRow(icon, label, href, external){
   return '<a href="'+href+'"'+(external?' target="_blank" rel="noopener noreferrer"':'')+' class="help-link-row">'+
@@ -1529,8 +1530,9 @@ function bankStatusSection(u){
     '<div class="ff"><label>Nama Pemilik</label><input type="text" id="bankAccName" value="'+esc(bank.accountName||'')+'" placeholder="Sesuai buku tabungan" /></div>'+
     '</div>'+
     '<p style="font-size:.78rem;color:var(--soft);margin:6px 0 12px">Verifikasi dalam 1×24 jam kerja.</p>'+
-    '<label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;font-size:.78rem;color:var(--soft);cursor:pointer">'+
-    '<input type="checkbox" id="bankConsent" style="margin-top:2px" />'+
+    '<label class="consent-row" style="margin-bottom:12px">'+
+    '<input type="checkbox" id="bankConsent" />'+
+    '<span class="consent-box">'+ICON.check+'</span>'+
     '<span>Saya menyetujui data rekening ini digunakan untuk pencairan dana sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveBank">Simpan Data Rekening</button></div>';
 }
@@ -1835,8 +1837,9 @@ function patientProfilesSection(profiles){
       '<span class="bank-status '+cls+'">'+lbl+'</span>'+
       '</div>'+
       (p.ktpUrl?'<img src="'+p.ktpUrl+'" alt="Foto KTP '+esc(p.name)+'" style="max-width:160px;border-radius:var(--r-sm);border:1px solid var(--border);margin-top:10px;display:block" loading="lazy" />':'')+
-      '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:.76rem;color:var(--soft);cursor:pointer">'+
-      '<input type="checkbox" class="pp-ktp-consent" data-consent-for="'+p.id+'" style="margin-top:2px" />'+
+      '<label class="consent-row" style="margin-top:10px">'+
+      '<input type="checkbox" class="pp-ktp-consent" data-consent-for="'+p.id+'" />'+
+      '<span class="consent-box">'+ICON.check+'</span>'+
       '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">'+
       '<label class="btn btn-outline btn-sm" style="cursor:pointer">📎 '+(p.ktpUrl?'Ganti KTP':'Upload KTP')+'<input type="file" accept="image/jpeg,image/png" style="display:none" data-ktp-for="'+p.id+'" /></label>'+
@@ -1866,8 +1869,9 @@ function ktpSection(u){
     '<div style="font-size:.74rem;color:var(--soft)">Klik untuk upload</div></div>'+
     '<input type="file" id="profKtp" accept="image/jpeg,image/png" style="display:none" onchange="document.getElementById(\'ktpFilename\').textContent=this.files[0]?.name||\'Pilih foto KTP\'" />'+
     '</label>'+
-    '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:.78rem;color:var(--soft);cursor:pointer">'+
-    '<input type="checkbox" id="ktpConsent" style="margin-top:2px" />'+
+    '<label class="consent-row" style="margin-top:12px">'+
+    '<input type="checkbox" id="ktpConsent" />'+
+    '<span class="consent-box">'+ICON.check+'</span>'+
     '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveKtp" style="margin-top:10px">Simpan KTP</button></div>';
 }
@@ -2366,20 +2370,31 @@ async function renderProfile(){
   </div>`;
 
   afterDash();
+  enhanceSelect(document.getElementById('profGender'), 'Jenis Kelamin');
+  enhanceDateInput(document.getElementById('profDob'), 'Tanggal Lahir');
 
   if (u.role === 'patient') {
     function openPPModal(p){
       document.getElementById('ppModalTitle').textContent = p ? '🧑‍🤝‍🧑 Edit Profil Pasien' : '🧑‍🤝‍🧑 Tambah Profil Pasien';
       document.getElementById('ppId').value = p ? p.id : '';
       document.getElementById('ppName').value = p ? p.name : '';
-      document.getElementById('ppRelationship').value = p ? p.relationship : 'Diri Sendiri';
-      document.getElementById('ppDob').value = p ? p.dob : '';
-      document.getElementById('ppGender').value = p ? p.gender : '';
+      const ppRel = document.getElementById('ppRelationship');
+      ppRel.value = p ? p.relationship : 'Diri Sendiri';
+      ppRel.dispatchEvent(new Event('change', { bubbles: true }));
+      const ppDobEl = document.getElementById('ppDob');
+      ppDobEl.value = p ? p.dob : '';
+      ppDobEl.dispatchEvent(new Event('change', { bubbles: true }));
+      const ppGen = document.getElementById('ppGender');
+      ppGen.value = p ? p.gender : '';
+      ppGen.dispatchEvent(new Event('change', { bubbles: true }));
       document.getElementById('ppPhone').value = p ? p.phone : '';
       document.getElementById('ppAddress').value = p ? p.address : '';
       document.getElementById('ppNotes').value = p ? p.notes : '';
       openModal('modalPatientProfile');
     }
+    enhanceSelect(document.getElementById('ppRelationship'), 'Hubungan dengan Anda');
+    enhanceSelect(document.getElementById('ppGender'), 'Jenis Kelamin');
+    enhanceDateInput(document.getElementById('ppDob'), 'Tanggal Lahir');
     document.getElementById('btnAddPatientProfile')?.addEventListener('click', ()=>openPPModal(null));
     document.querySelectorAll('[data-edit-pp]').forEach(b=>b.addEventListener('click', ()=>{
       openPPModal(patientProfiles.find(p=>p.id===b.dataset.editPp));
@@ -2601,6 +2616,128 @@ function enhanceSelect(selectEl, title){
   render();
   trigger.addEventListener('click', ()=>openCselSheet(selectEl, title, render));
   selectEl.addEventListener('change', render); // jaga-jaga ada kode lain yang set .value lalu dispatch 'change' manual
+}
+
+// ── Custom date picker (ganti native <input type="date">, biar tidak jadi
+// kalender gelap OS Android yang tidak nyambung dengan tema app) ──────────
+const ID_MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const ID_DAYS_SHORT = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+function fmtIdDate(isoStr){
+  if(!isoStr) return '';
+  const d = new Date(isoStr+'T00:00:00');
+  if(isNaN(d.getTime())) return isoStr;
+  return d.getDate()+' '+ID_MONTHS[d.getMonth()]+' '+d.getFullYear();
+}
+let _cdateOverlay = null;
+function ensureCdateOverlay(){
+  if(_cdateOverlay) return _cdateOverlay;
+  const el = document.createElement('div');
+  el.className = 'csel-overlay cdate-overlay';
+  el.innerHTML = '<div class="csel-sheet cdate-sheet"><div class="csel-handle"></div>'+
+    '<div class="csel-title" id="cdateTitle"></div>'+
+    '<div class="cdate-nav">'+
+      '<button type="button" class="cdate-navbtn" id="cdatePrev" aria-label="Sebelumnya">'+ICON.chevronLeft+'</button>'+
+      '<button type="button" class="cdate-navlabel" id="cdateLabel"></button>'+
+      '<button type="button" class="cdate-navbtn" id="cdateNext" aria-label="Berikutnya">'+ICON.chevronRight+'</button>'+
+    '</div>'+
+    '<div class="cdate-body" id="cdateBody"></div>'+
+  '</div>';
+  document.body.appendChild(el);
+  el.addEventListener('click', (e)=>{ if(e.target === el) closeCdateSheet(); });
+  _cdateOverlay = el;
+  return el;
+}
+function closeCdateSheet(){
+  if(!_cdateOverlay) return;
+  _cdateOverlay.classList.remove('open');
+  document.body.style.overflow = '';
+  document.body.classList.remove('modal-open');
+}
+function openCdateSheet(inputEl, title, onPick){
+  const overlay = ensureCdateOverlay();
+  document.getElementById('cdateTitle').textContent = title;
+  const today = new Date();
+  const sel = inputEl.value ? new Date(inputEl.value+'T00:00:00') : null;
+  let view = 'days';
+  let y = sel && !isNaN(sel.getTime()) ? sel.getFullYear() : today.getFullYear();
+  let m = sel && !isNaN(sel.getTime()) ? sel.getMonth() : today.getMonth();
+  const label   = document.getElementById('cdateLabel');
+  const prevBtn = document.getElementById('cdatePrev');
+  const nextBtn = document.getElementById('cdateNext');
+  const body    = document.getElementById('cdateBody');
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function pick(yy,mm,dd){
+    inputEl.value = yy+'-'+pad(mm+1)+'-'+pad(dd);
+    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+    onPick();
+    closeCdateSheet();
+  }
+  function renderView(){
+    if(view === 'days'){
+      prevBtn.style.visibility = 'visible'; nextBtn.style.visibility = 'visible';
+      label.textContent = ID_MONTHS[m]+' '+y;
+      const firstDow = new Date(y,m,1).getDay();
+      const daysInMonth = new Date(y,m+1,0).getDate();
+      let html = '<div class="cdate-weekdays">'+ID_DAYS_SHORT.map(d=>'<span>'+d+'</span>').join('')+'</div><div class="cdate-days">';
+      for(let i=0;i<firstDow;i++) html += '<span class="cdate-day empty"></span>';
+      for(let d=1; d<=daysInMonth; d++){
+        const isSel   = sel && !isNaN(sel.getTime()) && sel.getFullYear()===y && sel.getMonth()===m && sel.getDate()===d;
+        const isToday = today.getFullYear()===y && today.getMonth()===m && today.getDate()===d;
+        html += '<button type="button" class="cdate-day'+(isSel?' selected':(isToday?' today':''))+'" data-d="'+d+'">'+d+'</button>';
+      }
+      html += '</div>';
+      body.innerHTML = html;
+      body.querySelectorAll('.cdate-day:not(.empty)').forEach(btn=>{
+        btn.addEventListener('click', ()=>pick(y, m, parseInt(btn.dataset.d)));
+      });
+    } else if(view === 'months'){
+      prevBtn.style.visibility = 'hidden'; nextBtn.style.visibility = 'hidden';
+      label.textContent = String(y);
+      body.innerHTML = '<div class="cdate-months">'+ID_MONTHS.map((mn,i)=>
+        '<button type="button" class="cdate-month'+(i===m?' selected':'')+'" data-m="'+i+'">'+mn.slice(0,3)+'</button>'
+      ).join('')+'</div>';
+      body.querySelectorAll('.cdate-month').forEach(btn=>{
+        btn.addEventListener('click', ()=>{ m = parseInt(btn.dataset.m); view = 'days'; renderView(); });
+      });
+    } else { // years
+      prevBtn.style.visibility = 'hidden'; nextBtn.style.visibility = 'hidden';
+      label.textContent = 'Pilih Tahun';
+      const endY = today.getFullYear(), startY = endY - 100;
+      let html = '<div class="cdate-years">';
+      for(let yy=endY; yy>=startY; yy--) html += '<button type="button" class="cdate-year'+(yy===y?' selected':'')+'" data-y="'+yy+'">'+yy+'</button>';
+      html += '</div>';
+      body.innerHTML = html;
+      body.querySelectorAll('.cdate-year').forEach(btn=>{
+        btn.addEventListener('click', ()=>{ y = parseInt(btn.dataset.y); view = 'months'; renderView(); });
+      });
+      body.querySelector('.cdate-year.selected')?.scrollIntoView({ block:'center' });
+    }
+  }
+  prevBtn.onclick  = ()=>{ if(view!=='days') return; m--; if(m<0){ m=11; y--; } renderView(); };
+  nextBtn.onclick  = ()=>{ if(view!=='days') return; m++; if(m>11){ m=0; y++; } renderView(); };
+  label.onclick    = ()=>{ view = view==='days' ? 'years' : (view==='years' ? 'days' : 'years'); renderView(); };
+  view = 'days';
+  renderView();
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.body.classList.add('modal-open');
+}
+function enhanceDateInput(inputEl, title){
+  if(!inputEl || inputEl.dataset.cdateEnhanced) return;
+  inputEl.dataset.cdateEnhanced = '1';
+  inputEl.classList.add('csel-native-hidden');
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'csel-trigger cdate-trigger';
+  inputEl.insertAdjacentElement('afterend', trigger);
+  function render(){
+    const has = !!inputEl.value;
+    trigger.innerHTML = '<span'+(has?'':' style="color:var(--soft)"')+'>'+esc(has?fmtIdDate(inputEl.value):'Pilih tanggal')+'</span><span class="csel-chevron">'+ICON.chevronDown+'</span>';
+  }
+  render();
+  trigger.addEventListener('click', ()=>openCdateSheet(inputEl, title, render));
+  inputEl.addEventListener('change', render);
 }
 
 async function openDonateModal(campaignId){
