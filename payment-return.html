@@ -71,6 +71,19 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
   function fail(){ ico.textContent='❌'; ttl.textContent='Pembayaran Gagal / Dibatalkan'; dsc.textContent='Transaksi tidak berhasil. Silakan coba lagi atau hubungi kami.'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali</a><a href="https://wa.me/6285196407117" target="_blank" class="btn btn-o">Hubungi WA</a>'; sessionStorage.removeItem('akemat_tx'); }
   function pend(tid){ ico.textContent='⏳'; ttl.textContent='Menunggu Pembayaran'; dsc.textContent='Transaksi menunggu konfirmasi pembayaran.'; detail([['ID Transaksi',tid],['Referensi',ref],['Produk',prod],['Jumlah',amt?'Rp '+Number(amt).toLocaleString('id-ID'):'—']]); note.style.display='block'; acts.innerHTML='<a href="/" class="btn btn-p">Kembali ke Beranda</a>'; }
 
+  // Momen paling krusial di seluruh app — pengguna baru saja bayar uang
+  // sungguhan dan nunggu konfirmasi. fetch() tanpa timeout bisa bikin halaman
+  // ini nyangkut selamanya di "Mengonfirmasi status ke DOKU…" kalau API-nya
+  // lambat/tidak merespons, tanpa penjelasan apa pun. Batasi 20 detik — kalau
+  // lewat, lempar ke blok catch di bawah yang sudah punya fallback aman
+  // (fallback ke status dari URL, atau status "menunggu").
+  async function fetchReturnWithTimeout(url, opts, ms = 20000) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+    finally { clearTimeout(t); }
+  }
+
   const ok_st = ['berhasil','success','paid','1','settlement'];
   const fail_st= ['gagal','failed','cancel','cancelled','expired','order_expired','-1'];
 
@@ -93,7 +106,7 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
         // confirm — jangan tebak-tebak & jangan pernah nampilkan "Berhasil"
         // tanpa benar-benar terkonfirmasi lewat action:'confirm'.
         if (!stored?.type) { pend(trxId); dsc.textContent='Konfirmasi via WhatsApp ke 0851 9640 7117 dengan referensi: '+ref; return; }
-        const r = await fetch('/api/doku-payment', {
+        const r = await fetchReturnWithTimeout('/api/doku-payment', {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
             action:'confirm', type: stored.type, referenceId: trxId,
@@ -112,7 +125,7 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
       // Mode 'local' (tanpa Supabase, cuma localStorage browser sendiri) — tidak
       // ada backend nyata yang perlu diamankan, jadi tetap pakai jalur lama:
       // cek status manual & catat sendiri di klien.
-      const r=await fetch('/api/doku-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',transactionId:trxId})});
+      const r=await fetchReturnWithTimeout('/api/doku-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status',transactionId:trxId})});
       const d=await r.json();
       const st=String(d?.data?.transaction?.status||d?.data?.order?.status||d?.data?.status||'').toLowerCase();
       const paidLocal = ok_st.includes(st) || ok_st.includes(urlSt.toLowerCase());

@@ -53,9 +53,26 @@ async function parsePaymentResponse(res) {
   catch { throw new Error('Server pembayaran tidak merespons dengan benar (HTTP '+res.status+'). Coba lagi sebentar lagi.'); }
 }
 
+// Sama seperti otp.js — kalau DOKU/server pembayaran lambat/menggantung, fetch
+// tanpa timeout bisa bikin tombol "Memproses…" macet selamanya tanpa error
+// apa pun, di tengah alur yang melibatkan uang sungguhan. Batasi max 20 detik
+// supaya UI selalu balik ke keadaan bisa dicoba lagi, dengan pesan yang jelas.
+async function fetchPaymentWithTimeout(url, opts, ms = 20000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Server pembayaran tidak merespons. Coba lagi sebentar lagi.');
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 // ── Core: create DOKU redirect payment ────────────────────
 async function createPayment({ amount, productName, description, referenceId, buyerName, buyerEmail, buyerPhone }){
-  const res = await fetch(PAYMENT_API, {
+  const res = await fetchPaymentWithTimeout(PAYMENT_API, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ action:'redirect', amount, productName, description, referenceId, buyerName, buyerEmail, buyerPhone }),
@@ -101,7 +118,7 @@ async function payBooking({ bookingId, totalCost, nurseName, service, buyerName,
 
 // ── Check status ───────────────────────────────────────────
 async function checkStatus(transactionId){
-  const res  = await fetch(PAYMENT_API, {
+  const res  = await fetchPaymentWithTimeout(PAYMENT_API, {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ action:'status', transactionId }),
   });
