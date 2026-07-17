@@ -393,6 +393,15 @@ select.csel-native-hidden,input.csel-native-hidden{display:none}
   .csel-sheet{border-radius:var(--r-lg);max-width:380px;animation:none;box-shadow:var(--sh-md)}
 }
 
+/* ── Bingkai foto KTP seragam — rasio kartu KTP Indonesia asli
+   (85,6mm × 53,98mm) supaya foto besar-kecil dari pengguna tetap tampil
+   sama ukuran di dashboard. object-fit:contain (bukan cover) supaya isi
+   KTP tidak terpotong, cuma dikasih ruang kosong kalau rasio aslinya beda. */
+.ktp-thumb{width:160px;flex-shrink:0;aspect-ratio:85.6/53.98;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--bg-alt);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.ktp-thumb img{width:100%;height:100%;object-fit:contain}
+.ktp-thumb-lg{width:220px}
+.ktp-thumb-empty{color:var(--soft);font-size:.76rem;text-align:center;padding:8px}
+
 /* ── Custom date picker (ganti native <input type="date">, biar tidak jadi
    kalender gelap OS Android yang lepas dari tema app) ─────────────────── */
 .cdate-trigger{width:100%}

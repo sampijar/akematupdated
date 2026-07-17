@@ -75,6 +75,32 @@ async function sbRequest(pathAndQuery, method, bodyObj, extraHeaders) {
   return { ok: r.ok, status: r.status, data };
 }
 
+// Dipakai oleh table:'promo_codes' action:'preview' di bawah (pratinjau
+// read-only sebelum booking dibuat) — TIDAK dipakai untuk booking sungguhan,
+// itu punya jalur validasi & penghitungan sendiri di action:'insert'
+// table:'bookings' supaya perubahan di sini tidak bisa diam-diam mengubah
+// perilaku pembayaran yang sudah teruji.
+function evaluatePromo(promo, amount, type) {
+  if (!promo) return { valid: false, reason: 'Kode promo tidak ditemukan.' };
+  if (promo.active === false) return { valid: false, reason: 'Kode promo ini sudah tidak aktif.' };
+  if (promo.applies_to && promo.applies_to !== 'all' && promo.applies_to !== type) {
+    return { valid: false, reason: 'Kode promo ini tidak berlaku untuk transaksi ini.' };
+  }
+  const now = new Date();
+  if (promo.valid_from && new Date(promo.valid_from) > now) return { valid: false, reason: 'Kode promo ini belum berlaku.' };
+  if (promo.valid_until && new Date(promo.valid_until) < now) return { valid: false, reason: 'Kode promo ini sudah kedaluwarsa.' };
+  if (promo.max_uses != null && promo.used_count >= promo.max_uses) return { valid: false, reason: 'Kuota kode promo ini sudah habis.' };
+  if (promo.min_amount && amount < Number(promo.min_amount)) {
+    return { valid: false, reason: `Minimal transaksi Rp${Number(promo.min_amount).toLocaleString('id-ID')} untuk pakai kode ini.` };
+  }
+  let discount = promo.discount_type === 'percent'
+    ? Math.round(amount * Number(promo.discount_value) / 100)
+    : Number(promo.discount_value);
+  if (promo.max_discount != null) discount = Math.min(discount, Number(promo.max_discount));
+  discount = Math.max(0, Math.min(discount, amount));
+  return { valid: true, discount, finalAmount: amount - discount };
+}
+
 const PUBLIC_USER_FIELDS = 'id,name,role,created_at';
 const OWN_USER_FIELDS    = 'id,name,email,phone,role,address,organization,dob,gender,ktp_status,ktp_url,bank_name,bank_account_number,bank_account_name,bank_verified,created_at';
 // Dipakai KHUSUS pencarian berdasarkan nomor HP (login/lupa-password pakai
@@ -230,7 +256,7 @@ module.exports = async (req, res) => {
         // Kode promo: diskon TIDAK PERNAH dipercaya dari klien (klien cuma
         // kirim kode-nya) — divalidasi & dihitung ulang di sini dari tabel
         // promo_codes, lalu total_cost/platform_fee/nurse_pay disesuaikan.
-        // (Cek pratinjau di api/promo.js pakai logika yang sama tapi
+        // (Cek pratinjau di action:'preview' table:'promo_codes' di file ini pakai logika yang sama tapi
         // read-only, tidak menambah used_count.)
         const promoCodeInput = typeof clean.promo_code === 'string' ? clean.promo_code.trim() : '';
         delete clean.promo_code; delete clean.discount_amount;
@@ -382,6 +408,57 @@ module.exports = async (req, res) => {
         }
         const r = await sbRequest('payouts', 'POST', clean);
         return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied();
+    }
+
+    // ── promo_codes (pratinjau, read-only) ────────────────
+    // Cek & pratinjau kode promo SEBELUM pembayaran (mis. di halaman booking
+    // perawat, sebelum tombol "Buat Janji Temu" ditekan) — tidak menambah
+    // used_count. Validasi yang sebenarnya berlaku ULANG di action:'insert'
+    // table:'bookings' di atas, supaya kode promo tidak bisa
+    // dipalsukan/dimanipulasi dari klien.
+    if (table === 'promo_codes' && action === 'preview') {
+      if (!uid) return authRequired();
+      const code = String(data?.code || '').trim();
+      const amount = Number(data?.amount);
+      const type = String(data?.type || 'booking');
+      if (!code) return res.status(400).json({ error: 'Kode promo wajib diisi.' });
+      if (!(amount > 0)) return res.status(400).json({ error: 'Jumlah transaksi tidak valid.' });
+      const pr = await sbRequest(`promo_codes?code=ilike.${encodeURIComponent(code)}&select=*&limit=1`, 'GET');
+      if (!pr.ok) return res.status(pr.status).json({ error: pr.data });
+      const promo = pr.data?.[0] || null;
+      const result = evaluatePromo(promo, amount, type);
+      if (!result.valid) return res.status(400).json({ error: result.reason });
+      return res.status(200).json({
+        success: true, code: promo.code, discountType: promo.discount_type,
+        discount: result.discount, finalAmount: result.finalAmount,
+      });
+    }
+
+    // ── push_subscriptions (langganan push notification) ──
+    // Isi subscription (endpoint + keys) datang dari PushManager.subscribe()
+    // di browser — tidak berisi apa pun yang bisa disalahgunakan kalau bocor
+    // (cuma alamat buat browser push service), tapi tetap diikat ke akun
+    // yang login supaya tidak bisa didaftarkan atas nama pengguna lain.
+    if (table === 'push_subscriptions') {
+      if (!uid) return authRequired();
+      if (action === 'insert') {
+        const endpoint = data?.endpoint;
+        const p256dh   = data?.keys?.p256dh;
+        const authKey  = data?.keys?.auth;
+        if (!endpoint || !p256dh || !authKey) return res.status(400).json({ error: 'Data langganan tidak lengkap.' });
+        const r = await sbRequest('push_subscriptions', 'POST',
+          { user_id: uid, endpoint, p256dh, auth: authKey },
+          { Prefer: 'resolution=merge-duplicates,return=representation' });
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'delete') {
+        const endpoint = data?.endpoint;
+        if (!endpoint) return res.status(400).json({ error: 'endpoint wajib diisi.' });
+        const params = new URLSearchParams({ endpoint: `eq.${endpoint}`, user_id: `eq.${uid}` });
+        const r = await sbRequest(`push_subscriptions?${params}`, 'DELETE');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true } : { error: r.data });
       }
       return denied();
     }

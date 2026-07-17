@@ -367,7 +367,7 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_amount BIGINT DEFAULT 0;
 -- ── Push notification ────────────────────────────────────────
 -- Satu pengguna bisa punya lebih dari satu langganan (HP + laptop, dst.).
 -- endpoint UNIQUE supaya subscribe ulang dari device yang sama tidak
--- bikin baris dobel (upsert di api/push-subscribe.js).
+-- bikin baris dobel (upsert di api/db.js (table push_subscriptions)).
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id    UUID REFERENCES users(id),

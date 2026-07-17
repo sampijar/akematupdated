@@ -80,6 +80,19 @@ function helpLinkRow(icon, label, href, external){
     '<span style="display:flex;align-items:center;gap:12px;font-size:.88rem"><span class="help-link-icon">'+icon+'</span>'+label+'</span>'+
     '<span class="help-link-chevron">'+ICON.chevronRight+'</span></a>';
 }
+// Bingkai foto KTP berukuran seragam mengikuti rasio KTP Indonesia asli
+// (85,6mm × 53,98mm, sama seperti kartu ATM/kredit) — supaya foto KTP dari
+// pengguna manapun (potret HP, scan, macam-macam rasio) tampil sama besar
+// di dashboard, bukan besar-kecil sesuai foto aslinya. object-fit:contain
+// (bukan cover) supaya seluruh isi KTP tetap terlihat utuh untuk verifikasi,
+// tidak ada bagian yang terpotong.
+function ktpThumb(url, opts){
+  opts = opts || {};
+  var cls = 'ktp-thumb' + (opts.lg ? ' ktp-thumb-lg' : '');
+  var style = opts.style ? ' style="'+opts.style+'"' : '';
+  if (!url) return opts.showEmpty ? '<div class="'+cls+' ktp-thumb-empty"'+style+'>Tidak ada foto</div>' : '';
+  return '<div class="'+cls+'"'+style+'><img src="'+esc(url)+'" alt="Foto KTP" loading="lazy" /></div>';
+}
 function pwFieldHTML(id, label, placeholder){
   return '<div class="ff"><label>'+label+'</label>'+
     '<div class="pw-field">'+
@@ -1640,7 +1653,7 @@ async function renderAdminDash(){
   function ktpCard(k){
     return '<div class="dash-section" id="ktp-row-'+k.id+'" style="margin-bottom:12px">'+
       '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+
-      (k.ktp_url?'<img src="'+k.ktp_url+'" alt="Foto KTP" style="width:160px;border-radius:var(--r-sm);border:1px solid var(--border)" loading="lazy" />':'<div style="width:160px;height:100px;background:var(--bg-alt);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:.76rem">Tidak ada foto</div>')+
+      ktpThumb(k.ktp_url, { showEmpty:true })+
       '<div style="flex:1;min-width:180px">'+
       '<div style="font-family:var(--font-d);font-weight:700">'+esc(k.name)+'</div>'+
       '<div style="font-size:.8rem;color:var(--soft)">'+esc(k.email)+' · '+esc(k.phone||'—')+'</div>'+
@@ -1653,7 +1666,7 @@ async function renderAdminDash(){
   function patKtpCard(k){
     return '<div class="dash-section" id="pkt-row-'+k.id+'" style="margin-bottom:12px">'+
       '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+
-      (k.ktp_url?'<img src="'+k.ktp_url+'" alt="Foto KTP" style="width:160px;border-radius:var(--r-sm);border:1px solid var(--border)" loading="lazy" />':'<div style="width:160px;height:100px;background:var(--bg-alt);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:.76rem">Tidak ada foto</div>')+
+      ktpThumb(k.ktp_url, { showEmpty:true })+
       '<div style="flex:1;min-width:180px">'+
       '<div style="font-family:var(--font-d);font-weight:700">'+esc(k.name)+' <span style="font-weight:400;color:var(--soft);font-size:.8rem">('+esc(k.relationship)+')</span></div>'+
       '<div style="font-size:.74rem;color:var(--soft);margin-top:4px">Diunggah: '+esc((k.created_at||'').slice(0,10))+'</div>'+
@@ -1836,7 +1849,7 @@ function patientProfilesSection(profiles){
       '<div style="font-size:.78rem;color:var(--soft)">'+esc(p.relationship)+'</div></div>'+
       '<span class="bank-status '+cls+'">'+lbl+'</span>'+
       '</div>'+
-      (p.ktpUrl?'<img src="'+p.ktpUrl+'" alt="Foto KTP '+esc(p.name)+'" style="max-width:160px;border-radius:var(--r-sm);border:1px solid var(--border);margin-top:10px;display:block" loading="lazy" />':'')+
+      ktpThumb(p.ktpUrl, { style:'margin-top:10px' })+
       '<label class="consent-row" style="margin-top:10px">'+
       '<input type="checkbox" class="pp-ktp-consent" data-consent-for="'+p.id+'" />'+
       '<span class="consent-box">'+ICON.check+'</span>'+
@@ -1862,7 +1875,7 @@ function ktpSection(u){
   return '<div class="dash-section">'+
     '<div class="dash-sh"><h3>📎 Verifikasi Identitas (KTP)</h3><span class="bank-status '+cls+'">'+lbl+'</span></div>'+
     '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diunggah sebelum janji temu/campaign pertama Anda. Foto KTP (JPG/PNG), maks. 5MB — pastikan foto, NIK, dan alamat terbaca jelas.</p>'+
-    (u.ktpUrl?'<img src="'+u.ktpUrl+'" alt="Foto KTP tersimpan" style="max-width:220px;border-radius:var(--r-sm);border:1px solid var(--border);display:block;margin-bottom:10px" loading="lazy" />':'')+
+    ktpThumb(u.ktpUrl, { lg:true, style:'margin-bottom:10px' })+
     '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:var(--bg-alt)">'+
     '<span style="font-size:1.4rem">🪪</span>'+
     '<div><div style="font-family:var(--font-d);font-weight:600;font-size:.84rem;color:var(--primary)" id="ktpFilename">'+(u.ktpUrl?'KTP tersimpan — klik untuk ganti':'Pilih foto KTP')+'</div>'+
@@ -2282,7 +2295,7 @@ async function enablePushNotifications(){
     if(perm !== 'granted'){ toast('Izin notifikasi ditolak.','e'); return false; }
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(cfg.vapidPublicKey) });
-    await apiFetch('push-subscribe', { action:'subscribe', subscription: sub.toJSON() });
+    await apiFetch('db', { table:'push_subscriptions', action:'insert', data: sub.toJSON() });
     toast('Notifikasi diaktifkan.','s');
     return true;
   } catch(e){ toast('Gagal mengaktifkan notifikasi: '+(e.message||'coba lagi.'),'e'); return false; }
@@ -2291,7 +2304,7 @@ async function disablePushNotifications(){
   try {
     const sub = await getPushSubscription();
     if(sub){
-      await apiFetch('push-subscribe', { action:'unsubscribe', subscription: sub.toJSON() }).catch(()=>{});
+      await apiFetch('db', { table:'push_subscriptions', action:'delete', data: sub.toJSON() }).catch(()=>{});
       await sub.unsubscribe();
     }
     toast('Notifikasi dinonaktifkan.','s');
