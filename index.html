@@ -79,7 +79,13 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Font di-load tanpa blokir render pertama (pola "loadCSS"): fetch
+       prioritas tinggi lewat preload, tapi CSS-nya baru "aktif" (media
+       diganti all) setelah selesai — beranda bisa mulai tergambar dengan
+       font sistem duluan, tidak nunggu font Google selesai diunduh. -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Work+Sans:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Work+Sans:wght@400;500;600&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Work+Sans:wght@400;500;600&display=swap" /></noscript>
 
   <!-- Styles -->
   <link rel="stylesheet" href="css/style.css" />
