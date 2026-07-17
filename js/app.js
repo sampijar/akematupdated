@@ -2308,7 +2308,7 @@ async function renderProfile(){
   let patientProfiles = [];
   if (u.role === 'patient') patientProfiles = await Store.getPatientProfiles(u.id);
   const pushSub = await getPushSubscription();
-  const pushOn  = !!pushSub && Notification?.permission === 'granted';
+  const pushOn  = !!pushSub && typeof Notification !== 'undefined' && Notification.permission === 'granted';
 
   app.innerHTML = `
   <div class="dash-wrap">
@@ -2984,14 +2984,14 @@ document.addEventListener('DOMContentLoaded',async ()=>{
     let hideTimer = null;
     function setOffline(){
       clearTimeout(hideTimer);
-      banner.textContent = 'Tidak ada koneksi internet';
+      banner.textContent = 'Anda sedang offline';
       banner.className = 'show offline';
     }
     function setOnline(){
       if(!banner.classList.contains('offline')) return; // skip di load pertama
-      banner.textContent = 'Koneksi tersambung lagi';
+      banner.textContent = 'Kembali online';
       banner.className = 'show online';
-      hideTimer = setTimeout(()=>banner.classList.remove('show'), 2500);
+      hideTimer = setTimeout(()=>banner.classList.remove('show'), 2000);
     }
     window.addEventListener('offline', setOffline);
     window.addEventListener('online', setOnline);
