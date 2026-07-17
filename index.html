@@ -54,6 +54,25 @@
   <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
 
+  <!-- Splash screen iOS — dipasang biar pas dibuka dari ikon Home Screen
+       (mode standalone) tidak nge-flash putih kosong sebelum CSS/JS
+       kelar dimuat, senada boot splash app native. Safari cuma pakai
+       gambar yang device-width/height/-webkit-device-pixel-ratio-nya
+       cocok persis; makin banyak ukuran = makin banyak model iPhone
+       ke-cover. -->
+  <link rel="apple-touch-startup-image" href="/icons/splash/iphone-se.png"
+    media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="/icons/splash/iphone-12-mini.png"
+    media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="/icons/splash/iphone-12.png"
+    media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="/icons/splash/iphone-14-pro.png"
+    media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="/icons/splash/iphone-14-plus.png"
+    media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+  <link rel="apple-touch-startup-image" href="/icons/splash/iphone-14-promax.png"
+    media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+
   <!-- Favicon SVG -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%231F4D3F'/%3E%3Cpath d='M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z' fill='%23F2A541'/%3E%3C/svg%3E" />
 
