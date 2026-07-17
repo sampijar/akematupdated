@@ -258,7 +258,7 @@ export async function renderNurseDetail(id){
         </div>
         <div class="ff">
           <label>Alamat kunjungan</label>
-          <input type="text" id="bkAddress" placeholder="Jl. Nama No. X, Kota" />
+          <input type="text" id="bkAddress" placeholder="Jl. Nama No. X, Kota" autocomplete="street-address" />
         </div>
         <div class="ff">
           <label>Catatan (opsional)</label>

@@ -18,8 +18,8 @@ export function renderLogin(){
       <div id="loginStep1">
         <h2>Masuk ke Akemat</h2>
         <p class="lead">Masuk ke akun Akemat Foundation Anda.</p>
-        <div class="ff"><label>Email atau No. HP</label><input type="text" id="loginEmail" placeholder="email@anda.com atau 08xx…" /></div>
-        ${pwFieldHTML('loginPass','Password','••••••••')}
+        <div class="ff"><label>Email atau No. HP</label><input type="text" id="loginEmail" placeholder="email@anda.com atau 08xx…" autocomplete="username" /></div>
+        ${pwFieldHTML('loginPass','Password','••••••••','current-password')}
         <div id="tsLogin" style="margin-top:10px"></div>
         <div class="form-error" id="loginErr"></div>
         <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:12px">Masuk</button>
@@ -139,7 +139,7 @@ export function renderForgotPassword(){
       <p class="lead">Verifikasi nomor HP terdaftar via WhatsApp untuk atur ulang password.</p>
 
       <div id="fpStep1">
-        <div class="ff"><label>No. HP terdaftar</label><input type="tel" id="fpPhone" placeholder="08xx…" /></div>
+        <div class="ff"><label>No. HP terdaftar</label><input type="tel" id="fpPhone" placeholder="08xx…" autocomplete="tel" /></div>
         <div id="tsForgot" style="margin:10px 0"></div>
         <button class="btn btn-primary btn-full" id="btnFpSendOtp" style="margin-top:8px">Kirim OTP WA</button>
       </div>
@@ -153,8 +153,8 @@ export function renderForgotPassword(){
       </div>
 
       <div id="fpStep3" style="display:none;margin-top:14px">
-        ${pwFieldHTML('fpNewPass','Password baru','Min. 8 karakter, bukan cuma angka')}
-        ${pwFieldHTML('fpNewPass2','Konfirmasi password baru','Ulangi password baru')}
+        ${pwFieldHTML('fpNewPass','Password baru','Min. 8 karakter, bukan cuma angka','new-password')}
+        ${pwFieldHTML('fpNewPass2','Konfirmasi password baru','Ulangi password baru','new-password')}
         <button class="btn btn-primary btn-full" id="btnFpSavePass">Simpan Password Baru</button>
       </div>
 
@@ -263,13 +263,13 @@ export function renderRegister(){
         </div>
       </div>
 
-      <div class="ff"><label>Nama lengkap</label><input type="text" id="regName" placeholder="Nama sesuai KTP" /></div>
+      <div class="ff"><label>Nama lengkap</label><input type="text" id="regName" placeholder="Nama sesuai KTP" autocomplete="name" /></div>
       <div class="ff row2">
-        <div><label>Email</label><input type="email" id="regEmail" placeholder="email@anda.com" /></div>
+        <div><label>Email</label><input type="email" id="regEmail" placeholder="email@anda.com" autocomplete="email" /></div>
         <div>
           <label>No. HP</label>
           <div style="display:flex;gap:8px">
-            <input type="tel" id="regPhone" placeholder="08xx…" style="flex:1" />
+            <input type="tel" id="regPhone" placeholder="08xx…" style="flex:1" autocomplete="tel" />
             <button type="button" class="btn btn-outline btn-sm" id="btnSendOtp" style="white-space:nowrap">Kirim OTP WA</button>
           </div>
         </div>
@@ -283,7 +283,7 @@ export function renderRegister(){
         </div>
         <p style="font-size:.74rem;color:var(--soft);margin:6px 0 0" id="otpStatus">Kode dikirim via WhatsApp ke nomor di atas.</p>
       </div>
-      ${pwFieldHTML('regPass','Password','Min. 8 karakter, bukan cuma angka')}
+      ${pwFieldHTML('regPass','Password','Min. 8 karakter, bukan cuma angka','new-password')}
 
       <!-- Nurse extra -->
       <div id="nurseExtra" style="display:none">

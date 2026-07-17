@@ -157,10 +157,10 @@ function ktpThumb(url, opts){
     'onerror="this.closest(\'.ktp-thumb\').classList.add(\'ktp-thumb-empty\');this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'Gagal memuat foto — coba unggah ulang\'}))" />'+
     '</div>';
 }
-function pwFieldHTML(id, label, placeholder){
+function pwFieldHTML(id, label, placeholder, autocomplete){
   return '<div class="ff"><label>'+label+'</label>'+
     '<div class="pw-field">'+
-      '<input type="password" id="'+id+'" placeholder="'+placeholder+'" />'+
+      '<input type="password" id="'+id+'" placeholder="'+placeholder+'" autocomplete="'+(autocomplete||'current-password')+'" />'+
       '<button type="button" class="pw-toggle" data-pw-toggle="'+id+'" aria-label="Lihat password">'+EYE_ICON+'</button>'+
     '</div></div>';
 }
