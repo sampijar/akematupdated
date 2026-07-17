@@ -7,9 +7,16 @@
 // index.html — ini satu-satunya cara memaksa pengguna PWA/TWA (terutama di
 // HP, yang jarang hard-refresh) mengambil versi terbaru. Lupa menaikkan ini
 // = pengguna lama bisa terjebak di versi lama tanpa batas waktu.
-const CACHE_NAME = 'akemat-v72';
+const CACHE_NAME = 'akemat-v73';
 
-// File yang di-cache untuk offline pertama kali dibuka
+// File yang di-cache untuk offline pertama kali dibuka. Sengaja cuma aset
+// SAMA-ORIGIN (bukan Google Fonts) — cache.addAll() ini menggerbang
+// self.skipWaiting()/aktivasi SW, jadi kalau satu aset lintas-origin lambat
+// atau gagal (jaringan lemah, proxy korporat, dll.), instalasi SW ikut
+// molor/nyangkut, dan app shell offline yang jauh lebih penting jadi ikut
+// telat aktif. Font Google tetap kepakai & ke-cache sendiri lewat fetch
+// handler network-first di bawah begitu benar-benar diminta halaman —
+// bukan lagi dipaksa di awal instalasi.
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -22,8 +29,6 @@ const STATIC_ASSETS = [
   '/js/otp.js',
   '/js/app.js',
   '/manifest.json',
-  // Font Google (di-cache setelah pertama kali dimuat)
-  'https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Work+Sans:wght@400;500;600&display=swap',
 ];
 
 // Ekstensi yang aman di-cache-first (jarang berubah)
