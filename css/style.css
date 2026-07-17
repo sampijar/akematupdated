@@ -338,6 +338,22 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .stat-val{font-family:var(--font-d);font-weight:800;font-size:1.2rem;color:var(--primary)}
 .stat-lbl{font-size:.76rem;color:var(--soft)}
 .dash-section{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:18px;margin-bottom:14px}
+
+/* ── Grafik statistik (Panel Admin) — batang HTML/CSS polos, satu hue
+   per grafik, tanpa dependency charting library tambahan. ────────── */
+.chart-block{margin-bottom:22px}
+.chart-block:last-child{margin-bottom:0}
+.chart-title{font-family:var(--font-d);font-weight:700;font-size:.84rem;color:var(--primary);margin:0 0 12px}
+.chart-vbars{display:flex;align-items:flex-end;gap:5px;height:110px}
+.chart-vbar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px;min-width:0}
+.chart-vbar{width:100%;max-width:22px;border-radius:3px 3px 0 0;min-height:2px}
+.chart-vbar-label{font-size:.6rem;color:var(--soft);white-space:nowrap}
+.chart-bars{display:flex;flex-direction:column;gap:9px}
+.chart-bar-row{display:grid;grid-template-columns:110px 1fr 34px;align-items:center;gap:8px;font-size:.76rem}
+.chart-bar-label{color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chart-bar-track{height:10px;background:var(--bg-alt);border-radius:999px;overflow:hidden}
+.chart-bar-fill{height:100%;border-radius:999px;transition:width .4s ease}
+.chart-bar-value{text-align:right;font-weight:700;color:var(--ink);white-space:nowrap}
 .dash-sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
 .dash-sh h3{margin:0}
 

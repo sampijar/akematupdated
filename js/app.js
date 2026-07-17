@@ -1886,6 +1886,86 @@ function renderAdminOtpGate(u){
   });
 }
 
+// ── Statistik Panel Admin ──────────────────────────────────
+// Dihitung di klien dari data mentah (listBookings/listDonations, sama
+// yang dipakai tombol export CSV) — tidak ada endpoint agregasi terpisah
+// di server, jumlah barisnya (maks 2.000/tabel) masih wajar dihitung di
+// browser tanpa lag berarti.
+function computeAdminStats(bookings, donations){
+  const now = new Date();
+  const months = [];
+  for(let i=11;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push({ key: d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'), label: ID_MONTHS[d.getMonth()].slice(0,3) });
+  }
+  const bookingByMonth = new Map(months.map(m=>[m.key,0]));
+  bookings.forEach(b=>{
+    const key = String(b.created_at||'').slice(0,7);
+    if(bookingByMonth.has(key)) bookingByMonth.set(key, bookingByMonth.get(key)+1);
+  });
+  const donationByMonth = new Map(months.map(m=>[m.key,0]));
+  donations.forEach(d=>{
+    const key = String(d.created_at||'').slice(0,7);
+    if(donationByMonth.has(key)) donationByMonth.set(key, donationByMonth.get(key)+(d.amount||0));
+  });
+  const bookingTrend  = months.map(m=>({ label:m.label, value: bookingByMonth.get(m.key) }));
+  const donationTrend = months.map(m=>({ label:m.label, value: donationByMonth.get(m.key) }));
+
+  const nurseCount = new Map();
+  bookings.forEach(b=>{
+    if(b.status !== 'completed') return;
+    const name = b.nurse_name || 'Tanpa nama';
+    nurseCount.set(name, (nurseCount.get(name)||0)+1);
+  });
+  const topNurses = [...nurseCount.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,value])=>({label,value}));
+
+  const totalBookingRevenue = bookings.reduce((s,b)=>s+(b.payment_status==='paid'?(b.total_cost||0):0),0);
+  const totalDonationRaised = donations.reduce((s,d)=>s+(d.payment_status==='paid'?(d.amount||0):0),0);
+  const paidBookingCount    = bookings.filter(b=>b.payment_status==='paid').length;
+  const paidDonationCount   = donations.filter(d=>d.payment_status==='paid').length;
+
+  return { bookingTrend, donationTrend, topNurses, totalBookingRevenue, totalDonationRaised, paidBookingCount, paidDonationCount };
+}
+function statTileRow(items){
+  return '<div class="stat-row" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px">'+
+    items.map(function(it){ return '<div class="stat-card"><div><div class="stat-val">'+esc(it.value)+'</div><div class="stat-lbl">'+esc(it.label)+'</div></div></div>'; }).join('')+
+  '</div>';
+}
+// Grafik batang vertikal (tren bulanan) — satu hue per grafik (sequential),
+// bukan warna beda tiap batang, supaya tidak ada kesan "kategori" yang
+// sebenarnya tidak ada (ini satu seri data dari waktu ke waktu).
+function monthlyBarChart(title, dataPoints, colorVar, formatFn){
+  formatFn = formatFn || String;
+  const max = Math.max(1, ...dataPoints.map(d=>d.value));
+  return '<div class="chart-block">'+
+    '<h4 class="chart-title">'+esc(title)+'</h4>'+
+    '<div class="chart-vbars">'+
+    dataPoints.map(function(d){
+      const pct = d.value>0 ? Math.max(4, Math.round((d.value/max)*100)) : 1;
+      return '<div class="chart-vbar-col" title="'+esc(d.label+': '+formatFn(d.value))+'">'+
+        '<div class="chart-vbar" style="height:'+pct+'%;background:'+colorVar+'"></div>'+
+        '<span class="chart-vbar-label">'+esc(d.label)+'</span>'+
+      '</div>';
+    }).join('')+
+    '</div></div>';
+}
+function rankedBarChart(title, dataPoints, colorVar){
+  if(!dataPoints.length) return '<div class="chart-block"><h4 class="chart-title">'+esc(title)+'</h4><p style="color:var(--soft);font-size:.82rem">Belum ada data.</p></div>';
+  const max = Math.max(1, ...dataPoints.map(d=>d.value));
+  return '<div class="chart-block">'+
+    '<h4 class="chart-title">'+esc(title)+'</h4>'+
+    '<div class="chart-bars">'+
+    dataPoints.map(function(d){
+      const pct = Math.max(4, Math.round((d.value/max)*100));
+      return '<div class="chart-bar-row">'+
+        '<span class="chart-bar-label">'+esc(d.label)+'</span>'+
+        '<div class="chart-bar-track"><div class="chart-bar-fill" style="width:'+pct+'%;background:'+colorVar+'"></div></div>'+
+        '<span class="chart-bar-value">'+d.value+'</span>'+
+      '</div>';
+    }).join('')+
+    '</div></div>';
+}
+
 async function renderAdminDash(){
   const u = Store.getCurrentUser();
   if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
@@ -1901,20 +1981,24 @@ async function renderAdminDash(){
     }
   }
 
-  let ktps = [], patKtps = [], camps = [], promos = [], auditLog = [];
+  let ktps = [], patKtps = [], camps = [], promos = [], auditLog = [], statBookings = [], statDonations = [];
   try {
-    const [rk, rpk, rc, rp, ra] = await Promise.all([
+    const [rk, rpk, rc, rp, ra, rb, rd] = await Promise.all([
       adminApi({ action:'listPendingKtp' }),
       adminApi({ action:'listPendingPatientKtp' }),
       adminApi({ action:'listPendingCampaigns' }),
       adminApi({ action:'listPromoCodes' }),
       adminApi({ action:'listAuditLog' }),
+      adminApi({ action:'listBookings' }),
+      adminApi({ action:'listDonations' }),
     ]);
     ktps     = rk.data  || [];
     patKtps = rpk.data || [];
     camps    = rc.data  || [];
     promos   = rp.data  || [];
     auditLog = ra.data  || [];
+    statBookings  = rb.data || [];
+    statDonations = rd.data || [];
   } catch(e) {
     if(!adminOtpProof){ renderAdminOtpGate(u); return; }
     app.innerHTML = '<div class="container" style="padding:60px 20px;text-align:center;max-width:420px;margin:0 auto">'+
@@ -1979,10 +2063,24 @@ async function renderAdminDash(){
       '</div></div>';
   }
 
+  const stats = computeAdminStats(statBookings, statDonations);
+
   app.innerHTML = '<div class="container" style="padding:32px 20px">'+
     '<div style="max-width:760px">'+
     '<h2 style="margin-bottom:4px">Panel Admin</h2>'+
     '<p style="color:var(--soft);font-size:.86rem;margin-bottom:24px">Review manual — dipakai sampai verifikasi otomatis dibangun (kalau nanti diputuskan).</p>'+
+    '<h3 style="margin-bottom:10px">📊 Statistik</h3>'+
+    statTileRow([
+      { value: rpFmt(stats.totalBookingRevenue), label: 'Total transaksi booking' },
+      { value: rpFmt(stats.totalDonationRaised), label: 'Total donasi terkumpul' },
+      { value: String(stats.paidBookingCount), label: 'Booking terbayar' },
+      { value: String(stats.paidDonationCount), label: 'Donasi masuk' },
+    ])+
+    '<div class="dash-section" style="margin-bottom:24px">'+
+    monthlyBarChart('Booking per Bulan (12 Bulan Terakhir)', stats.bookingTrend, 'var(--success)', function(v){ return v+' booking'; })+
+    monthlyBarChart('Donasi per Bulan (12 Bulan Terakhir)', stats.donationTrend, 'var(--accent2)', rpFmt)+
+    rankedBarChart('Perawat Terbanyak Janji Temu Selesai', stats.topNurses, 'var(--primary)')+
+    '</div>'+
     '<h3 id="ktpHeading" style="margin-bottom:10px">🪪 KTP Akun Menunggu Verifikasi ('+ktps.length+')</h3>'+
     '<div id="ktpList">'+(ktps.length ? ktps.map(ktpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+'</div>'+
     '<h3 id="pktHeading" style="margin:24px 0 10px">🧑‍🤝‍🧑 KTP Profil Pasien Menunggu Verifikasi ('+patKtps.length+')</h3>'+
