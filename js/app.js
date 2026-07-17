@@ -1892,7 +1892,9 @@ async function renderProfile(){
       try { await Store.deletePatientProfile(b.dataset.deletePp); toast('Profil pasien dihapus.','s'); renderProfile(); }
       catch(e){ toast('Gagal menghapus: '+(e.message||'coba lagi.'),'e'); }
     }));
-    document.getElementById('btnSavePatientProfile')?.addEventListener('click', async ()=>{
+    document.getElementById('btnSavePatientProfile')?.addEventListener('click', async (ev)=>{
+      const btn = ev.currentTarget;
+      if(btn.disabled) return;
       const id   = document.getElementById('ppId')?.value;
       const name = document.getElementById('ppName')?.value.trim();
       const relationship = document.getElementById('ppRelationship')?.value;
@@ -1902,6 +1904,8 @@ async function renderProfile(){
       const address= document.getElementById('ppAddress')?.value.trim();
       if(!name||!relationship||!dob||!gender||!phone||!address){ toast('Lengkapi semua data wajib (kecuali Catatan kondisi).','e'); return; }
       const data = { name, relationship, dob, gender, phone, address, notes: document.getElementById('ppNotes')?.value.trim() };
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Menyimpan…';
       try {
         if(id) await Store.updatePatientProfile(id, data);
         else   await Store.addPatientProfile({ accountId: u.id, ...data });
@@ -1909,6 +1913,7 @@ async function renderProfile(){
         toast('Profil pasien disimpan.','s');
         renderProfile();
       } catch(e){ toast('Gagal menyimpan: '+(e.message||'coba lagi.'),'e'); }
+      finally { btn.disabled = false; btn.textContent = orig; }
     });
     document.querySelectorAll('[data-ktp-for]').forEach(input=>input.addEventListener('change', async ()=>{
       const file = input.files?.[0];
