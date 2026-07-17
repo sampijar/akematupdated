@@ -23,6 +23,20 @@
 
 const API_BASE = '/api';
 
+// ── Identitas perangkat (buat deteksi "login dari perangkat baru") ──
+// Cuma UUID acak yang dibuat & disimpan browser sendiri, bukan fingerprint
+// yang melacak lintas situs — dipakai server (api/auth.js) buat tahu
+// apakah kombinasi akun+perangkat ini pernah login sebelumnya, supaya bisa
+// kirim email peringatan kalau belum.
+function getDeviceId() {
+  let id = localStorage.getItem('akemat_device_id');
+  if (!id) {
+    id = (crypto?.randomUUID ? crypto.randomUUID() : 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    localStorage.setItem('akemat_device_id', id);
+  }
+  return id;
+}
+
 // ── Generic fetch helper ────────────────────────────────────
 // Endpoint 'db' butuh token sesi Supabase Auth supaya api/db.js bisa
 // memverifikasi siapa yang memanggil (lihat keamanan di api/db.js) — token
@@ -574,7 +588,7 @@ const SupabaseAuth = {
     const res = await fetch(`${API_BASE}/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', email, password, turnstileToken }),
+      body: JSON.stringify({ action: 'login', email, password, turnstileToken, deviceId: getDeviceId() }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Email atau password salah.');

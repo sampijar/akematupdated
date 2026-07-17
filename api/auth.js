@@ -14,6 +14,7 @@ const { verifyProof } = require('../lib/otpProof');
 const { checkRateLimit, clientIp } = require('../lib/rateLimit');
 const { passwordPolicyError } = require('../lib/passwordPolicy');
 const { verifyTurnstile } = require('../lib/turnstile');
+const { sendEmail, emailLayout, escapeHtml } = require('../lib/email');
 
 const SUPABASE_URL      = process.env.SUPABASE_URL?.trim();
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY?.trim();
@@ -38,6 +39,42 @@ function supaHeaders() {
     'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
     'apikey': SUPABASE_SERVICE_KEY,
   };
+}
+
+// Cek apakah (user_id, device_id) ini sudah pernah login sebelumnya. Kalau
+// belum, catat sebagai dikenal DAN kirim email peringatan (best-effort —
+// gagal di sini tidak boleh sampai menggagalkan login itu sendiri). Kalau
+// sudah dikenal, cuma perbarui last_seen (fire-and-forget, tidak ditunggu).
+async function checkNewDeviceAndAlert(userId, email, deviceId, userAgent, ip) {
+  if (!SUPABASE_SERVICE_KEY || !userId || !deviceId) return;
+  const check = await fetch(
+    `${SUPABASE_URL}/rest/v1/known_devices?user_id=eq.${userId}&device_id=eq.${encodeURIComponent(deviceId)}&select=id`,
+    { headers: supaHeaders() }
+  );
+  const rows = await check.json().catch(() => []);
+  if (Array.isArray(rows) && rows.length) {
+    fetch(`${SUPABASE_URL}/rest/v1/known_devices?id=eq.${rows[0].id}`, {
+      method: 'PATCH', headers: supaHeaders(), body: JSON.stringify({ last_seen: new Date().toISOString() }),
+    }).catch(() => {});
+    return;
+  }
+  await fetch(`${SUPABASE_URL}/rest/v1/known_devices`, {
+    method: 'POST', headers: supaHeaders(),
+    body: JSON.stringify({ user_id: userId, device_id: deviceId, user_agent: userAgent || null }),
+  }).catch(() => {});
+  sendEmail({
+    to: email,
+    subject: 'Login dari perangkat baru — Akemat Foundation',
+    html: emailLayout(`
+      <h2 style="color:#1F4D3F;margin:0 0 12px">Login dari perangkat baru</h2>
+      <p>Kami mendeteksi login ke akun Akemat Foundation Anda dari perangkat yang belum pernah dipakai sebelumnya.</p>
+      <table style="width:100%;font-size:.86rem;margin:16px 0;border-collapse:collapse">
+        <tr><td style="padding:6px 0;color:#50645C">Waktu</td><td style="text-align:right">${escapeHtml(new Date().toLocaleString('id-ID', { dateStyle:'long', timeStyle:'short' }))}</td></tr>
+        <tr><td style="padding:6px 0;color:#50645C">Perangkat</td><td style="text-align:right;font-size:.78rem">${escapeHtml((userAgent || 'Tidak diketahui').slice(0, 70))}</td></tr>
+      </table>
+      <p style="font-size:.8rem;color:#50645C">Kalau ini bukan Anda, segera ganti password lewat menu &ldquo;Lupa Password&rdquo; di halaman masuk, dan hubungi kami lewat WhatsApp kalau butuh bantuan.</p>
+    `),
+  }).catch(() => {});
 }
 
 // ── Login: proxy tipis ke endpoint password-grant Supabase Auth, dengan
@@ -66,6 +103,10 @@ async function handleLogin(req, res, body) {
     if (!r.ok) {
       const msg = data?.error_description || data?.msg || data?.error || 'Email atau password salah.';
       return res.status(401).json({ error: /invalid/i.test(msg) ? 'Email atau password salah.' : msg });
+    }
+    const deviceId = String(body.deviceId || '').trim();
+    if (deviceId && data.user?.id) {
+      await checkNewDeviceAndAlert(data.user.id, email, deviceId, req.headers['user-agent'], ip).catch(() => {});
     }
     return res.status(200).json({ access_token: data.access_token, refresh_token: data.refresh_token, user: data.user });
   } catch (err) {

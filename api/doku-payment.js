@@ -17,6 +17,7 @@
  */
 const { buildRequestHeaders } = require('../lib/dokuSignature');
 const { sendPushToUser } = require('../lib/webPush');
+const { sendEmail, emailLayout, escapeHtml } = require('../lib/email');
 
 const CLIENT_ID   = process.env.DOKU_CLIENT_ID?.trim();
 const SECRET_KEY  = process.env.DOKU_SECRET_KEY?.trim();
@@ -205,6 +206,26 @@ module.exports = async (req, res) => {
             body: (anonymous ? 'Seseorang' : (donorName || 'Donatur')) + ' menyumbang '+'Rp'+amount.toLocaleString('id-ID')+' untuk "'+(cam.title||'campaign Anda')+'".',
             url: '/#donasi/' + campaignId,
           });
+        }
+        // Tanda terima donasi — email diambil dari respons status DOKU sendiri
+        // (d.customer.email, bagian dari order asli yang diverifikasi di atas),
+        // BUKAN dari klaim klien, konsisten dengan prinsip file ini.
+        const donorEmail = d?.customer?.email;
+        if (donorEmail) {
+          sendEmail({
+            to: donorEmail,
+            subject: 'Tanda Terima Donasi — Akemat Foundation',
+            html: emailLayout(`
+              <h2 style="color:#1F4D3F;margin:0 0 12px">Terima kasih atas donasi Anda 💚</h2>
+              <p>Donasi Anda telah kami terima dan sudah diteruskan ke campaign <strong>${escapeHtml(cam?.title || 'campaign Akemat Foundation')}</strong>.</p>
+              <table style="width:100%;font-size:.86rem;margin:16px 0;border-collapse:collapse">
+                <tr><td style="padding:6px 0;color:#50645C">No. Referensi</td><td style="text-align:right;font-weight:700">${escapeHtml(referenceId)}</td></tr>
+                <tr><td style="padding:6px 0;color:#50645C">Jumlah</td><td style="text-align:right;font-weight:700">Rp${amount.toLocaleString('id-ID')}</td></tr>
+                <tr><td style="padding:6px 0;color:#50645C">Tanggal</td><td style="text-align:right">${escapeHtml(new Date().toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' }))}</td></tr>
+              </table>
+              <p style="font-size:.8rem;color:#50645C">Simpan email ini sebagai bukti transaksi. Donasi Anda membantu keluarga yang membutuhkan layanan perawatan di rumah.</p>
+            `),
+          }).catch(() => {});
         }
       }).catch(() => {});
       return res.status(200).json({ success: true, paid: true, amount });

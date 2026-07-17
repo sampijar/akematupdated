@@ -381,6 +381,23 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
+-- ── Perangkat dikenal (peringatan email login dari perangkat baru) ──────
+-- device_id dibuat & disimpan browser sendiri (localStorage), dikirim tiap
+-- login lewat api/auth.js. Kalau kombinasi (user_id, device_id) belum ada
+-- di sini, dianggap "perangkat baru" — dicatat + dikirim email peringatan
+-- (lib/email.js), lalu tidak dianggap baru lagi di login berikutnya.
+CREATE TABLE IF NOT EXISTS known_devices (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id    UUID REFERENCES users(id),
+  device_id  TEXT NOT NULL,
+  user_agent TEXT,
+  first_seen TIMESTAMPTZ DEFAULT NOW(),
+  last_seen  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, device_id)
+);
+CREATE INDEX IF NOT EXISTS idx_known_devices_user ON known_devices(user_id);
+ALTER TABLE known_devices ENABLE ROW LEVEL SECURITY;
+
 -- =========================================================
 -- CARA AKTIVASI:
 -- 1. Buka https://supabase.com/dashboard
