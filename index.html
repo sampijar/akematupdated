@@ -48,6 +48,13 @@
   <script>document.documentElement.className='js-on';</script>
 
   <style>
+    /* Warna dasar HTML dipasang duluan (sebelum css/style.css sempat
+       dimuat) supaya kedipan putih polos pas app baru dibuka (termasuk
+       dibuka dari ikon Home Screen di PWA) diganti warna brand, bukan
+       putih kosong. */
+    html { background: #1F4D3F; }
+    body { background: #FBF7F1; }
+
     /* ── Floating WhatsApp Button ───────────────────────────── */
     .wa-fab {
       position: fixed;
@@ -99,6 +106,9 @@
   </style>
 </head>
 <body>
+
+  <!-- ─── Banner status koneksi (diisi/ditampilkan oleh app.js) ──── -->
+  <div id="offline-banner" role="status" aria-live="polite"></div>
 
   <!-- ─── Header ────────────────────────────────────────── -->
   <header class="site-header">

@@ -72,6 +72,7 @@ const ICON = {
   info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
   doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/></svg>',
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5z"/></svg>',
+  chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
 };
 function helpLinkRow(icon, label, href, external){
   return '<a href="'+href+'"'+(external?' target="_blank" rel="noopener noreferrer"':'')+' class="help-link-row">'+
@@ -132,9 +133,15 @@ function fileToResizedDataUrl(file, maxDim=1000, quality=0.82){
   });
 }
 
+// Getar singkat di aksi penting (booking berhasil, donasi berhasil, dst.)
+// — sensasi taktil khas app native. iOS Safari tidak dukung Vibration API
+// sama sekali, no-op aman kalau tidak ada.
+function haptic(ms=15){ if(navigator.vibrate) try{ navigator.vibrate(ms); }catch{} }
+
 function toast(msg, type=''){
   const t = document.getElementById('toast');
   if(!t) return;
+  if(type==='s') haptic(15); else if(type==='e') haptic([10,40,10]);
   t.textContent = msg;
   t.className = 'vis' + (type ? ' t'+type[0] : '');
   clearTimeout(t._t);
@@ -188,11 +195,26 @@ const app = document.getElementById('app');
 
 function navigate(hash){ location.hash = hash; }
 
+// Arah transisi disimpulkan dari jumlah "segmen" hash, bukan history stack
+// eksplisit (routing berbasis hash tidak natural buat dilacak stack) —
+// list→detail nambah 1 segmen ("perawat" → "perawat/id") kerasa "masuk lebih
+// dalam" jadi slide dari kanan; detail→list kerasa "keluar" jadi slide dari
+// kiri; sesama level (mis. ganti tab bawah) tetap fade netral seperti biasa.
+let _prevHashParts = null;
+
 async function route(){
   const hash  = location.hash.replace('#','') || '';
   const parts = hash.split('/');
   const page  = parts[0];
   const id    = parts[1];
+
+  let direction = 'fade';
+  if(_prevHashParts && page === _prevHashParts[0]){
+    if(parts.length > _prevHashParts.length) direction = 'forward';
+    else if(parts.length < _prevHashParts.length) direction = 'back';
+  }
+  _prevHashParts = parts;
+
   renderHeader();
   renderMobileTabbar();
   switch(page){
@@ -210,11 +232,11 @@ async function route(){
     case 'admin':    await renderAdminDash(); break;
     default:         await renderHome();
   }
-  // Restart animasi fade-in tiap ganti halaman (class sudah ada = tidak replay
+  // Restart animasi tiap ganti halaman (class sudah ada = tidak replay
   // begitu saja, jadi dipaksa reflow di antara remove/add).
-  app.classList.remove('page-transition');
+  app.classList.remove('page-transition','page-forward','page-back');
   void app.offsetWidth;
-  app.classList.add('page-transition');
+  app.classList.add(direction==='forward' ? 'page-forward' : direction==='back' ? 'page-back' : 'page-transition');
   window.scrollTo(0,0);
   trackPageView();
 }
@@ -510,6 +532,8 @@ async function renderNurseList(){
   document.getElementById('nurseSearch')?.addEventListener('input', grid);
   document.getElementById('nurseSpec')?.addEventListener('change', grid);
   document.getElementById('nurseEdu')?.addEventListener('change', grid);
+  enhanceSelect(document.getElementById('nurseSpec'), 'Spesialisasi');
+  enhanceSelect(document.getElementById('nurseEdu'), 'Pendidikan');
   document.getElementById('availFilterOn')?.addEventListener('click', ()=>{
     avail = !avail;
     document.getElementById('availFilterOn').classList.toggle('active', avail);
@@ -518,8 +542,9 @@ async function renderNurseList(){
   document.getElementById('nurseGrid')?.addEventListener('click', (ev)=>{
     if(ev.target.id === 'btnResetNurseFilters'){
       document.getElementById('nurseSearch').value = '';
-      document.getElementById('nurseSpec').value = '';
-      document.getElementById('nurseEdu').value = '';
+      const specEl = document.getElementById('nurseSpec'), eduEl = document.getElementById('nurseEdu');
+      specEl.value = ''; specEl.dispatchEvent(new Event('change', { bubbles: true }));
+      eduEl.value  = ''; eduEl.dispatchEvent(new Event('change', { bubbles: true }));
       avail = false;
       document.getElementById('availFilterOn')?.classList.remove('active');
       grid();
@@ -2455,6 +2480,68 @@ async function renderProfile(){
 function openModal(id)  { document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; document.body.classList.add('modal-open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); document.body.style.overflow=''; document.body.classList.remove('modal-open'); }
 
+// ── Custom select (bottom-sheet di HP, dropdown ala app) ────────
+// Native <select> dibutuhkan browser jelek/tidak konsisten pas dibuka di
+// Android (jadi picker gelap bawaan OS, tidak mengikuti tema app sama
+// sekali). Elemen <select> ASLI tetap ada di DOM (disembunyikan visual)
+// supaya semua logika filter yang sudah baca .value / dengar event
+// 'change' tetap jalan tanpa perlu diubah — cuma cara BUKANYA yang diganti
+// jadi bottom-sheet custom yang gayanya sama seperti modal lain di app ini.
+let _cselOverlay = null;
+function ensureCselOverlay(){
+  if(_cselOverlay) return _cselOverlay;
+  const el = document.createElement('div');
+  el.className = 'csel-overlay';
+  el.innerHTML = '<div class="csel-sheet"><div class="csel-handle"></div><div class="csel-title" id="cselTitle"></div><div class="csel-options" id="cselOptions"></div></div>';
+  document.body.appendChild(el);
+  el.addEventListener('click', (e)=>{ if(e.target === el) closeCselSheet(); });
+  _cselOverlay = el;
+  return el;
+}
+function closeCselSheet(){
+  if(!_cselOverlay) return;
+  _cselOverlay.classList.remove('open');
+  document.body.style.overflow = '';
+  document.body.classList.remove('modal-open');
+}
+function openCselSheet(selectEl, title, onPick){
+  const overlay = ensureCselOverlay();
+  document.getElementById('cselTitle').textContent = title;
+  const optsWrap = document.getElementById('cselOptions');
+  optsWrap.innerHTML = [...selectEl.options].map(o=>
+    '<button type="button" class="csel-opt'+(o.value===selectEl.value?' active':'')+'" data-value="'+esc(o.value)+'">'+
+    '<span>'+esc(o.textContent)+'</span>'+(o.value===selectEl.value?'<span class="csel-check">'+ICON.check+'</span>':'')+
+    '</button>'
+  ).join('');
+  optsWrap.querySelectorAll('.csel-opt').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      selectEl.value = btn.dataset.value;
+      selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+      onPick();
+      closeCselSheet();
+    });
+  });
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.body.classList.add('modal-open');
+}
+function enhanceSelect(selectEl, title){
+  if(!selectEl || selectEl.dataset.cselEnhanced) return;
+  selectEl.dataset.cselEnhanced = '1';
+  selectEl.classList.add('csel-native-hidden');
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'csel-trigger';
+  selectEl.insertAdjacentElement('afterend', trigger);
+  function render(){
+    const label = selectEl.options[selectEl.selectedIndex]?.textContent || '';
+    trigger.innerHTML = '<span>'+esc(label)+'</span><span class="csel-chevron">'+ICON.chevronDown+'</span>';
+  }
+  render();
+  trigger.addEventListener('click', ()=>openCselSheet(selectEl, title, render));
+  selectEl.addEventListener('change', render); // jaga-jaga ada kode lain yang set .value lalu dispatch 'change' manual
+}
+
 async function openDonateModal(campaignId){
   const u   = Store.getCurrentUser();
   const cam = await Store.getCampaignById(campaignId);
@@ -2826,5 +2913,27 @@ document.addEventListener('DOMContentLoaded',async ()=>{
         indicator.style.transform = '';
       }
     }, { passive: true });
+  })();
+
+  // Banner "Tidak ada koneksi" — native app selalu kasih tahu jelas kalau
+  // offline, bukan diam-diam gagal fetch dengan pesan error teknis.
+  (function(){
+    const banner = document.getElementById('offline-banner');
+    if(!banner) return;
+    let hideTimer = null;
+    function setOffline(){
+      clearTimeout(hideTimer);
+      banner.textContent = 'Tidak ada koneksi internet';
+      banner.className = 'show offline';
+    }
+    function setOnline(){
+      if(!banner.classList.contains('offline')) return; // skip di load pertama
+      banner.textContent = 'Koneksi tersambung lagi';
+      banner.className = 'show online';
+      hideTimer = setTimeout(()=>banner.classList.remove('show'), 2500);
+    }
+    window.addEventListener('offline', setOffline);
+    window.addEventListener('online', setOnline);
+    if(!navigator.onLine) setOffline();
   })();
 });

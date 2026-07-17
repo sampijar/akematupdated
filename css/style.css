@@ -41,6 +41,12 @@ textarea{resize:vertical}
    website biasa; fade+slide singkat ini yang bikin terasa seperti app. */
 #app.page-transition{animation:page-fade-in .26s cubic-bezier(.16,1,.3,1) both}
 @keyframes page-fade-in{from{opacity:0;transform:translateY(6px) scale(.994)}to{opacity:1;transform:translateY(0) scale(1)}}
+/* Masuk lebih dalam (list→detail) geser dari kanan; keluar (detail→list)
+   geser dari kiri — ala navigasi stack app native, bukan cuma fade rata. */
+#app.page-forward{animation:page-slide-right .26s cubic-bezier(.16,1,.3,1) both}
+#app.page-back{animation:page-slide-left .26s cubic-bezier(.16,1,.3,1) both}
+@keyframes page-slide-right{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
+@keyframes page-slide-left{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:translateX(0)}}
 .lead{font-size:1.05rem;max-width:620px}
 .eyebrow{display:inline-block;font-family:var(--font-d);font-weight:700;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px}
 a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
@@ -243,7 +249,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .bank-select-wrap select{padding-left:14px}
 
 /* ── Auth ────────────────────────────────────────────────── */
-.auth-page{min-height:calc(100vh - var(--hh));display:flex;align-items:center;justify-content:center;padding:32px 24px}
+.auth-page{min-height:calc(100vh - var(--hh));min-height:calc(100dvh - var(--hh));display:flex;align-items:center;justify-content:center;padding:32px 24px}
 .auth-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:28px;width:100%;max-width:460px;box-shadow:var(--sh-md);max-height:calc(100vh - 100px);overflow-y:auto}
 .auth-card h2{margin-bottom:4px}
 .auth-card .lead{font-size:.88rem;margin-bottom:24px}
@@ -275,8 +281,8 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .form-error{color:var(--danger);font-size:.8rem;margin-top:6px;min-height:1em}
 
 /* ── Dashboard layout ────────────────────────────────────── */
-.dash-wrap{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - var(--hh))}
-.sidebar{background:var(--primary);color:#fff;padding:16px 0;position:sticky;top:var(--hh);height:calc(100vh - var(--hh));overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column}
+.dash-wrap{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - var(--hh));min-height:calc(100dvh - var(--hh))}
+.sidebar{background:var(--primary);color:#fff;padding:16px 0;position:sticky;top:var(--hh);height:calc(100vh - var(--hh));height:calc(100dvh - var(--hh));overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column}
 .sb-user{padding:12px 14px 14px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:8px;overflow:hidden}
 .sb-avatar{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-weight:800;font-size:1.1rem;color:var(--accent);margin-bottom:9px}
 .sb-name{font-family:var(--font-d);font-weight:700;font-size:.85rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px}
@@ -342,6 +348,39 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .dur-row{display:flex;gap:6px;flex-wrap:wrap}
 .dur-btn{flex:1;min-width:60px;padding:9px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--bg);font-family:var(--font-d);font-weight:700;font-size:.8rem;color:var(--soft);cursor:pointer;transition:var(--tr)}
 .dur-btn.active{border-color:var(--primary);background:var(--primary);color:#fff}
+
+/* ── Banner status koneksi (offline/online) ─────────────────────── */
+#offline-banner{position:fixed;top:0;left:0;right:0;z-index:200;text-align:center;font-family:var(--font-d);font-weight:700;font-size:.82rem;padding:10px 16px calc(10px);padding-top:calc(10px + env(safe-area-inset-top));color:#fff;transform:translateY(-100%);transition:transform .3s ease}
+#offline-banner.show{transform:translateY(0)}
+#offline-banner.offline{background:#DC2626}
+#offline-banner.online{background:#16A34A}
+
+/* ── Custom select (ganti native <select>, biar tidak jadi picker gelap
+   bawaan Android yang lepas dari tema app) ─────────────────────── */
+select.csel-native-hidden{display:none}
+.csel-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;font-family:var(--font-b);font-size:1rem;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--ink);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.csel-trigger span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.csel-trigger .csel-chevron{flex-shrink:0;width:16px;height:16px;color:var(--soft)}
+#nurseFilters .csel-trigger{flex:1;min-width:150px}
+
+.csel-overlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);align-items:flex-end;justify-content:center}
+.csel-overlay.open{display:flex}
+.csel-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:10px 22px calc(26px + env(safe-area-inset-bottom));width:100%;max-width:520px;max-height:70vh;display:flex;flex-direction:column;box-shadow:var(--sh-md);animation:sheet-up .28s cubic-bezier(.16,1,.3,1) both}
+.csel-handle{width:36px;height:4px;border-radius:999px;background:var(--border);margin:0 auto 14px;flex-shrink:0}
+.csel-title{font-family:var(--font-d);font-weight:700;font-size:1rem;color:var(--primary);margin-bottom:10px;flex-shrink:0}
+.csel-options{overflow-y:auto}
+.csel-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:13px 4px;border:none;border-bottom:1px solid var(--border);background:transparent;font-family:var(--font-b);font-size:.94rem;color:var(--ink);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.csel-opt:last-child{border-bottom:none}
+.csel-opt:active{opacity:.6}
+.csel-opt.active{color:var(--primary);font-weight:600}
+.csel-check{width:18px;height:18px;color:var(--primary);flex-shrink:0}
+
+/* Di desktop, bottom-sheet terasa aneh (bukan konvensi mouse+layar lebar)
+   — dropdown ditengahkan biasa ala popover. */
+@media(min-width:781px){
+  .csel-overlay{align-items:center}
+  .csel-sheet{border-radius:var(--r-lg);max-width:380px;animation:none;box-shadow:var(--sh-md)}
+}
 
 .star-picker{display:flex;gap:6px}
 .star-btn{background:none;border:none;font-size:2rem;line-height:1;color:var(--border);cursor:pointer;padding:2px;transition:transform .12s ease}
