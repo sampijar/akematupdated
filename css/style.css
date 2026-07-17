@@ -342,7 +342,7 @@ body.modal-open #toast.vis{transform:translateX(-50%) translateY(0)}
 .toggle-label{font-family:var(--font-d);font-weight:600;font-size:.85rem}
 
 /* ── Empty state ─────────────────────────────────────────── */
-.empty-state{text-align:center;padding:48px 20px}
+.empty-state{grid-column:1/-1;text-align:center;padding:48px 20px}
 .empty-icon{font-size:2.4rem;margin-bottom:10px}
 .empty-state h3{margin-bottom:4px}
 
