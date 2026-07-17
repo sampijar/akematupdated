@@ -225,7 +225,47 @@ module.exports = async (req, res) => {
           const own = await sbRequest(`patient_profiles?id=eq.${clean.patient_profile_id}&account_id=eq.${uid}&select=id`, 'GET');
           if (!own.data?.length) return res.status(400).json({ error: 'Profil pasien tidak valid.' });
         }
+        // Kode promo: diskon TIDAK PERNAH dipercaya dari klien (klien cuma
+        // kirim kode-nya) — divalidasi & dihitung ulang di sini dari tabel
+        // promo_codes, lalu total_cost/platform_fee/nurse_pay disesuaikan.
+        // (Cek pratinjau di api/promo.js pakai logika yang sama tapi
+        // read-only, tidak menambah used_count.)
+        const promoCodeInput = typeof clean.promo_code === 'string' ? clean.promo_code.trim() : '';
+        delete clean.promo_code; delete clean.discount_amount;
+        let appliedPromo = null;
+        if (promoCodeInput) {
+          const grossTotal = Number(clean.total_cost) || 0;
+          const pr = await sbRequest(`promo_codes?code=ilike.${encodeURIComponent(promoCodeInput)}&select=*&limit=1`, 'GET');
+          const promo = pr.data?.[0] || null;
+          const now = new Date();
+          const invalid =
+            !promo || promo.active === false ||
+            (promo.applies_to && promo.applies_to !== 'all' && promo.applies_to !== 'booking') ||
+            (promo.valid_from && new Date(promo.valid_from) > now) ||
+            (promo.valid_until && new Date(promo.valid_until) < now) ||
+            (promo.max_uses != null && promo.used_count >= promo.max_uses) ||
+            (promo.min_amount && grossTotal < Number(promo.min_amount));
+          if (invalid) return res.status(400).json({ error: 'Kode promo tidak valid, kedaluwarsa, atau sudah tidak berlaku.' });
+          let discount = promo.discount_type === 'percent'
+            ? Math.round(grossTotal * Number(promo.discount_value) / 100)
+            : Number(promo.discount_value);
+          if (promo.max_discount != null) discount = Math.min(discount, Number(promo.max_discount));
+          discount = Math.max(0, Math.min(discount, grossTotal));
+          const discountedTotal = grossTotal - discount;
+          const platformFee = Math.round(discountedTotal * 0.2);
+          clean.total_cost = discountedTotal;
+          clean.platform_fee = platformFee;
+          clean.nurse_pay = discountedTotal - platformFee;
+          clean.promo_code = promo.code;
+          clean.discount_amount = discount;
+          appliedPromo = promo;
+        }
         const r = await sbRequest('bookings', 'POST', clean);
+        if (r.ok && appliedPromo) {
+          // Best-effort — kalau ini gagal, booking tetap valid, cuma
+          // penghitung pemakaian kodenya tidak nambah untuk kasus ini.
+          await sbRequest(`promo_codes?id=eq.${appliedPromo.id}`, 'PATCH', { used_count: (appliedPromo.used_count || 0) + 1 }).catch(() => {});
+        }
         return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
       }
       if (action === 'update') {

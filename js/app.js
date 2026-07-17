@@ -613,11 +613,24 @@ async function renderNurseDetail(id){
           <textarea id="bkNotes" rows="2" placeholder="Kondisi pasien, kebutuhan khusus…"></textarea>
         </div>
 
+        <div class="ff">
+          <label>Kode promo (opsional)</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="bkPromoCode" placeholder="Masukkan kode" style="flex:1;text-transform:uppercase" />
+            <button type="button" class="btn btn-outline btn-sm" id="btnApplyPromo">Terapkan</button>
+          </div>
+          <div id="bkPromoMsg" style="font-size:.78rem;margin-top:6px"></div>
+        </div>
+
         <!-- Fee breakdown -->
         <div class="fee-box">
           <div class="fee-row">
             <span class="fee-label">Harga perawat</span>
             <span class="fee-value" id="bkPriceBase">${rpFmt(p.price)} × 2 jam</span>
+          </div>
+          <div class="fee-row fee-discount" id="bkDiscountRow" style="display:none">
+            <span class="fee-label">Diskon promo</span>
+            <span id="bkDiscount" style="color:#059669">-Rp0</span>
           </div>
           <div class="fee-row fee-total">
             <span>Total bayar</span>
@@ -676,11 +689,15 @@ async function renderNurseDetail(id){
 
   // Duration / time selection
   let selDur = 2;
+  let appliedPromo = null; // { code, discount, finalAmount } — direset tiap durasi berubah
   document.querySelectorAll('.dur-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       document.querySelectorAll('.dur-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       selDur = parseInt(btn.dataset.dur);
+      appliedPromo = null;
+      const msg = document.getElementById('bkPromoMsg');
+      if(msg) msg.textContent = '';
       updateBookCalc();
     });
   });
@@ -692,17 +709,45 @@ async function renderNurseDetail(id){
   });
 
   function updateBookCalc(){
-    const total = p.price * selDur;
+    const gross = p.price * selDur;
+    const total = appliedPromo ? appliedPromo.finalAmount : gross;
     const fee   = Math.round(total * FEE.BOOKING);
     document.getElementById('bkPriceBase').textContent = rpFmt(p.price)+' × '+selDur+' jam';
     document.getElementById('bkTotal').textContent     = rpFmt(total);
     document.getElementById('bkFee').textContent       = rpFmt(fee);
     document.getElementById('bkNursePay').textContent  = rpFmt(total - fee);
+    const discRow = document.getElementById('bkDiscountRow');
+    if(discRow) discRow.style.display = appliedPromo ? '' : 'none';
+    if(appliedPromo) document.getElementById('bkDiscount').textContent = '-'+rpFmt(appliedPromo.discount);
   }
   updateBookCalc();
 
+  document.getElementById('btnApplyPromo')?.addEventListener('click', async ()=>{
+    const input = document.getElementById('bkPromoCode');
+    const msg   = document.getElementById('bkPromoMsg');
+    const code  = input?.value.trim();
+    if(!code){ if(msg){ msg.textContent='Isi kode promo dulu.'; msg.style.color='#DC2626'; } return; }
+    const btn = document.getElementById('btnApplyPromo');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Mengecek…';
+    try {
+      const gross = p.price * selDur;
+      const r = await Store.checkPromo(code, gross, 'booking');
+      appliedPromo = { code: r.code, discount: r.discount, finalAmount: r.finalAmount };
+      if(msg){ msg.textContent = '✓ Kode "'+r.code+'" diterapkan — hemat '+rpFmt(r.discount)+'.'; msg.style.color = '#059669'; }
+      updateBookCalc();
+    } catch(e) {
+      appliedPromo = null;
+      if(msg){ msg.textContent = e.message || 'Kode promo tidak valid.'; msg.style.color = '#DC2626'; }
+      updateBookCalc();
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
+    }
+  });
+
   // Book button
-  document.getElementById('btnBook')?.addEventListener('click', async ()=>{
+  document.getElementById('btnBook')?.addEventListener('click', async (ev)=>{
+    if(ev.currentTarget.disabled) return;
     const u = Store.getCurrentUser();
     if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
     if(u.role !== 'patient'){ toast('Hanya pasien yang bisa membuat janji temu dengan perawat.','e'); return; }
@@ -719,19 +764,28 @@ async function renderNurseDetail(id){
     if(!address) { toast('Isi alamat kunjungan.','e'); return; }
 
     const total = p.price * dur;
-    const booking = await Store.addBooking({
-      patientId: u.id, nurseId: n.id, patientProfileId, patientProfileName,
-      nurseName: n.name, nurseSpecialty: p.specialty,
-      service, date, time, duration: dur, address, notes,
-      totalCost: total,
-    });
     const btn2 = document.getElementById('btnBook');
     const orig2 = btn2?.textContent;
-    if(btn2){ btn2.disabled=true; btn2.textContent='Memproses pembayaran…'; }
+    if(btn2){ btn2.disabled=true; btn2.textContent='Memproses…'; }
+    let booking;
+    try {
+      booking = await Store.addBooking({
+        patientId: u.id, nurseId: n.id, patientProfileId, patientProfileName,
+        nurseName: n.name, nurseSpecialty: p.specialty,
+        service, date, time, duration: dur, address, notes,
+        totalCost: total,
+        promoCode: appliedPromo?.code || undefined,
+      });
+    } catch(e) {
+      toast('Gagal membuat janji temu: '+(e.message||'coba lagi.'), 'e');
+      if(btn2){ btn2.disabled=false; btn2.textContent=orig2; }
+      return;
+    }
+    if(btn2) btn2.textContent = 'Memproses pembayaran…';
     try {
       await Payment.payBooking({
         bookingId:   booking.id,
-        totalCost:   total,
+        totalCost:   booking.totalCost,
         nurseName:   n.name,
         service,
         buyerName:   u.name,

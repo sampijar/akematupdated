@@ -30,7 +30,7 @@ const API_BASE = '/api';
 // manual, jadi selalu ikut ter-refresh mengikuti siklus sesi Supabase.
 async function apiFetch(endpoint, body) {
   const headers = { 'Content-Type': 'application/json' };
-  if ((endpoint === 'db' || endpoint === 'admin') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
+  if ((endpoint === 'db' || endpoint === 'admin' || endpoint === 'promo') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
     try {
       const { data } = await SupabaseAuth.client.auth.getSession();
       if (data?.session?.access_token) headers['Authorization'] = 'Bearer ' + data.session.access_token;
@@ -176,6 +176,7 @@ function rowToBooking(row) {
     service: row.service, date: row.booking_date, time: row.booking_time,
     duration: row.duration_hours, address: row.address, notes: row.notes || '',
     totalCost: row.total_cost, platformFee: row.platform_fee, nursePay: row.nurse_pay,
+    promoCode: row.promo_code || '', discountAmount: row.discount_amount || 0,
     status: row.status, referenceId: row.reference_id, transactionId: row.transaction_id,
     paymentStatus: row.payment_status, createdAt: shortDate(row.created_at),
   };
@@ -188,7 +189,7 @@ function bookingToRow(data) {
     patientProfileName:'patient_profile_name', nurseName:'nurse_name', nurseSpecialty:'nurse_specialty',
     service:'service', date:'booking_date', time:'booking_time', duration:'duration_hours',
     address:'address', notes:'notes', totalCost:'total_cost', platformFee:'platform_fee',
-    nursePay:'nurse_pay', status:'status', referenceId:'reference_id', transactionId:'transaction_id',
+    nursePay:'nurse_pay', promoCode:'promo_code', status:'status', referenceId:'reference_id', transactionId:'transaction_id',
     paymentStatus:'payment_status',
   };
   Object.keys(map).forEach(k => { if (k in data) row[map[k]] = data[k]; });
@@ -312,6 +313,13 @@ const Cloud = {
     const filters = normalized === digits ? { phone:`eq.${normalized}` } : { or:`(phone.eq.${normalized},phone.eq.${digits})` };
     const d = await apiFetch('db', { action:'select', table:'users', filters });
     return d.data?.[0]?.email || null;
+  },
+
+  // Pratinjau kode promo (read-only) — dipakai di halaman booking sebelum
+  // pembayaran. Diskon final tetap dihitung ulang di server saat booking
+  // benar-benar dibuat (lihat komentar api/db.js), ini cuma buat tampilan.
+  async checkPromo(code, amount, type) {
+    return apiFetch('promo', { code, amount, type });
   },
 
   async updateUser(id, data) {
@@ -625,6 +633,10 @@ const Store = {
   async getBookingsByNurse(uid)     { return this.backend==='remote' ? Cloud.getBookingsByNurse(uid) : DB.getBookingsByNurse(uid); },
   async getBookings()               { return this.backend==='remote' ? Cloud.getBookings() : DB.getBookings(); },
   async addBooking(data)            { return this.backend==='remote' ? Cloud.addBooking(data) : DB.addBooking(data); },
+  async checkPromo(code, amount, type) {
+    if (this.backend !== 'remote') throw new Error('Kode promo belum didukung di mode lokal.');
+    return Cloud.checkPromo(code, amount, type);
+  },
   async updateBooking(id, data)     { return this.backend==='remote' ? Cloud.updateBooking(id, data) : DB.updateBooking(id, data); },
 
   async getPatientProfiles(accountId)      { return this.backend==='remote' ? Cloud.getPatientProfiles(accountId) : DB.getPatientProfiles(accountId); },

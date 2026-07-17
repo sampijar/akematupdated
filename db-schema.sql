@@ -84,12 +84,34 @@ CREATE TABLE IF NOT EXISTS bookings (
   total_cost      BIGINT NOT NULL,
   platform_fee    BIGINT NOT NULL,
   nurse_pay       BIGINT NOT NULL,
+  promo_code      TEXT,
+  discount_amount BIGINT DEFAULT 0,
   status          TEXT DEFAULT 'pending' CHECK (status IN ('pending','confirmed','completed','cancelled','pending_payment')),
   reference_id    TEXT,
   transaction_id  TEXT,
   payment_status  TEXT DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid','paid','refunded')),
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Promo Codes ────────────────────────────────────────────
+-- Dibuat manual lewat Supabase Table Editor (belum ada UI admin untuk ini).
+-- discount_type: 'percent' (mis. 10 = 10%) atau 'fixed' (potongan Rp tetap).
+-- applies_to: 'booking', 'donation', atau 'all'. max_uses NULL = tanpa batas.
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  code           TEXT UNIQUE NOT NULL,
+  discount_type  TEXT NOT NULL CHECK (discount_type IN ('percent','fixed')),
+  discount_value NUMERIC NOT NULL CHECK (discount_value > 0),
+  max_discount   NUMERIC,
+  min_amount     NUMERIC DEFAULT 0,
+  max_uses       INTEGER,
+  used_count     INTEGER DEFAULT 0,
+  active         BOOLEAN DEFAULT true,
+  valid_from     TIMESTAMPTZ,
+  valid_until    TIMESTAMPTZ,
+  applies_to     TEXT DEFAULT 'booking' CHECK (applies_to IN ('booking','donation','all')),
+  created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── Donations ──────────────────────────────────────────────
@@ -307,6 +329,12 @@ ALTER TABLE users DROP CONSTRAINT IF EXISTS users_ktp_status_check;
 ALTER TABLE users ADD CONSTRAINT users_ktp_status_check CHECK (ktp_status IN ('pending','uploaded','verified','rejected'));
 ALTER TABLE patient_profiles DROP CONSTRAINT IF EXISTS patient_profiles_ktp_status_check;
 ALTER TABLE patient_profiles ADD CONSTRAINT patient_profiles_ktp_status_check CHECK (ktp_status IN ('pending','uploaded','verified','rejected'));
+
+-- ── Migrasi: kode promo ─────────────────────────────────────
+-- (Aman dijalankan berkali-kali. Tabel promo_codes dan kolomnya di
+-- bookings sudah termasuk di CREATE TABLE di atas kalau baru dari nol.)
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS promo_code TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_amount BIGINT DEFAULT 0;
 
 -- =========================================================
 -- CARA AKTIVASI:
