@@ -1601,7 +1601,7 @@ window.requestCampaignPayout = async function(campaignId){
   if(!bank.accountNumber){ toast('Isi rekening penerima campaign terlebih dahulu.','e'); return; }
   const available = await Store.getCampaignAvailablePayout(campaignId);
   if(available<=0){ toast('Belum ada saldo yang bisa dicairkan.','e'); return; }
-  if(!confirm('Ajukan pencairan '+rpFmt(available)+' ke '+bank.bankName+' '+bank.accountNumber+'?')) return;
+  if(!(await customConfirm('Ajukan pencairan '+rpFmt(available)+' ke '+bank.bankName+' '+bank.accountNumber+'?'))) return;
   await Store.addPayoutRequest({
     recipientType:'campaign_owner', campaignId, amount:available,
     bankName:bank.bankName, bankAccountNumber:bank.accountNumber, bankAccountName:bank.accountName,
@@ -1873,11 +1873,11 @@ async function renderAdminDash(){
     } catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
   }
   document.querySelectorAll('[data-approve-ktp]').forEach(b=>b.addEventListener('click',()=>runAction('approveKtp', b.dataset.approveKtp, 'KTP disetujui.')));
-  document.querySelectorAll('[data-reject-ktp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Tolak KTP ini? Status kembali ke belum diunggah.')) runAction('rejectKtp', b.dataset.rejectKtp, 'KTP ditolak.'); }));
+  document.querySelectorAll('[data-reject-ktp]').forEach(b=>b.addEventListener('click', async ()=>{ if(await customConfirm('Tolak KTP ini? Status kembali ke belum diunggah.', {danger:true, okLabel:'Tolak'})) runAction('rejectKtp', b.dataset.rejectKtp, 'KTP ditolak.'); }));
   document.querySelectorAll('[data-approve-pkt]').forEach(b=>b.addEventListener('click',()=>runAction('approvePatientKtp', b.dataset.approvePkt, 'KTP pasien disetujui.')));
-  document.querySelectorAll('[data-reject-pkt]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Tolak KTP pasien ini? Status kembali ke belum diunggah.')) runAction('rejectPatientKtp', b.dataset.rejectPkt, 'KTP pasien ditolak.'); }));
+  document.querySelectorAll('[data-reject-pkt]').forEach(b=>b.addEventListener('click', async ()=>{ if(await customConfirm('Tolak KTP pasien ini? Status kembali ke belum diunggah.', {danger:true, okLabel:'Tolak'})) runAction('rejectPatientKtp', b.dataset.rejectPkt, 'KTP pasien ditolak.'); }));
   document.querySelectorAll('[data-approve-camp]').forEach(b=>b.addEventListener('click',()=>runAction('approveCampaign', b.dataset.approveCamp, 'Campaign disetujui.')));
-  document.querySelectorAll('[data-delete-camp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Hapus campaign ini? Tidak bisa dibatalkan.')) runAction('deleteCampaign', b.dataset.deleteCamp, 'Campaign dihapus.'); }));
+  document.querySelectorAll('[data-delete-camp]').forEach(b=>b.addEventListener('click', async ()=>{ if(await customConfirm('Hapus campaign ini? Tidak bisa dibatalkan.', {danger:true, okLabel:'Hapus'})) runAction('deleteCampaign', b.dataset.deleteCamp, 'Campaign dihapus.'); }));
 
   document.querySelectorAll('[data-toggle-promo]').forEach(b=>b.addEventListener('click', async ()=>{
     const id = b.dataset.togglePromo;
@@ -1893,7 +1893,7 @@ async function renderAdminDash(){
     } catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
   }));
   document.querySelectorAll('[data-delete-promo]').forEach(b=>b.addEventListener('click', async ()=>{
-    if(!confirm('Hapus kode promo ini? Tidak bisa dibatalkan.')) return;
+    if(!(await customConfirm('Hapus kode promo ini? Tidak bisa dibatalkan.', {danger:true, okLabel:'Hapus'}))) return;
     const id = b.dataset.deletePromo;
     try {
       await adminApi({ action:'deletePromoCode', id });
@@ -2508,7 +2508,7 @@ async function renderProfile(){
       openPPModal(patientProfiles.find(p=>p.id===b.dataset.editPp));
     }));
     document.querySelectorAll('[data-delete-pp]').forEach(b=>b.addEventListener('click', async ()=>{
-      if(!confirm('Hapus profil pasien ini? Riwayat janji temu yang sudah ada tetap tersimpan.')) return;
+      if(!(await customConfirm('Hapus profil pasien ini? Riwayat janji temu yang sudah ada tetap tersimpan.', {danger:true, okLabel:'Hapus'}))) return;
       try {
         await Store.deletePatientProfile(b.dataset.deletePp);
         toast('Profil pasien dihapus.','s');
@@ -2566,7 +2566,7 @@ async function renderProfile(){
     const bank = u.bankInfo||{};
     if(!bank.accountNumber){ toast('Isi data rekening terlebih dahulu.','e'); return; }
     if(available<=0){ toast('Belum ada saldo yang bisa dicairkan.','e'); return; }
-    if(!confirm('Ajukan pencairan '+rpFmt(available)+' ke '+bank.bankName+' '+bank.accountNumber+'?')) return;
+    if(!(await customConfirm('Ajukan pencairan '+rpFmt(available)+' ke '+bank.bankName+' '+bank.accountNumber+'?'))) return;
     await Store.addPayoutRequest({
       recipientType:'nurse', userId:u.id, amount:available,
       bankName:bank.bankName, bankAccountNumber:bank.accountNumber, bankAccountName:bank.accountName,
@@ -2645,8 +2645,8 @@ async function renderProfile(){
   });
 
   document.getElementById('btnDeleteAccount')?.addEventListener('click', async ()=>{
-    const typed = prompt('Tindakan ini PERMANEN dan tidak bisa dibatalkan.\n\nKetik HAPUS AKUN (huruf besar semua) untuk konfirmasi:');
-    if(typed !== 'HAPUS AKUN'){ if(typed !== null) toast('Konfirmasi tidak cocok — akun tidak dihapus.','e'); return; }
+    const ok = await customConfirm('Tindakan ini PERMANEN dan tidak bisa dibatalkan. Ketik HAPUS AKUN (huruf besar semua) untuk konfirmasi.', { danger:true, okLabel:'Hapus Akun', requireText:'HAPUS AKUN' });
+    if(!ok) return;
     const btn = document.getElementById('btnDeleteAccount');
     btn.disabled = true; btn.textContent = 'Menghapus…';
     try {
@@ -2663,6 +2663,53 @@ async function renderProfile(){
 // ── Modals ──────────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; document.body.classList.add('modal-open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); document.body.style.overflow=''; document.body.classList.remove('modal-open'); }
+
+// Ganti window.confirm() bawaan browser (kotak abu-abu "situs ini
+// mengatakan…" yang sama sekali tidak bisa didandani) dengan dialog senada
+// tema app. Dipakai lewat `if(await customConfirm('...')) { ... }` — API-nya
+// sengaja mirip confirm() (balikin true/false) supaya gampang ditukar di
+// tempat yang sudah ada, tapi async karena dibangun dari DOM+event biasa.
+// opts.requireText: buat aksi yang PERMANEN/sangat berisiko (mis. hapus
+// akun) — pengguna wajib ketik ulang teks itu persis sebelum tombol OK
+// aktif, ganti window.prompt() bawaan yang sama-sama tidak bisa didandani.
+function customConfirm(message, opts){
+  opts = opts || {};
+  return new Promise((resolve)=>{
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    overlay.innerHTML =
+      '<div class="modal confirm-modal" role="alertdialog" aria-modal="true">'+
+        '<div class="confirm-icon'+(opts.danger?' danger':'')+'">'+(opts.danger?'⚠️':'❓')+'</div>'+
+        '<p class="confirm-msg">'+esc(message)+'</p>'+
+        (opts.requireText?'<input type="text" id="ccInput" class="confirm-input" placeholder="'+esc(opts.requireText)+'" autocomplete="off" autocapitalize="off" />':'')+
+        '<div class="confirm-acts">'+
+          '<button type="button" class="btn btn-outline" id="ccCancel">'+esc(opts.cancelLabel||'Batal')+'</button>'+
+          '<button type="button" class="btn '+(opts.danger?'btn-danger':'btn-primary')+'" id="ccOk"'+(opts.requireText?' disabled':'')+'>'+esc(opts.okLabel||'Ya, Lanjutkan')+'</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+    document.body.classList.add('modal-open');
+    function finish(result){
+      document.removeEventListener('keydown', onKey);
+      overlay.remove();
+      document.body.classList.remove('modal-open');
+      resolve(result);
+    }
+    function onKey(e){ if(e.key === 'Escape') finish(false); }
+    const okBtn = overlay.querySelector('#ccOk');
+    if(opts.requireText){
+      const input = overlay.querySelector('#ccInput');
+      input.addEventListener('input', ()=>{ okBtn.disabled = input.value !== opts.requireText; });
+      input.focus();
+    } else {
+      okBtn.focus();
+    }
+    overlay.querySelector('#ccCancel').addEventListener('click', ()=>finish(false));
+    okBtn.addEventListener('click', ()=>{ if(!okBtn.disabled) finish(true); });
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) finish(false); });
+    document.addEventListener('keydown', onKey);
+  });
+}
 
 // ── Custom select (bottom-sheet di HP, dropdown ala app) ────────
 // Native <select> dibutuhkan browser jelek/tidak konsisten pas dibuka di

@@ -343,6 +343,19 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .modal-head h3{margin:0}
 .modal-x{background:transparent;border:none;font-size:1.2rem;cursor:pointer;color:var(--soft);line-height:1;padding:0}
 .modal-x:hover{color:var(--ink)}
+
+/* ── Dialog konfirmasi kustom (ganti confirm() native browser, yang
+   selalu tampil sebagai kotak abu-abu polos "situs ini mengatakan…" —
+   tidak bisa diberi warna/gaya apa pun karena itu UI bawaan browser,
+   bukan bagian dari halaman kita sama sekali). ─────────────────────── */
+.confirm-modal{max-width:340px;text-align:center;padding:28px 24px}
+.confirm-icon{width:52px;height:52px;border-radius:50%;background:var(--bg-alt);color:var(--primary);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.5rem}
+.confirm-icon.danger{background:#FEE2E2;color:var(--danger)}
+.confirm-msg{font-size:.9rem;color:var(--ink);line-height:1.55;margin:0 0 22px}
+.confirm-input{margin:-8px 0 22px;text-align:center}
+.confirm-acts{display:flex;gap:10px}
+.confirm-acts .btn:disabled{opacity:.5;cursor:not-allowed}
+.confirm-acts .btn{flex:1}
 .modal-section{margin-bottom:16px}
 .modal-section label,.modal-section h4{display:block;font-family:var(--font-d);font-weight:700;font-size:.83rem;color:var(--primary);margin-bottom:7px}
 .amount-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
