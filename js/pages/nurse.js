@@ -313,6 +313,7 @@ export async function renderNurseDetail(id){
   // Tabs
   document.querySelectorAll('.tab-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      haptic(8);
       document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
@@ -344,6 +345,7 @@ export async function renderNurseDetail(id){
   let appliedPromo = null; // { code, discount, finalAmount } — direset tiap durasi berubah
   document.querySelectorAll('.dur-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      haptic(8);
       document.querySelectorAll('.dur-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       selDur = parseInt(btn.dataset.dur);
@@ -355,6 +357,7 @@ export async function renderNurseDetail(id){
   });
   document.querySelectorAll('.time-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      haptic(8);
       document.querySelectorAll('.time-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
     });

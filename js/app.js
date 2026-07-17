@@ -132,6 +132,7 @@ const ICON = {
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5z"/></svg>',
   chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
   chevronLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><polyline points="8 7 12 3 16 7"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>',
 };
 function helpLinkRow(icon, label, href, external){
   return '<a href="'+href+'"'+(external?' target="_blank" rel="noopener noreferrer"':'')+' class="help-link-row">'+
@@ -310,7 +311,40 @@ async function lazyPage(path){
   }
 }
 
+// Bar progres navigasi tipis di puncak layar (ala app native/YouTube) —
+// baru benar-benar ditampilkan kalau perpindahan halaman makan waktu lebih
+// dari sekejap (import chunk + fetch data), supaya navigasi instan (dari
+// cache) tidak kedap-kedip tak perlu. Progres "merambat" mendekati 85% lalu
+// nunggu, disentak ke 100% begitu render selesai.
+const _routeProgressEl = document.getElementById('route-progress');
+let _rpShowTimer = null, _rpTickTimer = null;
+function startRouteProgress(){
+  if(!_routeProgressEl) return;
+  clearTimeout(_rpShowTimer); clearInterval(_rpTickTimer);
+  _routeProgressEl.classList.remove('active');
+  _routeProgressEl.style.width = '0%';
+  _rpShowTimer = setTimeout(()=>{
+    _routeProgressEl.classList.add('active');
+    _routeProgressEl.style.width = '25%';
+    _rpTickTimer = setInterval(()=>{
+      const w = parseFloat(_routeProgressEl.style.width) || 0;
+      if(w < 85) _routeProgressEl.style.width = (w + (85-w)*0.12).toFixed(1) + '%';
+    }, 180);
+  }, 120);
+}
+function finishRouteProgress(){
+  if(!_routeProgressEl) return;
+  clearTimeout(_rpShowTimer); clearInterval(_rpTickTimer);
+  if(!_routeProgressEl.classList.contains('active')){ _routeProgressEl.style.width = '0%'; return; }
+  _routeProgressEl.style.width = '100%';
+  setTimeout(()=>{
+    _routeProgressEl.classList.remove('active');
+    setTimeout(()=>{ _routeProgressEl.style.width = '0%'; }, 200);
+  }, 150);
+}
+
 async function route(){
+  startRouteProgress();
   // Pindah halaman apa pun (termasuk keluar dari chat) — hentikan polling
   // pesan chat sebelumnya, supaya tidak terus jalan di background dan
   // nembak elemen DOM yang sudah tidak ada lagi.
@@ -397,6 +431,7 @@ async function route(){
   app.classList.add(direction==='forward' ? 'page-forward' : direction==='back' ? 'page-back' : 'page-transition');
   window.scrollTo(0,0);
   trackPageView();
+  finishRouteProgress();
 }
 
 window.addEventListener('hashchange', route);
@@ -1036,7 +1071,7 @@ async function renderDonorDash(u){
 }
 
 // ── Modals ──────────────────────────────────────────────────
-function openModal(id)  { document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; document.body.classList.add('modal-open'); }
+function openModal(id)  { haptic(8); document.getElementById(id)?.classList.add('open'); document.body.style.overflow='hidden'; document.body.classList.add('modal-open'); }
 function closeModal(id) { document.getElementById(id)?.classList.remove('open'); document.body.style.overflow=''; document.body.classList.remove('modal-open'); }
 
 // Ganti window.confirm() bawaan browser (kotak abu-abu "situs ini
@@ -1123,6 +1158,7 @@ function closeCselSheet(){
   _sheetLastTrigger = null;
 }
 function openCselSheet(selectEl, title, onPick){
+  haptic(8);
   const overlay = ensureCselOverlay();
   document.getElementById('cselTitle').textContent = title;
   const optsWrap = document.getElementById('cselOptions');
@@ -1206,6 +1242,7 @@ function closeCdateSheet(){
   _sheetLastTrigger = null;
 }
 function openCdateSheet(inputEl, title, onPick){
+  haptic(8);
   const overlay = ensureCdateOverlay();
   document.getElementById('cdateTitle').textContent = title;
   const today = new Date();
@@ -1580,6 +1617,13 @@ document.addEventListener('DOMContentLoaded',async ()=>{
     if(e.target.tagName==='A') document.getElementById('mainNav')?.setAttribute('data-open','false');
   });
 
+  // Getar halus tiap tap tab bawah — tabbar di-render ulang tiap route()
+  // (innerHTML diganti total), jadi listener-nya di-delegasikan ke induk
+  // yang tidak ikut diganti, bukan dipasang ulang tiap render.
+  document.getElementById('mobileTabbar')?.addEventListener('click', (e)=>{
+    if(e.target.closest('a')) haptic(8);
+  });
+
   // Payment buttons (data-pay) — event delegation
   document.addEventListener('click',e=>{
     const payBtn = e.target.closest('[data-pay]');
@@ -1652,6 +1696,7 @@ document.addEventListener('DOMContentLoaded',async ()=>{
       const pull = dy ? parseFloat(dy[1]) : 0;
       startY = null;
       if(pull >= THRESHOLD){
+        haptic(12);
         refreshing = true;
         indicator.classList.add('refreshing');
         indicator.style.transform = 'translate(-50%,'+THRESHOLD+'px) scale(1)';
@@ -1691,5 +1736,90 @@ document.addEventListener('DOMContentLoaded',async ()=>{
     window.addEventListener('offline', setOffline);
     window.addEventListener('online', setOnline);
     if(!navigator.onLine) setOffline();
+  })();
+
+  // ── Prompt instal ke Home Screen — banner custom senada desain app,
+  // bukan mini-infobar generic bawaan Chrome. Android/Chrome/Edge pakai
+  // event beforeinstallprompt asli (ditahan lalu ditampilkan lewat UI
+  // sendiri); iOS Safari tidak punya event ini sama sekali, jadi dikasih
+  // instruksi manual (Share → Tambah ke Layar Utama) sebagai gantinya,
+  // baru muncul setelah pengunjung sempat menjelajah (bukan langsung di
+  // detik pertama buka situs). Ditutup = tidak muncul lagi 14 hari.
+  (function(){
+    const DISMISS_KEY = 'akemat_install_dismissed_until';
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    if(isStandalone) return; // sudah terinstal
+    if(Date.now() < Number(localStorage.getItem(DISMISS_KEY) || 0)) return;
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    let banner = null;
+
+    function dismiss(days){
+      haptic(10);
+      localStorage.setItem(DISMISS_KEY, String(Date.now() + days*86400000));
+      banner?.classList.remove('show');
+      setTimeout(()=>banner?.remove(), 300);
+    }
+
+    function buildBanner(mode){
+      const el = document.createElement('div');
+      el.id = 'install-banner';
+      el.setAttribute('data-mode', mode);
+      el.setAttribute('role','dialog');
+      el.setAttribute('aria-label','Instal aplikasi Akemat Foundation');
+      el.innerHTML = mode==='ios'
+        ? '<div class="install-banner-icon">📲</div>'+
+          '<div class="install-banner-body"><strong>Instal Akemat di HP Anda</strong>'+
+          '<p>Tap tombol Bagikan '+ICON.share+' di browser, lalu pilih <strong>“Tambah ke Layar Utama”</strong>.</p></div>'+
+          '<button type="button" class="install-banner-close" aria-label="Tutup">✕</button>'
+        : '<div class="install-banner-icon">📲</div>'+
+          '<div class="install-banner-body"><strong>Instal Akemat di HP Anda</strong>'+
+          '<p>Akses lebih cepat, kerasa seperti aplikasi asli — tanpa perlu buka browser.</p></div>'+
+          '<div class="install-banner-acts">'+
+          '<button type="button" class="btn btn-primary btn-sm" id="btnInstallGo">Instal</button>'+
+          '<button type="button" class="install-banner-close" aria-label="Tutup">✕</button>'+
+          '</div>';
+      document.body.appendChild(el);
+      requestAnimationFrame(()=>el.classList.add('show'));
+      el.querySelector('.install-banner-close')?.addEventListener('click', ()=>dismiss(14));
+      return el;
+    }
+
+    if(isIOS){
+      let navCount = 0;
+      const onNav = ()=>{
+        navCount++;
+        if(navCount >= 2 && !banner){
+          banner = buildBanner('ios');
+          window.removeEventListener('hashchange', onNav);
+        }
+      };
+      window.addEventListener('hashchange', onNav);
+      return;
+    }
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e)=>{
+      e.preventDefault();
+      deferredPrompt = e;
+      setTimeout(()=>{
+        if(!deferredPrompt || banner) return;
+        banner = buildBanner('android');
+        document.getElementById('btnInstallGo')?.addEventListener('click', async ()=>{
+          haptic(15);
+          banner.classList.remove('show');
+          deferredPrompt.prompt();
+          const choice = await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          if(choice.outcome === 'accepted') setTimeout(()=>banner?.remove(), 300);
+          else dismiss(14);
+        });
+      }, 2500); // beri jeda supaya tidak terasa "menyerbu" begitu halaman terbuka
+    });
+
+    window.addEventListener('appinstalled', ()=>{
+      localStorage.setItem(DISMISS_KEY, String(Date.now() + 365*86400000));
+      banner?.remove();
+    });
   })();
 });

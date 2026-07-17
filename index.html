@@ -128,6 +128,10 @@
 </head>
 <body>
 
+  <!-- ─── Bar progres navigasi tipis di puncak layar (ala app native /
+       YouTube) — diisi/ditampilkan oleh app.js → route() ──── -->
+  <div id="route-progress" aria-hidden="true"></div>
+
   <!-- ─── Banner status koneksi (diisi/ditampilkan oleh app.js) ──── -->
   <div id="offline-banner" role="status" aria-live="polite"></div>
 
@@ -175,7 +179,11 @@
   <!-- ─── Main SPA Container ────────────────────────────── -->
   <main id="main-content">
     <div id="app" role="main">
-      <div class="app-loading">
+      <div class="app-loading app-loading-boot">
+        <svg class="app-loading-mark" viewBox="0 0 48 48" aria-hidden="true">
+          <rect width="48" height="48" rx="10" fill="#1F4D3F"/>
+          <path d="M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z" fill="#F2A541"/>
+        </svg>
         <div class="app-loading-spinner" aria-hidden="true"></div>
         <p>Memuat…</p>
       </div>
