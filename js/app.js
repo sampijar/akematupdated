@@ -3,6 +3,26 @@
 // Akemat Foundation v3 — SPA App
 // =========================================================
 
+// ── Analytics (GA4, opsional — nonaktif sampai GA_MEASUREMENT_ID diisi
+// di Vercel Environment Variables; lihat api/config.js) ─────
+let _gaId = null;
+function loadAnalytics(id){
+  if(!id || _gaId) return;
+  _gaId = id;
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(id);
+  document.head.appendChild(s);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ window.dataLayer.push(arguments); };
+  gtag('js', new Date());
+  gtag('config', id, { send_page_view: false }); // page_view dikirim manual per navigasi SPA
+}
+function trackPageView(){
+  if(!_gaId || typeof gtag !== 'function') return;
+  gtag('event', 'page_view', { page_location: location.href, page_path: location.hash || '#home' });
+}
+
 // ── Utility ────────────────────────────────────────────────
 function rpFmt(n)     { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
 function initials(name){ return (name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
@@ -169,6 +189,7 @@ async function route(){
   void app.offsetWidth;
   app.classList.add('page-transition');
   window.scrollTo(0,0);
+  trackPageView();
 }
 
 window.addEventListener('hashchange', route);
@@ -1431,6 +1452,9 @@ function bankStatusSection(u){
     '<div class="ff"><label>Nama Pemilik</label><input type="text" id="bankAccName" value="'+esc(bank.accountName||'')+'" placeholder="Sesuai buku tabungan" /></div>'+
     '</div>'+
     '<p style="font-size:.78rem;color:var(--soft);margin:6px 0 12px">Verifikasi dalam 1×24 jam kerja.</p>'+
+    '<label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;font-size:.78rem;color:var(--soft);cursor:pointer">'+
+    '<input type="checkbox" id="bankConsent" style="margin-top:2px" />'+
+    '<span>Saya menyetujui data rekening ini digunakan untuk pencairan dana sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveBank">Simpan Data Rekening</button></div>';
 }
 
@@ -1442,18 +1466,20 @@ async function renderAdminDash(){
   if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
   app.innerHTML = '<div class="container" style="padding:40px 20px;text-align:center"><p>Memuat…</p></div>';
 
-  let ktps = [], patKtps = [], camps = [], promos = [];
+  let ktps = [], patKtps = [], camps = [], promos = [], auditLog = [];
   try {
-    const [rk, rpk, rc, rp] = await Promise.all([
+    const [rk, rpk, rc, rp, ra] = await Promise.all([
       apiFetch('admin', { action:'listPendingKtp' }),
       apiFetch('admin', { action:'listPendingPatientKtp' }),
       apiFetch('admin', { action:'listPendingCampaigns' }),
       apiFetch('admin', { action:'listPromoCodes' }),
+      apiFetch('admin', { action:'listAuditLog' }),
     ]);
     ktps     = rk.data  || [];
     patKtps = rpk.data || [];
     camps    = rc.data  || [];
     promos   = rp.data  || [];
+    auditLog = ra.data  || [];
   } catch(e) {
     app.innerHTML = '<div class="container" style="padding:60px 20px;text-align:center;max-width:420px;margin:0 auto">'+
       '<div style="font-size:2.5rem;margin-bottom:10px">🔒</div>'+
@@ -1540,6 +1566,17 @@ async function renderAdminDash(){
     '<button class="btn btn-accent btn-sm" id="btnCreatePromo" style="margin-top:6px">+ Buat Kode Promo</button>'+
     '</div>'+
     (promos.length ? promos.map(promoRow).join('') : '<p style="color:var(--soft);font-size:.84rem">Belum ada kode promo.</p>')+
+    '<h3 style="margin:24px 0 10px">📋 Log Audit (50 terakhir)</h3>'+
+    '<div class="dash-section" style="max-height:320px;overflow-y:auto">'+
+    (auditLog.length ? '<table style="width:100%;font-size:.78rem;border-collapse:collapse">'+
+      auditLog.map(function(l){
+        return '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 4px;color:var(--soft);white-space:nowrap">'+esc((l.created_at||'').replace('T',' ').slice(0,16))+'</td>'+
+          '<td style="padding:6px 4px">'+esc(l.admin_email)+'</td>'+
+          '<td style="padding:6px 4px;font-weight:600">'+esc(l.action)+'</td>'+
+          '<td style="padding:6px 4px;color:var(--soft)">'+esc(l.target_table||'')+(l.target_id?' #'+esc(String(l.target_id).slice(0,8)):'')+'</td></tr>';
+      }).join('') + '</table>'
+      : '<p style="color:var(--soft);font-size:.84rem;margin:0">Belum ada aktivitas tercatat.</p>')+
+    '</div>'+
     '</div></div>';
 
   async function runAction(action, id, okMsg){
@@ -1599,7 +1636,10 @@ function patientProfilesSection(profiles){
       '<span class="bank-status '+cls+'">'+lbl+'</span>'+
       '</div>'+
       (p.ktpUrl?'<img src="'+p.ktpUrl+'" alt="Foto KTP '+esc(p.name)+'" style="max-width:160px;border-radius:var(--r-sm);border:1px solid var(--border);margin-top:10px;display:block" />':'')+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">'+
+      '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:.76rem;color:var(--soft);cursor:pointer">'+
+      '<input type="checkbox" class="pp-ktp-consent" data-consent-for="'+p.id+'" style="margin-top:2px" />'+
+      '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">'+
       '<label class="btn btn-outline btn-sm" style="cursor:pointer">📎 '+(p.ktpUrl?'Ganti KTP':'Upload KTP')+'<input type="file" accept="image/jpeg,image/png" style="display:none" data-ktp-for="'+p.id+'" /></label>'+
       '<button class="btn btn-outline btn-sm" data-edit-pp="'+p.id+'">Edit</button>'+
       '<button class="btn btn-danger btn-sm" data-delete-pp="'+p.id+'">Hapus</button>'+
@@ -1627,7 +1667,10 @@ function ktpSection(u){
     '<div style="font-size:.74rem;color:var(--soft)">Klik untuk upload</div></div>'+
     '<input type="file" id="profKtp" accept="image/jpeg,image/png" style="display:none" onchange="document.getElementById(\'ktpFilename\').textContent=this.files[0]?.name||\'Pilih foto KTP\'" />'+
     '</label>'+
-    '<button class="btn btn-primary btn-sm" id="btnSaveKtp" style="margin-top:12px">Simpan KTP</button></div>';
+    '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:.78rem;color:var(--soft);cursor:pointer">'+
+    '<input type="checkbox" id="ktpConsent" style="margin-top:2px" />'+
+    '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
+    '<button class="btn btn-primary btn-sm" id="btnSaveKtp" style="margin-top:10px">Simpan KTP</button></div>';
 }
 
 // ── Pencairan Dana (payouts) ──────────────────────────────
@@ -1890,7 +1933,7 @@ function renderPrivacyPolicy(){
     + '<li><strong>Data identitas:</strong> foto KTP — dipakai untuk verifikasi identitas pasien, perawat, dan penggalang dana sebelum bisa membuat janji temu atau kampanye donasi.</li>'
     + '<li><strong>Data keuangan:</strong> nama bank, nomor rekening, dan nama pemilik rekening — dipakai untuk pencairan penghasilan perawat dan dana kampanye.</li>'
     + '<li><strong>Data transaksi:</strong> riwayat janji temu, donasi, dan status pembayaran.</li>'
-    + '<li><strong>Data teknis:</strong> data sesi login untuk menjaga akun Anda tetap aman.</li></ul></div>';
+    + '<li><strong>Data teknis:</strong> data sesi login untuk menjaga akun Anda tetap aman, dan data analitik kunjungan (halaman yang dibuka) untuk memahami penggunaan platform secara agregat — tidak dipakai untuk mengidentifikasi Anda secara pribadi.</li></ul></div>';
 
   html += '<div class="tnc-section"><h2>2. Untuk Apa Data Digunakan</h2>';
   html += '<ul><li>Memverifikasi identitas pengguna (KTP) supaya platform aman dari akun/kampanye palsu.</li>'
@@ -1918,7 +1961,7 @@ function renderPrivacyPolicy(){
   html += '<p>Untuk mengajukan permintaan di atas, hubungi kami lewat kontak di bagian bawah halaman ini.</p></div>';
 
   html += '<div class="tnc-section"><h2>6. Penyimpanan Data</h2>';
-  html += '<p>Data disimpan selama akun Anda aktif. Kalau Anda meminta penghapusan akun, data pribadi akan dihapus dalam waktu wajar kecuali ada kewajiban hukum untuk menyimpannya lebih lama (mis. catatan transaksi keuangan).</p></div>';
+  html += '<p>Data disimpan selama akun Anda aktif. Kalau Anda meminta penghapusan akun, data pribadi akan dihapus dalam waktu wajar kecuali ada kewajiban hukum untuk menyimpannya lebih lama (mis. catatan transaksi keuangan). Foto KTP yang statusnya ditolak (tidak lolos verifikasi) otomatis dihapus dari server setelah 30 hari.</p></div>';
 
   html += '<div class="tnc-section"><h2>7. Perubahan Kebijakan</h2>';
   html += '<p>Kebijakan ini bisa diperbarui sewaktu-waktu mengikuti perkembangan layanan atau regulasi. Perubahan signifikan akan diberitahukan lewat email terdaftar.</p></div>';
@@ -2051,6 +2094,12 @@ async function renderProfile(){
       ${u.role==='patient'?patientProfilesSection(patientProfiles):ktpSection(u)}
       ${u.role!=='patient'?bankStatusSection(u):''}
       ${u.role==='nurse'?nursePayoutSection(u, nurseAvailable, nursePayouts):''}
+
+      <div class="dash-section" style="border:1.5px solid #FCA5A5">
+        <div class="dash-sh"><h3 style="color:#B91C1C">⚠️ Zona Berbahaya</h3></div>
+        <p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Menghapus akun akan menghapus data pribadi Anda (nama, KTP, rekening) secara permanen dan Anda tidak bisa login lagi. Riwayat transaksi tetap tersimpan untuk kepatuhan hukum (lihat <a href="#privasi" target="_blank">Kebijakan Privasi</a>), tapi sudah tidak terhubung ke identitas Anda.</p>
+        <button class="btn btn-danger btn-sm" id="btnDeleteAccount">Hapus Akun Saya</button>
+      </div>
     </div>
   </div>`;
 
@@ -2104,8 +2153,11 @@ async function renderProfile(){
     document.querySelectorAll('[data-ktp-for]').forEach(input=>input.addEventListener('change', async ()=>{
       const file = input.files?.[0];
       if(!file) return;
-      if(file.size > 5*1024*1024){ toast('Ukuran file maksimal 5MB.','e'); input.value=''; return; }
       const pid = input.dataset.ktpFor;
+      if(!document.querySelector('[data-consent-for="'+pid+'"]')?.checked){
+        toast('Centang persetujuan penggunaan foto KTP terlebih dahulu.','e'); input.value=''; return;
+      }
+      if(file.size > 5*1024*1024){ toast('Ukuran file maksimal 5MB.','e'); input.value=''; return; }
       try {
         const dataUrl = await fileToResizedDataUrl(file, 1400, 0.85);
         await Store.updatePatientProfile(pid, { ktpUrl: dataUrl, ktpStatus: 'uploaded' });
@@ -2133,6 +2185,7 @@ async function renderProfile(){
     const file = document.getElementById('profKtp')?.files?.[0];
     if(!file){ toast('Pilih foto KTP terlebih dahulu.','e'); return; }
     if(file.size > 5*1024*1024){ toast('Ukuran file maksimal 5MB.','e'); return; }
+    if(!document.getElementById('ktpConsent')?.checked){ toast('Centang persetujuan penggunaan foto KTP terlebih dahulu.','e'); return; }
     const btn = document.getElementById('btnSaveKtp');
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Mengunggah…';
@@ -2183,9 +2236,25 @@ async function renderProfile(){
     const accNum   = document.getElementById('bankAccNum')?.value.trim();
     const accName  = document.getElementById('bankAccName')?.value.trim();
     if(!bankName||!accNum||!accName){ toast('Lengkapi semua data rekening.','e'); return; }
+    if(!document.getElementById('bankConsent')?.checked){ toast('Centang persetujuan penggunaan data rekening terlebih dahulu.','e'); return; }
     await Store.updateUser(u.id, { bankInfo:{ bankName, accountNumber:accNum, accountName:accName, verified:false }});
     toast('Data rekening disimpan. Verifikasi dalam 1×24 jam kerja.','s');
     setTimeout(()=>renderProfile(), 800);
+  });
+
+  document.getElementById('btnDeleteAccount')?.addEventListener('click', async ()=>{
+    const typed = prompt('Tindakan ini PERMANEN dan tidak bisa dibatalkan.\n\nKetik HAPUS AKUN (huruf besar semua) untuk konfirmasi:');
+    if(typed !== 'HAPUS AKUN'){ if(typed !== null) toast('Konfirmasi tidak cocok — akun tidak dihapus.','e'); return; }
+    const btn = document.getElementById('btnDeleteAccount');
+    btn.disabled = true; btn.textContent = 'Menghapus…';
+    try {
+      await Store.deleteAccount();
+      toast('Akun Anda telah dihapus.','s');
+      navigate('#home');
+    } catch(e) {
+      toast('Gagal menghapus akun: '+(e.message||'coba lagi.'),'e');
+      btn.disabled = false; btn.textContent = 'Hapus Akun Saya';
+    }
   });
 }
 

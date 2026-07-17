@@ -20,6 +20,7 @@
  */
 
 const { issueProof } = require('../lib/otpProof');
+const { checkRateLimit, clientIp } = require('../lib/rateLimit');
 
 const BASE = 'https://api.fazpass.com';
 
@@ -71,6 +72,17 @@ module.exports = async (req, res) => {
   if (p.action === 'send') {
     const phone = normalizePhone(p.phone);
     if (!phone || phone.length < 10) return res.status(400).json({ error:'Nomor HP tidak valid' });
+
+    // Batasi spam kirim OTP (biaya per SMS/WA nyata, dan celah brute-force
+    // kalau tidak dibatasi) — per nomor HP dan per IP, dua-duanya dicek.
+    const ip = clientIp(req);
+    const [byPhone, byIp] = await Promise.all([
+      checkRateLimit(`otp-send:phone:${phone}`, 3, 60),
+      checkRateLimit(`otp-send:ip:${ip}`, 10, 60),
+    ]);
+    if (!byPhone.allowed || !byIp.allowed) {
+      return res.status(429).json({ error: 'Terlalu banyak permintaan OTP. Coba lagi dalam beberapa saat.' });
+    }
 
     const { ok, data } = await fazpass('/v1/otp/request', {
       phone,

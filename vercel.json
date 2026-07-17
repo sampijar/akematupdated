@@ -1,4 +1,7 @@
 {
+  "crons": [
+    { "path": "/api/cron-purge-ktp", "schedule": "0 3 * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

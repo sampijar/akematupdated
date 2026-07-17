@@ -19,10 +19,14 @@ module.exports = async (req, res) => {
 
   const supabaseUrl     = process.env.SUPABASE_URL?.trim() || null;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY?.trim() || null;
+  // Kosong sampai GA_MEASUREMENT_ID diisi di Vercel — analytics baru aktif
+  // begitu ID-nya di-set, tidak ada tracking terpasang secara default.
+  const gaMeasurementId = process.env.GA_MEASUREMENT_ID?.trim() || null;
 
   return res.status(200).json({
     supabaseConfigured: !!(supabaseUrl && supabaseAnonKey),
     supabaseUrl,
     supabaseAnonKey,
+    gaMeasurementId,
   });
 };

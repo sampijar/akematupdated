@@ -56,6 +56,12 @@ async function sb(pathAndQuery, method, bodyObj) {
   return { ok: r.ok, status: r.status, data };
 }
 
+// Jejak audit — dipanggil best-effort (tidak menunda/menggagalkan respons
+// utama) setiap admin berhasil melakukan aksi yang mengubah data sensitif.
+function logAdmin(adminEmail, action, table, targetId) {
+  sb('admin_audit_log', 'POST', { admin_email: adminEmail, action, target_table: table, target_id: targetId ? String(targetId) : null }).catch(() => {});
+}
+
 module.exports = async (req, res) => {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -84,11 +90,13 @@ module.exports = async (req, res) => {
     if (action === 'approveKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`users?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'verified' });
+      if (r.ok) logAdmin(email, 'approveKtp', 'users', id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
     if (action === 'rejectKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`users?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'rejected' });
+      if (r.ok) logAdmin(email, 'rejectKtp', 'users', id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 
@@ -99,11 +107,13 @@ module.exports = async (req, res) => {
     if (action === 'approvePatientKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`patient_profiles?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'verified' });
+      if (r.ok) logAdmin(email, 'approvePatientKtp', 'patient_profiles', id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
     if (action === 'rejectPatientKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`patient_profiles?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'rejected' });
+      if (r.ok) logAdmin(email, 'rejectPatientKtp', 'patient_profiles', id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 
@@ -114,11 +124,13 @@ module.exports = async (req, res) => {
     if (action === 'approveCampaign') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`campaigns?id=eq.${encodeURIComponent(id)}`, 'PATCH', { is_verified: true, bank_verified: true });
+      if (r.ok) logAdmin(email, 'approveCampaign', 'campaigns', id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
     if (action === 'deleteCampaign') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`campaigns?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+      if (r.ok) logAdmin(email, 'deleteCampaign', 'campaigns', id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true } : { error: r.data });
     }
 
@@ -149,17 +161,26 @@ module.exports = async (req, res) => {
       if (!r.ok && String(r.data?.message || r.data).includes('duplicate')) {
         return res.status(409).json({ error: 'Kode promo ini sudah ada.' });
       }
+      if (r.ok) logAdmin(email, 'createPromoCode', 'promo_codes', r.data?.[0]?.id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
     if (action === 'togglePromoCode') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`promo_codes?id=eq.${encodeURIComponent(id)}`, 'PATCH', { active: !!data?.active });
+      if (r.ok) logAdmin(email, data?.active ? 'activatePromoCode' : 'deactivatePromoCode', 'promo_codes', id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
     if (action === 'deletePromoCode') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`promo_codes?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+      if (r.ok) logAdmin(email, 'deletePromoCode', 'promo_codes', id);
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true } : { error: r.data });
+    }
+
+    // ── Log audit ──────────────────────────────────────────
+    if (action === 'listAuditLog') {
+      const r = await sb('admin_audit_log?select=*&order=created_at.desc&limit=50', 'GET');
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 
     return res.status(400).json({ error: `action tidak dikenal: ${action}` });

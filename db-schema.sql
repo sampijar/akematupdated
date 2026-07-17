@@ -240,6 +240,32 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ── Rate limiting ────────────────────────────────────────────
+-- Dipakai server-side (api/auth-register.js, api/auth-login.js,
+-- api/fazpass-otp.js) untuk membatasi percobaan berturut-turut per
+-- IP/nomor HP/email dalam jendela waktu tertentu — bukan diakses klien
+-- sama sekali (cuma lewat service_role key), jadi tidak perlu RLS publik.
+CREATE TABLE IF NOT EXISTS rate_limits (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  rl_key       TEXT NOT NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_key_time ON rate_limits(rl_key, created_at);
+
+-- ── Log audit admin ──────────────────────────────────────────
+-- Jejak siapa (email admin) melakukan aksi apa ke data siapa dan kapan —
+-- dibutuhkan untuk akuntabilitas/audit terkait data sensitif (KTP,
+-- campaign, kode promo) sesuai prinsip UU PDP.
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  admin_email  TEXT NOT NULL,
+  action       TEXT NOT NULL,
+  target_table TEXT,
+  target_id    TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at DESC);
+
 -- ── Row Level Security (RLS) ───────────────────────────────
 ALTER TABLE users     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nurse_profiles ENABLE ROW LEVEL SECURITY;
@@ -250,6 +276,8 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payouts   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE patient_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Policies: semua user bisa baca data publik
 -- DROP IF EXISTS dulu di tiap policy/trigger supaya seluruh file ini AMAN

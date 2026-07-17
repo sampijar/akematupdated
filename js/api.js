@@ -30,7 +30,7 @@ const API_BASE = '/api';
 // manual, jadi selalu ikut ter-refresh mengikuti siklus sesi Supabase.
 async function apiFetch(endpoint, body) {
   const headers = { 'Content-Type': 'application/json' };
-  if ((endpoint === 'db' || endpoint === 'admin' || endpoint === 'promo') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
+  if ((endpoint === 'db' || endpoint === 'admin' || endpoint === 'promo' || endpoint === 'delete-account') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
     try {
       const { data } = await SupabaseAuth.client.auth.getSession();
       if (data?.session?.access_token) headers['Authorization'] = 'Bearer ' + data.session.access_token;
@@ -315,6 +315,12 @@ const Cloud = {
     return d.data?.[0]?.email || null;
   },
 
+  // Hak untuk dihapus (UU PDP) — lihat komentar lengkap di api/delete-account.js
+  // soal kenapa ini anonimisasi, bukan hard-delete baris.
+  async deleteAccount() {
+    return apiFetch('delete-account', {});
+  },
+
   // Pratinjau kode promo (read-only) — dipakai di halaman booking sebelum
   // pembayaran. Diskon final tetap dihitung ulang di server saat booking
   // benar-benar dibuat (lihat komentar api/db.js), ini cuma buat tampilan.
@@ -514,10 +520,21 @@ const SupabaseAuth = {
     return true;
   },
 
+  // Login lewat api/auth-login.js (bukan langsung client.auth.signInWithPassword)
+  // supaya percobaan login bisa dibatasi rate-nya di server — lihat komentar
+  // di file itu. Token yang didapat lalu dipasang ke SDK lewat setSession
+  // supaya sesi tetap dikelola/di-refresh otomatis oleh SDK seperti biasa.
   async signIn({ email, password }) {
     if (!this.client) throw new Error('Supabase belum siap');
-    const { data, error } = await this.client.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message === 'Invalid login credentials' ? 'Email atau password salah.' : error.message);
+    const res = await fetch(`${API_BASE}/auth-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Email atau password salah.');
+    const { error } = await this.client.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+    if (error) throw new Error(error.message);
     return data.user;
   },
 
@@ -541,6 +558,8 @@ const Store = {
   async init() {
     let cfg = null;
     try { cfg = await (await fetch(`${API_BASE}/config`)).json(); } catch { /* config endpoint belum ada / gagal → tetap local */ }
+
+    if (cfg?.gaMeasurementId && typeof loadAnalytics === 'function') loadAnalytics(cfg.gaMeasurementId);
 
     if (cfg?.supabaseConfigured) {
       const ready = await SupabaseAuth.init(cfg.supabaseUrl, cfg.supabaseAnonKey).catch(() => false);
@@ -636,6 +655,12 @@ const Store = {
   async checkPromo(code, amount, type) {
     if (this.backend !== 'remote') throw new Error('Kode promo belum didukung di mode lokal.');
     return Cloud.checkPromo(code, amount, type);
+  },
+  async deleteAccount() {
+    if (this.backend !== 'remote') throw new Error('Hapus akun belum didukung di mode lokal.');
+    await Cloud.deleteAccount();
+    this.currentUser = null;
+    await SupabaseAuth.signOut();
   },
   async updateBooking(id, data)     { return this.backend==='remote' ? Cloud.updateBooking(id, data) : DB.updateBooking(id, data); },
 

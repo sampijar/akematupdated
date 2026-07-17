@@ -13,6 +13,7 @@
  * langsung tanpa OTP asli.
  */
 const { verifyProof } = require('../lib/otpProof');
+const { checkRateLimit, clientIp } = require('../lib/rateLimit');
 
 // SUPABASE_SERVICE_ROLE_KEY = nama yang dipakai integrasi otomatis Vercel⇄Supabase;
 // SUPABASE_SERVICE_KEY = nama yang dipakai dokumentasi kita sendiri. Terima dua-duanya.
@@ -60,6 +61,13 @@ module.exports = async (req, res) => {
   const digits = normalizePhone(phone);
   if (!verifyProof(digits, proof)) {
     return res.status(401).json({ error:'Verifikasi OTP tidak valid atau sudah kadaluarsa. Kirim ulang kode OTP.' });
+  }
+
+  // Batasi pendaftaran akun baru per IP — mencegah bot bikin akun massal
+  // (OTP WA sudah jadi penghalang utama, ini lapisan tambahan).
+  const regLimit = await checkRateLimit(`register:ip:${clientIp(req)}`, 5, 60);
+  if (!regLimit.allowed) {
+    return res.status(429).json({ error: 'Terlalu banyak percobaan pendaftaran dari jaringan ini. Coba lagi dalam beberapa saat.' });
   }
 
   try {
