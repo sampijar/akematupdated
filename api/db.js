@@ -32,6 +32,7 @@
  */
 
 const { sendPushToUser } = require('../lib/webPush');
+const { sendEmail, emailLayout, escapeHtml } = require('../lib/email');
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
 const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
@@ -324,6 +325,25 @@ module.exports = async (req, res) => {
             const statusLabel = { confirmed: 'dikonfirmasi', completed: 'selesai', cancelled: 'dibatalkan' }[clean.status];
             if (otherId && statusLabel) {
               sendPushToUser(otherId, { title: 'Status janji temu berubah', body: 'Janji temu '+(bk.service||'')+' sekarang '+statusLabel+'.', url: '/#dashboard' });
+              // Push butuh izin browser yang tidak semua pengguna kasih — email
+              // jadi kanal cadangan yang lebih pasti kebaca buat notifikasi ini.
+              sbRequest(`users?id=eq.${otherId}&select=email,name`, 'GET').then((ur) => {
+                const recipient = ur.data?.[0];
+                if (!recipient?.email) return;
+                sendEmail({
+                  to: recipient.email,
+                  subject: 'Status Janji Temu Berubah — Akemat Foundation',
+                  html: emailLayout(`
+                    <h2 style="color:#1F4D3F;margin:0 0 12px">Status janji temu Anda berubah</h2>
+                    <p>Halo ${escapeHtml(recipient.name || '')}, janji temu <strong>${escapeHtml(bk.service || '')}</strong> sekarang berstatus <strong>${escapeHtml(statusLabel)}</strong>.</p>
+                    <table style="width:100%;font-size:.86rem;margin:16px 0;border-collapse:collapse">
+                      <tr><td style="padding:6px 0;color:#50645C">Tanggal</td><td style="text-align:right">${escapeHtml(bk.booking_date || '')}</td></tr>
+                      <tr><td style="padding:6px 0;color:#50645C">Jam</td><td style="text-align:right">${escapeHtml(bk.booking_time || '')}</td></tr>
+                    </table>
+                    <p style="font-size:.8rem;color:#50645C">Buka aplikasi Akemat Foundation untuk detail lengkap.</p>
+                  `),
+                }).catch(() => {});
+              }).catch(() => {});
             }
           }
         }
