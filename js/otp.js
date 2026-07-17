@@ -14,8 +14,25 @@ async function parseOtpResponse(res) {
   catch { throw new Error('Server OTP tidak merespons dengan benar (HTTP '+res.status+'). Coba lagi sebentar lagi.'); }
 }
 
+// Kalau provider OTP di sisi server lambat/menggantung, fetch tanpa timeout bisa
+// membuat tombol "Mengirim…" macet selamanya tanpa pesan error apa pun ke
+// pengguna. Batasi max 20 detik supaya UI selalu balik ke keadaan bisa dicoba
+// lagi, dengan pesan yang jelas.
+async function fetchWithTimeout(url, opts, ms = 20000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Server OTP tidak merespons. Coba lagi sebentar lagi.');
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function otpSend(phone) {
-  const res  = await fetch(OTP_API, {
+  const res  = await fetchWithTimeout(OTP_API, {
     method: 'POST', headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ action:'send', phone }),
   });
@@ -25,7 +42,7 @@ async function otpSend(phone) {
 }
 
 async function otpVerify(requestId, otp, phone) {
-  const res  = await fetch(OTP_API, {
+  const res  = await fetchWithTimeout(OTP_API, {
     method: 'POST', headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ action:'verify', requestId, otp, phone }),
   });

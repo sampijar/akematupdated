@@ -986,13 +986,15 @@ function renderForgotPassword(){
   document.getElementById('btnFpSendOtp')?.addEventListener('click', async ()=>{
     const err   = document.getElementById('fpErr');
     const phone = document.getElementById('fpPhone')?.value.trim();
+    const btn   = document.getElementById('btnFpSendOtp');
     err.textContent = '';
     if(!phone){ err.textContent = 'Isi nomor HP terlebih dahulu.'; return; }
-    if(!(await Store.getUserByPhone(phone))){ err.textContent = 'Nomor HP tidak terdaftar.'; return; }
-    const btn = document.getElementById('btnFpSendOtp');
+    if(btn.disabled) return; // cegah klik ganda memicu 2 request OTP sekaligus
     const orig = btn.textContent;
-    btn.disabled = true; btn.textContent = 'Mengirim…';
+    btn.disabled = true; btn.textContent = 'Memeriksa…';
     try {
+      if(!(await Store.getUserByPhone(phone))){ err.textContent = 'Nomor HP tidak terdaftar.'; return; }
+      btn.textContent = 'Mengirim…';
       otpRequestId = await Otp.send(phone);
       verifiedPhone = phone;
       document.getElementById('fpStep1').style.display = 'none';
@@ -1000,8 +1002,9 @@ function renderForgotPassword(){
       toast('Kode OTP dikirim via WhatsApp.','s');
     } catch(e){
       err.textContent = e.message || 'Gagal mengirim OTP.';
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
     }
-    btn.disabled = false; btn.textContent = orig;
   });
 
   document.getElementById('btnFpVerifyOtp')?.addEventListener('click', async ()=>{
@@ -1149,9 +1152,10 @@ function renderRegister(){
   document.getElementById('btnSendOtp')?.addEventListener('click', async ()=>{
     const err   = document.getElementById('regErr');
     const phone = document.getElementById('regPhone')?.value.trim();
+    const btn = document.getElementById('btnSendOtp');
     err.textContent = '';
     if(!phone){ err.textContent = 'Isi nomor HP terlebih dahulu.'; return; }
-    const btn = document.getElementById('btnSendOtp');
+    if(btn.disabled) return; // cegah klik ganda memicu 2 request OTP sekaligus
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Mengirim…';
     try {
@@ -1162,8 +1166,9 @@ function renderRegister(){
       toast('Kode OTP dikirim via WhatsApp.','s');
     } catch(e){
       err.textContent = e.message || 'Gagal mengirim OTP.';
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
     }
-    btn.disabled = false; btn.textContent = orig;
   });
 
   document.getElementById('btnVerifyOtp')?.addEventListener('click', async ()=>{

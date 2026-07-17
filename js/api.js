@@ -55,6 +55,17 @@ async function apiFetch(endpoint, body) {
 // yang sedang dipakai.
 function shortDate(iso) { return String(iso||'').slice(0,10); }
 
+// Samakan dengan normalizePhone di api/auth-register.js & api/fazpass-otp.js —
+// nomor selalu DISIMPAN dalam format 62xxxxxxxxxx (tanpa 0 di depan). Kalau
+// pencarian tidak menormalkan input yang sama, orang yang ketik "08…" tidak
+// akan ketemu akunnya sendiri yang tersimpan sebagai "628…" (atau sebaliknya).
+function normalizePhone(raw) {
+  let p = String(raw || '').replace(/\D/g, '');
+  if (p.startsWith('0'))      p = '62' + p.slice(1);
+  else if (p.startsWith('8')) p = '62' + p;
+  return p;
+}
+
 function rowToUser(row, npRow) {
   if (!row) return null;
   const u = {
@@ -270,8 +281,13 @@ const Cloud = {
   },
 
   async getUserByPhone(phone) {
+    const normalized = normalizePhone(phone);
     const digits = String(phone||'').replace(/\D/g,'');
-    const d = await apiFetch('db', { action:'select', table:'users', filters:{ phone:`eq.${digits}` } });
+    // Cocokkan format yang dinormalisasi (cara nomor disimpan sekarang) DAN
+    // format digit mentah (jaga-jaga ada baris lama yang tersimpan tanpa
+    // normalisasi) — dua-duanya dicoba lewat filter OR.
+    const filters = normalized === digits ? { phone:`eq.${normalized}` } : { or:`(phone.eq.${normalized},phone.eq.${digits})` };
+    const d = await apiFetch('db', { action:'select', table:'users', filters });
     const row = d.data?.[0];
     return row ? this.getUserById(row.id) : null;
   },
