@@ -435,11 +435,15 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 @media(min-width:781px){ #offline-banner{bottom:24px} }
 
 /* ── Persetujuan cookie (UU PDP) ────────────────────────────── */
+/* bottom:calc(78px + safe-area) di HP — di atas tab bar bawah (~65px +
+   safe-area), bukan menutupinya (dulu nutup total, tab Perawat/Donasi/
+   Akun jadi tidak bisa di-tap selama banner ini tampil). Sama seperti
+   pola yang sudah dipakai #offline-banner. ─────────────────────── */
 #cookie-consent{
-  position:fixed;left:14px;right:14px;bottom:14px;z-index:210;
+  position:fixed;left:14px;right:14px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:210;
   display:none;flex-direction:column;gap:12px;
   background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);
-  padding:16px 18px calc(16px + env(safe-area-inset-bottom));
+  padding:16px 18px;
   box-shadow:var(--sh-md);
   animation:sheet-up .3s cubic-bezier(.16,1,.3,1) both;
 }
@@ -451,12 +455,15 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 }
 
 /* ── Banner instal ke Home Screen — custom, senada desain app (bukan
-   mini-infobar generic bawaan Chrome) ─────────────────────────── */
+   mini-infobar generic bawaan Chrome). Sama seperti #cookie-consent,
+   digeser ke atas tab bar di HP supaya tidak menutupinya — dan
+   app.js sengaja menunda tampil kalau #cookie-consent masih terbuka,
+   supaya dua-duanya tidak numpuk di jalur yang sama. ────────────── */
 #install-banner{
-  position:fixed;left:14px;right:14px;bottom:14px;z-index:210;
+  position:fixed;left:14px;right:14px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:210;
   display:flex;align-items:flex-start;gap:12px;
   background:var(--primary);color:#fff;border-radius:var(--r-md);
-  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  padding:16px 16px;
   box-shadow:0 12px 32px rgba(31,77,63,.35);
   opacity:0;transform:translateY(16px);
   transition:opacity .3s cubic-bezier(.16,1,.3,1),transform .3s cubic-bezier(.16,1,.3,1);

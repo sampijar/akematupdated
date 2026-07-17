@@ -1754,6 +1754,17 @@ document.addEventListener('DOMContentLoaded',async ()=>{
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     let banner = null;
 
+    // Kedua banner ini berbagi jalur tampilan yang sama (di atas tab bar) —
+    // jangan sampai numpuk dengan banner cookie consent yang mungkin masih
+    // menunggu jawaban pengguna.
+    function whenCookieBannerClear(cb){
+      const cc = document.getElementById('cookie-consent');
+      if(!cc || !cc.classList.contains('show')){ cb(); return; }
+      const check = setInterval(()=>{
+        if(!cc.classList.contains('show')){ clearInterval(check); cb(); }
+      }, 400);
+    }
+
     function dismiss(days){
       haptic(10);
       localStorage.setItem(DISMISS_KEY, String(Date.now() + days*86400000));
@@ -1790,8 +1801,8 @@ document.addEventListener('DOMContentLoaded',async ()=>{
       const onNav = ()=>{
         navCount++;
         if(navCount >= 2 && !banner){
-          banner = buildBanner('ios');
           window.removeEventListener('hashchange', onNav);
+          whenCookieBannerClear(()=>{ banner = buildBanner('ios'); });
         }
       };
       window.addEventListener('hashchange', onNav);
@@ -1804,15 +1815,18 @@ document.addEventListener('DOMContentLoaded',async ()=>{
       deferredPrompt = e;
       setTimeout(()=>{
         if(!deferredPrompt || banner) return;
-        banner = buildBanner('android');
-        document.getElementById('btnInstallGo')?.addEventListener('click', async ()=>{
-          haptic(15);
-          banner.classList.remove('show');
-          deferredPrompt.prompt();
-          const choice = await deferredPrompt.userChoice;
-          deferredPrompt = null;
-          if(choice.outcome === 'accepted') setTimeout(()=>banner?.remove(), 300);
-          else dismiss(14);
+        whenCookieBannerClear(()=>{
+          if(!deferredPrompt || banner) return; // sempat dismiss/instal manual selagi nunggu
+          banner = buildBanner('android');
+          document.getElementById('btnInstallGo')?.addEventListener('click', async ()=>{
+            haptic(15);
+            banner.classList.remove('show');
+            deferredPrompt.prompt();
+            const choice = await deferredPrompt.userChoice;
+            deferredPrompt = null;
+            if(choice.outcome === 'accepted') setTimeout(()=>banner?.remove(), 300);
+            else dismiss(14);
+          });
         });
       }, 2500); // beri jeda supaya tidak terasa "menyerbu" begitu halaman terbuka
     });
