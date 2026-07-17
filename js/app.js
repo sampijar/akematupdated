@@ -1430,7 +1430,8 @@ async function renderAdminDash(){
       '</div></div>';
   }
 
-  app.innerHTML = '<div class="container" style="padding:32px 20px;max-width:760px;margin:0 auto">'+
+  app.innerHTML = '<div class="container" style="padding:32px 20px">'+
+    '<div style="max-width:760px">'+
     '<h2 style="margin-bottom:4px">Panel Admin</h2>'+
     '<p style="color:var(--soft);font-size:.86rem;margin-bottom:24px">Review manual — dipakai sampai verifikasi otomatis dibangun (kalau nanti diputuskan).</p>'+
     '<h3 style="margin-bottom:10px">🪪 KTP Akun Menunggu Verifikasi ('+ktps.length+')</h3>'+
@@ -1439,7 +1440,7 @@ async function renderAdminDash(){
     (patKtps.length ? patKtps.map(patKtpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
     '<h3 style="margin:24px 0 10px">💰 Campaign Menunggu Verifikasi ('+camps.length+')</h3>'+
     (camps.length ? camps.map(campCard).join('') : '<p style="color:var(--soft);font-size:.84rem">Tidak ada yang menunggu.</p>')+
-    '</div>';
+    '</div></div>';
 
   async function runAction(action, id, okMsg){
     try { await apiFetch('admin', { action, id }); toast(okMsg,'s'); renderAdminDash(); }
