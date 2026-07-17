@@ -137,7 +137,12 @@ function ktpThumb(url, opts){
   var cls = 'ktp-thumb' + (opts.lg ? ' ktp-thumb-lg' : '');
   var style = opts.style ? ' style="'+opts.style+'"' : '';
   if (!url) return opts.showEmpty ? '<div class="'+cls+' ktp-thumb-empty"'+style+'>Tidak ada foto</div>' : '';
-  return '<div class="'+cls+'"'+style+'><img src="'+esc(url)+'" alt="Foto KTP" loading="lazy" /></div>';
+  // onerror: kalau data foto ternyata rusak/gagal dimuat, tampilkan pesan
+  // jelas di dalam bingkainya sendiri — daripada diam-diam jadi kotak
+  // kosong yang bikin bingung apakah fotonya kesimpan atau tidak.
+  return '<div class="'+cls+'"'+style+'><img src="'+esc(url)+'" alt="Foto KTP" loading="lazy" '+
+    'onerror="this.closest(\'.ktp-thumb\').classList.add(\'ktp-thumb-empty\');this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'Gagal memuat foto — coba unggah ulang\'}))" />'+
+    '</div>';
 }
 function pwFieldHTML(id, label, placeholder){
   return '<div class="ff"><label>'+label+'</label>'+
@@ -185,12 +190,7 @@ function fileToResizedDataUrl(file, maxDim=1000, quality=0.82){
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        // WebP biasanya 25-35% lebih kecil dari JPEG di kualitas yang sama —
-        // dicoba dulu, browser lama yang belum dukung otomatis balik ke JPEG
-        // (toDataURL diam-diam mengabaikan format yang tidak didukung dan
-        // balikin image/png, jadi deteksinya lihat prefix hasilnya).
-        const webp = canvas.toDataURL('image/webp', quality);
-        resolve(webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', quality));
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.src = reader.result;
     };
