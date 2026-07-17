@@ -120,7 +120,7 @@ module.exports = async (req, res) => {
         const r = await sbRequest(`users?${params}`, 'PATCH', clean);
         return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
       }
-      return denied(); // insert (lewat auth-register.js) & delete tidak diizinkan lewat endpoint ini
+      return denied(); // insert (lewat api/auth.js) & delete tidak diizinkan lewat endpoint ini
     }
 
     // ── nurse_profiles ─────────────────────────────────────

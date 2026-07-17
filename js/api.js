@@ -30,7 +30,7 @@ const API_BASE = '/api';
 // manual, jadi selalu ikut ter-refresh mengikuti siklus sesi Supabase.
 async function apiFetch(endpoint, body) {
   const headers = { 'Content-Type': 'application/json' };
-  if ((endpoint === 'db' || endpoint === 'admin' || endpoint === 'promo' || endpoint === 'delete-account' || endpoint === 'push-subscribe') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
+  if ((endpoint === 'db' || endpoint === 'admin' || endpoint === 'promo' || endpoint === 'auth' || endpoint === 'push-subscribe') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
     try {
       const { data } = await SupabaseAuth.client.auth.getSession();
       if (data?.session?.access_token) headers['Authorization'] = 'Bearer ' + data.session.access_token;
@@ -89,7 +89,7 @@ const LIST_CACHE_TTL = 30000; // 30 detik
 // yang sedang dipakai.
 function shortDate(iso) { return String(iso||'').slice(0,10); }
 
-// Samakan dengan normalizePhone di api/auth-register.js & api/fazpass-otp.js —
+// Samakan dengan normalizePhone di api/auth.js & api/fazpass-otp.js —
 // nomor selalu DISIMPAN dalam format 62xxxxxxxxxx (tanpa 0 di depan). Kalau
 // pencarian tidak menormalkan input yang sama, orang yang ketik "08…" tidak
 // akan ketemu akunnya sendiri yang tersimpan sebagai "628…" (atau sebaliknya).
@@ -339,10 +339,10 @@ const Cloud = {
     return d.data?.[0]?.email || null;
   },
 
-  // Hak untuk dihapus (UU PDP) — lihat komentar lengkap di api/delete-account.js
+  // Hak untuk dihapus (UU PDP) — lihat komentar lengkap di api/auth.js (action delete-account)
   // soal kenapa ini anonimisasi, bukan hard-delete baris.
   async deleteAccount() {
-    return apiFetch('delete-account', {});
+    return apiFetch('auth', { action: 'delete-account' });
   },
 
   // Pratinjau kode promo (read-only) — dipakai di halaman booking sebelum
@@ -557,16 +557,17 @@ const SupabaseAuth = {
     return true;
   },
 
-  // Login lewat api/auth-login.js (bukan langsung client.auth.signInWithPassword)
-  // supaya percobaan login bisa dibatasi rate-nya di server — lihat komentar
-  // di file itu. Token yang didapat lalu dipasang ke SDK lewat setSession
-  // supaya sesi tetap dikelola/di-refresh otomatis oleh SDK seperti biasa.
+  // Login lewat api/auth.js (action:'login', bukan langsung
+  // client.auth.signInWithPassword) supaya percobaan login bisa dibatasi
+  // rate-nya di server — lihat komentar di file itu. Token yang didapat lalu
+  // dipasang ke SDK lewat setSession supaya sesi tetap dikelola/di-refresh
+  // otomatis oleh SDK seperti biasa.
   async signIn({ email, password }) {
     if (!this.client) throw new Error('Supabase belum siap');
-    const res = await fetch(`${API_BASE}/auth-login`, {
+    const res = await fetch(`${API_BASE}/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ action: 'login', email, password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Email atau password salah.');
@@ -619,7 +620,7 @@ const Store = {
 
   async register(userData, proof) {
     if (this.backend === 'remote') {
-      await apiFetch('auth-register', { ...userData, proof });
+      await apiFetch('auth', { ...userData, proof, action: 'register' });
       await SupabaseAuth.signIn({ email: userData.email, password: userData.password });
       const authUser = await SupabaseAuth.getSessionUser();
       this.currentUser = await Cloud.getUserById(authUser.id);
@@ -660,7 +661,7 @@ const Store = {
 
   async resetPassword({ phone, proof, newPassword }) {
     if (this.backend === 'remote') {
-      await apiFetch('reset-password', { phone, proof, newPassword });
+      await apiFetch('auth', { action: 'reset-password', phone, proof, newPassword });
       return true;
     }
     const u = DB.getUserByPhone(phone);

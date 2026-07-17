@@ -241,7 +241,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ── Rate limiting ────────────────────────────────────────────
--- Dipakai server-side (api/auth-register.js, api/auth-login.js,
+-- Dipakai server-side (api/auth.js,
 -- api/fazpass-otp.js) untuk membatasi percobaan berturut-turut per
 -- IP/nomor HP/email dalam jendela waktu tertentu — bukan diakses klien
 -- sama sekali (cuma lewat service_role key), jadi tidak perlu RLS publik.
