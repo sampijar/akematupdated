@@ -228,6 +228,19 @@ function renderHeader(){
       : '<div style="display:flex;gap:8px"><a href="#login" class="btn btn-sm btn-outline" style="padding:7px 16px;font-size:.82rem">Masuk</a><a href="#register" class="btn btn-sm btn-accent" style="padding:7px 16px;font-size:.82rem;color:#1F4D3F">Daftar</a></div>'
     }
   `;
+
+  // Search bar + avatar khusus header mobile (cuma tampil lewat CSS di
+  // layar sempit — lihat @media 780px) supaya header tidak polos kosong
+  // setelah nav penuh disembunyikan di HP.
+  const searchRow = document.getElementById('headerSearchRow');
+  if(searchRow){
+    searchRow.innerHTML =
+      '<a href="#perawat" class="header-search-btn">'+ICON.search+'<span>Cari perawat, layanan…</span></a>'+
+      (u
+        ? '<a href="#profil" class="header-avatar-btn" aria-label="Profil saya"><div class="header-avatar">'+initials(u.name)+'</div></a>'
+        : '<a href="#login" class="header-avatar-btn" aria-label="Masuk"><div class="header-avatar">'+ICON.user+'</div></a>'
+      );
+  }
 }
 
 // ── Bottom tab bar (HP) — navigasi utama gaya app native ─────
