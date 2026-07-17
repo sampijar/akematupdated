@@ -220,6 +220,18 @@ module.exports = async (req, res) => {
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 
+    // Dipakai tombol "Export CSV" — data dibentuk jadi CSV di browser
+    // (bukan di server), endpoint ini cuma balikin data mentahnya. Limit
+    // 2000 baris terbaru supaya tidak sekali tarik semua histori tanpa batas.
+    if (action === 'listBookings') {
+      const r = await sb('bookings?select=*,patient:patient_id(name,email)&order=created_at.desc&limit=2000', 'GET');
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+    }
+    if (action === 'listDonations') {
+      const r = await sb('donations?select=*,campaign:campaign_id(title)&order=created_at.desc&limit=2000', 'GET');
+      return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+    }
+
     return res.status(400).json({ error: `action tidak dikenal: ${action}` });
   } catch (err) {
     console.error('[admin]', err);

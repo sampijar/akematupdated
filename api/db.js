@@ -160,6 +160,12 @@ module.exports = async (req, res) => {
         if (!uid) return authRequired();
         const clean = { ...data };
         delete clean.is_verified;
+        // Tarif minimum kebijakan platform — cegah perawat pasang tarif
+        // sangat murah sebagai kedok buat menarik pasien lalu bertransaksi
+        // di luar aplikasi (lihat komentar MIN_NURSE_RATE di js/app.js).
+        if ('price_per_hour' in clean && Number(clean.price_per_hour) < 100000) {
+          return res.status(400).json({ error: 'Tarif minimum Rp100.000/jam.' });
+        }
         const params = new URLSearchParams({ user_id: `eq.${uid}` });
         const r = await sbRequest(`nurse_profiles?${params}`, 'PATCH', clean);
         return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });

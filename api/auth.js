@@ -129,6 +129,10 @@ async function handleRegister(req, res, body) {
   if (!['patient','nurse','donor'].includes(role)) {
     return res.status(400).json({ error:'role tidak valid' });
   }
+  // Tarif minimum kebijakan platform (lihat komentar MIN_NURSE_RATE di js/app.js).
+  if (role === 'nurse' && Number(np?.price) < 100000) {
+    return res.status(400).json({ error: 'Tarif minimum perawat adalah Rp100.000/jam.' });
+  }
   const pwErr = passwordPolicyError(password);
   if (pwErr) return res.status(400).json({ error: pwErr });
 

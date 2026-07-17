@@ -91,6 +91,24 @@ function rpFmt(n)     { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); }
 function initials(name){ return (name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function esc(s)       { return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+// ── Export CSV (dipakai panel admin) ────────────────────────
+function csvEscape(val){
+  const s = val===null||val===undefined ? '' : String(val);
+  return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function downloadCsv(filename, headers, rows){
+  const lines = [headers.map(csvEscape).join(',')];
+  rows.forEach(r=>lines.push(r.map(csvEscape).join(',')));
+  // \uFEFF (BOM) supaya Excel baca sebagai UTF-8 dengan benar, bukan
+  // salah tebak encoding lalu tampilkan karakter aneh untuk teks non-ASCII.
+  const blob = new Blob(['\uFEFF'+lines.join('\r\n')], { type:'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ── HTML building helpers (avoid nested template literals) ──
 function optionHTML(val, label, selected){
   return '<option value="'+val+'"'+(selected?' selected':'')+'>'+label+'</option>';
@@ -254,6 +272,12 @@ const CAM_COLORS = {
   'Perawat Luka':'#DB2777','Perawat Maternitas':'#16A34A',
   'Perawat Paliatif':'#C2410C',
 };
+
+// Tarif minimum per jam — kebijakan platform, bukan validasi teknis:
+// mencegah perawat pasang tarif sangat murah sebagai kedok buat menarik
+// pasien lalu bertransaksi di luar aplikasi. Dicek juga di server
+// (api/auth.js, api/db.js) supaya tidak bisa dilewati dari luar UI.
+const MIN_NURSE_RATE = 100000;
 
 // ── Routing ────────────────────────────────────────────────
 const app = document.getElementById('app');
@@ -1384,7 +1408,7 @@ function renderRegister(){
           </select>
         </div>
         <div class="ff"><label>Kota domisili</label><input type="text" id="regLoc" placeholder="Bogor" /></div>
-        <div class="ff"><label>Tarif per jam (Rp)</label><input type="number" id="regPrice" placeholder="150000" min="50000" /></div>
+        <div class="ff"><label>Tarif per jam (Rp)</label><input type="number" id="regPrice" placeholder="150000" min="100000" /><p style="font-size:.72rem;color:var(--soft);margin:4px 0 0">Minimal Rp100.000/jam.</p></div>
         <div class="ff"><label>Bio singkat</label><textarea id="regBio" rows="3" placeholder="Pengalaman, sertifikasi, keunggulan Anda…"></textarea></div>
       </div>
 
@@ -1491,9 +1515,10 @@ function renderRegister(){
       const spec  = document.getElementById('regSpecialty')?.value;
       const edu   = document.getElementById('regEducation')?.value;
       const loc   = document.getElementById('regLoc')?.value.trim();
-      const price = parseInt(document.getElementById('regPrice')?.value)||100000;
+      const price = parseInt(document.getElementById('regPrice')?.value)||MIN_NURSE_RATE;
       const bio   = document.getElementById('regBio')?.value.trim();
       if(!loc){ err.textContent='Isi kota domisili.'; return; }
+      if(price < MIN_NURSE_RATE){ err.textContent='Tarif minimum Rp'+MIN_NURSE_RATE.toLocaleString('id-ID')+'/jam.'; return; }
       userData.np = {
         specialty: spec, education: edu, exp: 0, price,
         rating: 0, reviews: 0, loc, avail: true, verified: false,
@@ -1617,7 +1642,7 @@ function nurseProfileSection(u){
     '<div class="ff"><label>Spesialisasi</label><select id="npSpec">'+SPECIALTIES.map(function(s){return optionHTML(s,SPECIALTY_ICONS[s]+' '+s,np.specialty===s);}).join('')+'</select></div>'+
     '<div class="ff"><label>Pendidikan</label><select id="npEdu">'+EDUCATION_LEVELS.map(function(e){return optionHTML(e,e,np.education===e);}).join('')+'</select></div>'+
     '<div class="ff"><label>Kota</label><input type="text" id="npLoc" value="'+esc(np.loc||'')+'" /></div>'+
-    '<div class="ff"><label>Tarif per jam (Rp)</label><input type="number" id="npPrice" value="'+(np.price||0)+'" /></div>'+
+    '<div class="ff"><label>Tarif per jam (Rp)</label><input type="number" id="npPrice" value="'+(np.price||0)+'" min="'+MIN_NURSE_RATE+'" /><p style="font-size:.72rem;color:var(--soft);margin:4px 0 0">Minimal Rp100.000/jam.</p></div>'+
     '<div class="ff full"><label>Bio</label><textarea id="npBio" rows="3">'+esc(np.bio||'')+'</textarea></div>'+
     '</div>'+
     '<button class="btn btn-primary btn-sm" id="btnSaveNP" style="margin-top:4px">Simpan Profil Perawat</button></div>';
@@ -1833,6 +1858,12 @@ async function renderAdminDash(){
       }).join('') + '</table>'
       : '<p style="color:var(--soft);font-size:.84rem;margin:0">Belum ada aktivitas tercatat.</p>')+
     '</div>'+
+    '<h3 style="margin:24px 0 10px">⬇️ Export Data</h3>'+
+    '<div class="dash-section" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
+    '<button class="btn btn-outline btn-sm" id="btnExportBookings">📄 Export Booking (CSV)</button>'+
+    '<button class="btn btn-outline btn-sm" id="btnExportDonations">📄 Export Donasi (CSV)</button>'+
+    '<span style="font-size:.74rem;color:var(--soft)">2.000 transaksi terbaru per file — buat pembukuan/pajak.</span>'+
+    '</div>'+
     '</div></div>';
 
   // Hapus satu kartu dari layar dengan fade halus + update angka counter di
@@ -1930,6 +1961,50 @@ async function renderAdminDash(){
       toast('Gagal: '+(e.message||'coba lagi.'),'e');
       btn.disabled = false; btn.textContent = orig;
     }
+  });
+
+  document.getElementById('btnExportBookings')?.addEventListener('click', async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Menyiapkan…';
+    try {
+      const r = await adminApi({ action:'listBookings' });
+      const rows = (r.data||[]).map(function(b){
+        return [
+          (b.created_at||'').slice(0,10), b.id, b.patient?.name||'', b.patient?.email||'',
+          b.nurse_name||'', b.nurse_specialty||'', b.service, b.booking_date, b.booking_time,
+          b.duration_hours, b.address, b.total_cost, b.platform_fee, b.nurse_pay,
+          b.promo_code||'', b.discount_amount||0, b.status, b.payment_status, b.reference_id||'',
+        ];
+      });
+      downloadCsv('akemat-booking-'+new Date().toISOString().slice(0,10)+'.csv',
+        ['Tanggal Dibuat','ID','Nama Pasien','Email Pasien','Nama Perawat','Spesialisasi','Layanan','Tgl Janji Temu','Jam','Durasi (jam)','Alamat','Total Biaya','Fee Platform','Bagian Perawat','Kode Promo','Diskon','Status','Status Pembayaran','Referensi'],
+        rows);
+      toast('CSV booking diunduh ('+rows.length+' baris).','s');
+    } catch(e){ toast('Gagal export: '+(e.message||'coba lagi.'),'e'); }
+    finally { btn.disabled = false; btn.textContent = orig; }
+  });
+
+  document.getElementById('btnExportDonations')?.addEventListener('click', async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Menyiapkan…';
+    try {
+      const r = await adminApi({ action:'listDonations' });
+      const rows = (r.data||[]).map(function(d){
+        return [
+          (d.created_at||'').slice(0,10), d.id, d.is_anonymous?'Anonim':(d.donor_name||''),
+          d.campaign?.title||'', d.amount, d.platform_fee, d.net_amount, d.payment_status, d.reference_id||'',
+        ];
+      });
+      downloadCsv('akemat-donasi-'+new Date().toISOString().slice(0,10)+'.csv',
+        ['Tanggal','ID','Nama Donatur','Campaign','Jumlah','Fee Platform','Diterima Campaign','Status Pembayaran','Referensi'],
+        rows);
+      toast('CSV donasi diunduh ('+rows.length+' baris).','s');
+    } catch(e){ toast('Gagal export: '+(e.message||'coba lagi.'),'e'); }
+    finally { btn.disabled = false; btn.textContent = orig; }
   });
 }
 
@@ -2611,13 +2686,15 @@ async function renderProfile(){
   });
 
   document.getElementById('btnSaveNP')?.addEventListener('click', async ()=>{
+    const price = parseInt(document.getElementById('npPrice')?.value)||u.np?.price;
+    if(price < MIN_NURSE_RATE){ toast('Tarif minimum Rp'+MIN_NURSE_RATE.toLocaleString('id-ID')+'/jam.','e'); return; }
     const sched = [...document.querySelectorAll('#nurseScheduleWrap input:checked')].map(cb=>cb.value);
     const spec  = document.getElementById('npSpec')?.value;
     await Store.updateUser(u.id, {np:{...u.np,
       specialty: spec,
       education: document.getElementById('npEdu')?.value,
       loc:       document.getElementById('npLoc')?.value.trim(),
-      price:     parseInt(document.getElementById('npPrice')?.value)||u.np?.price,
+      price,
       bio:       document.getElementById('npBio')?.value.trim(),
       schedule:  sched.length ? sched : u.np?.schedule,
       services:  BOOKING_SERVICES[spec] || u.np?.services,

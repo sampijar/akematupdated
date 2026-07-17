@@ -6,6 +6,9 @@
   "engines": {
     "node": ">=18"
   },
+  "scripts": {
+    "preflight": "node scripts/preflight.js"
+  },
   "dependencies": {
     "web-push": "^3.6.7"
   }
