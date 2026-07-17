@@ -302,6 +302,18 @@ const Cloud = {
     return row ? this.getUserById(row.id) : null;
   },
 
+  // Dipakai buat login pakai No. HP — Supabase Auth cuma kenal email, jadi
+  // resolve dulu ke email sebelum signInWithPassword. Cuma balikin email
+  // (bukan getUserById lengkap) supaya nomor HP tidak bisa dipakai intip
+  // data lain sebelum login berhasil.
+  async getEmailByPhone(phone) {
+    const normalized = normalizePhone(phone);
+    const digits = String(phone||'').replace(/\D/g,'');
+    const filters = normalized === digits ? { phone:`eq.${normalized}` } : { or:`(phone.eq.${normalized},phone.eq.${digits})` };
+    const d = await apiFetch('db', { action:'select', table:'users', filters });
+    return d.data?.[0]?.email || null;
+  },
+
   async updateUser(id, data) {
     const row = userUpdateToRow(data);
     if (Object.keys(row).length) {
@@ -555,13 +567,21 @@ const Store = {
     return u;
   },
 
-  async login(email, password) {
+  // identifier boleh email atau No. HP — Supabase Auth cuma kenal email, jadi
+  // No. HP di-resolve dulu ke email terdaftar sebelum proses login sungguhan.
+  async login(identifier, password) {
+    const isPhone = identifier && !identifier.includes('@');
     if (this.backend === 'remote') {
+      let email = identifier;
+      if (isPhone) {
+        email = await Cloud.getEmailByPhone(identifier);
+        if (!email) throw new Error('Email atau password salah.');
+      }
       const authUser = await SupabaseAuth.signIn({ email, password });
       this.currentUser = await Cloud.getUserById(authUser.id);
       return this.currentUser;
     }
-    const u = DB.getUserByEmail(email);
+    const u = isPhone ? DB.getUserByPhone(identifier) : DB.getUserByEmail(identifier);
     if (!u || u.password !== password) throw new Error('Email atau password salah.');
     DB.setSession(u.id);
     this.currentUser = u;

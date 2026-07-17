@@ -906,7 +906,7 @@ function renderLogin(){
     <div class="auth-card">
       <h2>Masuk ke Akemat</h2>
       <p class="lead">Masuk ke akun Akemat Foundation Anda.</p>
-      <div class="ff"><label>Email</label><input type="email" id="loginEmail" placeholder="email@anda.com" /></div>
+      <div class="ff"><label>Email atau No. HP</label><input type="text" id="loginEmail" placeholder="email@anda.com atau 08xx…" /></div>
       ${pwFieldHTML('loginPass','Password','••••••••')}
       <div class="form-error" id="loginErr"></div>
       <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:12px">Masuk</button>
@@ -920,21 +920,23 @@ function renderLogin(){
   </div>`;
 
   document.getElementById('btnLogin')?.addEventListener('click',async ()=>{
-    const email = document.getElementById('loginEmail')?.value.trim();
+    const identifier = document.getElementById('loginEmail')?.value.trim();
     const pass  = document.getElementById('loginPass')?.value;
     const err   = document.getElementById('loginErr');
     const btn   = document.getElementById('btnLogin');
-    if(!email||!pass){ err.textContent = 'Isi email dan password.'; return; }
+    if(btn.disabled) return;
+    if(!identifier||!pass){ err.textContent = 'Isi email/No. HP dan password.'; return; }
     err.textContent = '';
     btn.disabled = true;
     try {
-      const u = await Store.login(email, pass);
+      const u = await Store.login(identifier, pass);
       toast('Selamat datang, '+u.name.split(' ')[0]+'!','s');
       navigate('#dashboard');
     } catch(e) {
-      err.textContent = e.message || 'Email atau password salah.';
+      err.textContent = e.message || 'Email/No. HP atau password salah.';
+    } finally {
+      btn.disabled = false;
     }
-    btn.disabled = false;
   });
 
   // Enter key

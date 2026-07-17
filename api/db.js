@@ -75,6 +75,11 @@ async function sbRequest(pathAndQuery, method, bodyObj, extraHeaders) {
 
 const PUBLIC_USER_FIELDS = 'id,name,role,created_at';
 const OWN_USER_FIELDS    = 'id,name,email,phone,role,address,organization,dob,gender,ktp_status,ktp_url,bank_name,bank_account_number,bank_account_name,bank_verified,created_at';
+// Dipakai KHUSUS pencarian berdasarkan nomor HP (login/lupa-password pakai
+// no. HP) — email perlu ikut kebawa supaya bisa dipakai resolve ke
+// Supabase Auth (yang hanya kenal email, bukan nomor HP), tapi field lain
+// (bank, KTP, dst.) tetap disembunyikan sama seperti pencarian publik biasa.
+const PHONE_LOOKUP_FIELDS = 'id,email';
 
 module.exports = async (req, res) => {
   setCors(res);
@@ -97,8 +102,9 @@ module.exports = async (req, res) => {
     if (table === 'users') {
       if (action === 'select') {
         const own = uid && filters?.id === `eq.${uid}`;
+        const byPhone = !own && (filters?.phone || filters?.or?.includes('phone.'));
         const params = new URLSearchParams(filters || {});
-        params.set('select', own ? OWN_USER_FIELDS : PUBLIC_USER_FIELDS);
+        params.set('select', own ? OWN_USER_FIELDS : byPhone ? PHONE_LOOKUP_FIELDS : PUBLIC_USER_FIELDS);
         const r = await sbRequest(`users?${params}`, 'GET');
         return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
       }
