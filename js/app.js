@@ -19,6 +19,18 @@ function chipHTML(val, label, active){
 // ── Password field dengan tombol lihat/sembunyikan ──────────
 const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+// ── Ikon SVG bergaya konsisten (Feather-style, garis tipis) — dipakai
+// menggantikan emoji di navigasi & badge yang paling sering dilihat
+// pengguna, supaya tampilan lebih rapi/profesional di semua perangkat
+// (emoji bisa tampil beda-beda tergantung OS/font, SVG selalu konsisten).
+const ICON = {
+  home:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.6z"/></svg>',
+  user:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+};
 function pwFieldHTML(id, label, placeholder){
   return '<div class="ff"><label>'+label+'</label>'+
     '<div class="pw-field">'+
@@ -146,6 +158,7 @@ async function route(){
     case 'dashboard':await renderDashboard();   break;
     case 'profil':   await renderProfile();     break;
     case 'tnc':      renderTNC();         break;
+    case 'privasi':  renderPrivacyPolicy(); break;
     case 'faq':      renderFAQ();         break;
     case 'admin':    await renderAdminDash(); break;
     default:         await renderHome();
@@ -190,12 +203,12 @@ function renderMobileTabbar(){
   const isDonasi  = h.startsWith('#donasi');
   const isAccount = u ? h.startsWith('#dashboard')||h.startsWith('#profil') : (h.startsWith('#login')||h.startsWith('#register')||h.startsWith('#lupa-password'));
   tb.innerHTML =
-    '<a href="#home" class="'+(isHome?'active':'')+'"><span class="mt-icon">🏠</span>Beranda</a>'+
-    '<a href="#perawat" class="'+(isPerawat?'active':'')+'"><span class="mt-icon">🔍</span>Perawat</a>'+
-    '<a href="#donasi" class="'+(isDonasi?'active':'')+'"><span class="mt-icon">❤️</span>Donasi</a>'+
+    '<a href="#home" class="'+(isHome?'active':'')+'"><span class="mt-icon">'+ICON.home+'</span>Beranda</a>'+
+    '<a href="#perawat" class="'+(isPerawat?'active':'')+'"><span class="mt-icon">'+ICON.search+'</span>Perawat</a>'+
+    '<a href="#donasi" class="'+(isDonasi?'active':'')+'"><span class="mt-icon">'+ICON.heart+'</span>Donasi</a>'+
     (u
-      ? '<a href="#dashboard" class="'+(isAccount?'active':'')+'"><span class="mt-icon">👤</span>Akun</a>'
-      : '<a href="#login" class="'+(isAccount?'active':'')+'"><span class="mt-icon">👤</span>Masuk</a>');
+      ? '<a href="#dashboard" class="'+(isAccount?'active':'')+'"><span class="mt-icon">'+ICON.user+'</span>Akun</a>'
+      : '<a href="#login" class="'+(isAccount?'active':'')+'"><span class="mt-icon">'+ICON.user+'</span>Masuk</a>');
 }
 
 // ── Home ───────────────────────────────────────────────────
@@ -514,7 +527,7 @@ async function renderNurseDetail(id){
             <div class="npro-spec">${specBadge(p.specialty)}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center">
               <span class="badge badge-blue">🎓 ${esc(p.education)}</span>
-              ${p.verified?'<span class="badge badge-green">✓ Terverifikasi</span>':'<span class="badge badge-amber">Menunggu verifikasi</span>'}
+              ${p.verified?'<span class="badge badge-green">'+ICON.check+' Terverifikasi</span>':'<span class="badge badge-amber">Menunggu verifikasi</span>'}
               <span class="${p.avail?'badge badge-green':'badge badge-amber'}">${p.avail?'✅ Tersedia':'⏸ Tidak tersedia'}</span>
             </div>
           </div>
@@ -843,7 +856,7 @@ function campaignCard(c){
   <div class="campaign-card">
     <div class="cam-banner" style="background:${color}20${c.imageUrl?';background-image:url(\''+c.imageUrl+'\');background-size:cover;background-position:center':''}">
       ${c.imageUrl?'':'<span>'+(SPECIALTY_ICONS[c.category]||'❤️')+'</span>'}
-      ${c.verified?'<span class="cam-verified">✓ Terverifikasi</span>':''}
+      ${c.verified?'<span class="cam-verified">'+ICON.check+' Terverifikasi</span>':''}
     </div>
     <div class="cam-body">
       <p class="cam-title">${esc(c.title)}</p>
@@ -882,7 +895,7 @@ async function renderCampaignDetail(id){
         ${c.imageUrl?'<img src="'+c.imageUrl+'" alt="Foto campaign '+esc(c.title)+'" class="cam-cover-img" />':''}
         <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:18px">
           <div>${specBadge(c.category||'Donasi')}</div>
-          ${c.verified?'<span class="badge badge-green">✓ Campaign Terverifikasi</span>':'<span class="badge badge-amber">Belum terverifikasi</span>'}
+          ${c.verified?'<span class="badge badge-green">'+ICON.check+' Campaign Terverifikasi</span>':'<span class="badge badge-amber">Belum terverifikasi</span>'}
         </div>
         <h2 style="font-size:1.3rem;margin-bottom:16px">${esc(c.title)}</h2>
         <p style="font-size:.82rem;color:var(--soft);margin-bottom:6px">Campaign oleh <strong>${esc(c.creatorName)}</strong> · Deadline: ${esc(c.deadline)}</p>
@@ -1178,7 +1191,7 @@ function renderRegister(){
         Sudah punya akun? <a href="#login">Masuk</a>
       </div>
       <div style="text-align:center;margin-top:10px;font-size:.74rem;color:var(--soft)">
-        Dengan mendaftar, Anda menyetujui <a href="#tnc">Syarat &amp; Ketentuan</a> kami.
+        Dengan mendaftar, Anda menyetujui <a href="#tnc">Syarat &amp; Ketentuan</a> dan <a href="#privasi">Kebijakan Privasi</a> kami.
       </div>
     </div>
   </div>`;
@@ -1660,13 +1673,13 @@ function sidebarHTML(u, activePage){
   const bankOk = u.bankInfo?.accountNumber;
   const links = {
     patient: [
-      ['#dashboard','🏠','Dashboard'],['#perawat','🔍','Cari Perawat'],['#donasi','❤️','Donasi'],['#profil','👤','Profil & Dokumen'],
+      ['#dashboard',ICON.home,'Dashboard'],['#perawat',ICON.search,'Cari Perawat'],['#donasi',ICON.heart,'Donasi'],['#profil',ICON.user,'Profil & Dokumen'],
     ],
     nurse: [
-      ['#dashboard','🏠','Dashboard'],['#perawat','🔍','Perawat Lain'],['#profil','👤','Profil & Rekening'],
+      ['#dashboard',ICON.home,'Dashboard'],['#perawat',ICON.search,'Perawat Lain'],['#profil',ICON.user,'Profil & Rekening'],
     ],
     donor: [
-      ['#dashboard','🏠','Dashboard'],['#donasi','❤️','Semua Campaign'],['#profil','👤','Profil & Rekening'],
+      ['#dashboard',ICON.home,'Dashboard'],['#donasi',ICON.heart,'Semua Campaign'],['#profil',ICON.user,'Profil & Rekening'],
     ],
   };
   return `
@@ -1675,7 +1688,7 @@ function sidebarHTML(u, activePage){
       <div class="sb-avatar">${initials(u.name)}</div>
       <div class="sb-name">${esc(u.name)}</div>
       <div class="sb-role">${{patient:'Pasien',nurse:'Perawat',donor:'Penggalang Dana'}[u.role]}</div>
-      ${u.role!=='patient'?'<div class="sb-bank"><span class="sb-bank-status '+(bankOk?'ok':'warn')+'">'+(bankOk?'&#10003; Rekening terdaftar':'&#9888; Rekening belum diisi')+'</span></div>':''}
+      ${u.role!=='patient'?'<div class="sb-bank"><span class="sb-bank-status '+(bankOk?'ok':'warn')+'">'+(bankOk?ICON.check+' Rekening terdaftar':'&#9888; Rekening belum diisi')+'</span></div>':''}
     </div>
     <nav class="sb-nav">
       ${(links[u.role]||[]).map(function([href,icon,label]){return '<a href="'+href+'" class="'+(location.hash===href?'active':'')+'"><span>'+icon+'</span> '+label+'</a>';}).join('')}
@@ -1861,6 +1874,59 @@ function renderTNC(){
   html += '<div class="tnc-section"><h2>8. Kontak &amp; Penyelesaian Sengketa</h2>';
   html += '<ul><li>Email: customercare@akematfoundation.org</li><li>WhatsApp: +62 851-9640-7117</li><li>Jam layanan: Senin–Sabtu, 08.00–17.00 WIB</li></ul></div>';
   html += '<div style="margin-top:36px;text-align:center"><a href="#" class="btn btn-primary">Kembali ke Beranda</a> <a href="#faq" class="btn btn-outline" style="margin-left:10px">Lihat FAQ →</a></div>';
+  html += '</div>';
+  app.innerHTML = html + renderFooterSection();
+}
+
+// ── Kebijakan Privasi ──────────────────────────────────────
+function renderPrivacyPolicy(){
+  var html = '<div class="tnc-faq-page">';
+  html += '<p class="eyebrow">Dokumen legal</p>';
+  html += '<h1>Kebijakan Privasi</h1>';
+  html += '<p class="lead">Terakhir diperbarui: 17 Juli 2026. Kebijakan ini menjelaskan data apa saja yang kami kumpulkan, untuk apa, dan bagaimana kami melindunginya.</p>';
+
+  html += '<div class="tnc-section"><h2>1. Data yang Kami Kumpulkan</h2>';
+  html += '<ul><li><strong>Data akun:</strong> nama, email, nomor HP, tanggal lahir, jenis kelamin, alamat.</li>'
+    + '<li><strong>Data identitas:</strong> foto KTP — dipakai untuk verifikasi identitas pasien, perawat, dan penggalang dana sebelum bisa membuat janji temu atau kampanye donasi.</li>'
+    + '<li><strong>Data keuangan:</strong> nama bank, nomor rekening, dan nama pemilik rekening — dipakai untuk pencairan penghasilan perawat dan dana kampanye.</li>'
+    + '<li><strong>Data transaksi:</strong> riwayat janji temu, donasi, dan status pembayaran.</li>'
+    + '<li><strong>Data teknis:</strong> data sesi login untuk menjaga akun Anda tetap aman.</li></ul></div>';
+
+  html += '<div class="tnc-section"><h2>2. Untuk Apa Data Digunakan</h2>';
+  html += '<ul><li>Memverifikasi identitas pengguna (KTP) supaya platform aman dari akun/kampanye palsu.</li>'
+    + '<li>Memproses pembayaran janji temu dan donasi lewat mitra payment gateway resmi.</li>'
+    + '<li>Mencairkan penghasilan perawat dan dana kampanye ke rekening yang terdaftar.</li>'
+    + '<li>Menghubungi Anda terkait janji temu, donasi, atau masalah akun (email/WhatsApp).</li>'
+    + '<li>Mencegah penyalahgunaan platform (mis. kampanye donasi palsu, pemalsuan identitas).</li></ul></div>';
+
+  html += '<div class="tnc-section"><h2>3. Siapa yang Bisa Mengakses Data Anda</h2>';
+  html += '<ul><li>Foto KTP dan data rekening bank <strong>tidak pernah ditampilkan ke publik</strong> — hanya bisa diakses oleh pemilik akun sendiri dan tim internal Akemat Foundation yang berwenang untuk keperluan verifikasi.</li>'
+    + '<li>Data pembayaran diproses lewat mitra payment gateway resmi (DOKU) sesuai kebutuhan transaksi — kami tidak pernah membagikan data Anda ke pihak lain untuk tujuan pemasaran.</li>'
+    + '<li>Akemat Foundation <strong>tidak menjual</strong> data pribadi pengguna kepada siapa pun.</li></ul></div>';
+
+  html += '<div class="tnc-section"><h2>4. Keamanan Data</h2>';
+  html += '<ul><li>Akses ke data sensitif (KTP, rekening, status pembayaran) dibatasi lewat sistem otentikasi berbasis sesi login — setiap permintaan data diverifikasi di server sebelum diproses.</li>'
+    + '<li>Status pembayaran "lunas" hanya bisa berubah lewat verifikasi langsung ke payment gateway, tidak bisa dimanipulasi dari sisi pengguna.</li>'
+    + '<li>Kata sandi akun disimpan terenkripsi dan tidak pernah bisa dibaca oleh siapa pun, termasuk tim kami.</li></ul></div>';
+
+  html += '<div class="tnc-section"><h2>5. Hak Anda atas Data Pribadi</h2>';
+  html += '<p>Sesuai UU No. 27 Tahun 2022 tentang Perlindungan Data Pribadi, Anda berhak untuk:</p>';
+  html += '<ul><li>Melihat dan memperbarui data pribadi Anda kapan saja lewat halaman Profil.</li>'
+    + '<li>Meminta penghapusan akun dan data pribadi Anda (kecuali data yang wajib disimpan untuk kepatuhan hukum/keuangan, mis. riwayat transaksi).</li>'
+    + '<li>Meminta salinan data pribadi yang kami simpan tentang Anda.</li>'
+    + '<li>Mengajukan keberatan atas penggunaan data Anda untuk tujuan tertentu.</li></ul>';
+  html += '<p>Untuk mengajukan permintaan di atas, hubungi kami lewat kontak di bagian bawah halaman ini.</p></div>';
+
+  html += '<div class="tnc-section"><h2>6. Penyimpanan Data</h2>';
+  html += '<p>Data disimpan selama akun Anda aktif. Kalau Anda meminta penghapusan akun, data pribadi akan dihapus dalam waktu wajar kecuali ada kewajiban hukum untuk menyimpannya lebih lama (mis. catatan transaksi keuangan).</p></div>';
+
+  html += '<div class="tnc-section"><h2>7. Perubahan Kebijakan</h2>';
+  html += '<p>Kebijakan ini bisa diperbarui sewaktu-waktu mengikuti perkembangan layanan atau regulasi. Perubahan signifikan akan diberitahukan lewat email terdaftar.</p></div>';
+
+  html += '<div class="tnc-section"><h2>8. Kontak</h2>';
+  html += '<ul><li>Email: customercare@akematfoundation.org</li><li>WhatsApp: +62 851-9640-7117</li></ul></div>';
+
+  html += '<div style="margin-top:36px;text-align:center"><a href="#" class="btn btn-primary">Kembali ke Beranda</a> <a href="#tnc" class="btn btn-outline" style="margin-left:10px">Syarat &amp; Ketentuan →</a></div>';
   html += '</div>';
   app.innerHTML = html + renderFooterSection();
 }
@@ -2350,13 +2416,14 @@ function renderFooterSection(){
   html += '<div class="f-cta"><h4>Informasi</h4><ul class="f-nav" style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px">';
   html += '<li><a href="#faq" style="color:#C5D8CD;font-size:.84rem">FAQ</a></li>';
   html += '<li><a href="#tnc" style="color:#C5D8CD;font-size:.84rem">Syarat &amp; Ketentuan</a></li>';
+  html += '<li><a href="#privasi" style="color:#C5D8CD;font-size:.84rem">Kebijakan Privasi</a></li>';
   html += '<li><a href="mailto:customercare@akematfoundation.org" style="color:#C5D8CD;font-size:.84rem">customercare@akematfoundation.org</a></li>';
   html += '<li><a href="https://wa.me/6285196407117" style="color:#C5D8CD;font-size:.84rem">WhatsApp 0851 9640 7117</a></li>';
   html += '</ul></div>';
   html += '</div>';
   html += '<div class="container footer-bottom">';
   html += '<p>&copy; '+new Date().getFullYear()+' Akemat Foundation. Semua hak cipta dilindungi.</p>';
-  html += '<p><a href="#tnc" style="color:#90A89E">Syarat &amp; Ketentuan</a> &middot; <a href="#faq" style="color:#90A89E">FAQ</a></p>';
+  html += '<p><a href="#tnc" style="color:#90A89E">Syarat &amp; Ketentuan</a> &middot; <a href="#privasi" style="color:#90A89E">Kebijakan Privasi</a> &middot; <a href="#faq" style="color:#90A89E">FAQ</a></p>';
   html += '</div></footer>';
   return html;
 }
