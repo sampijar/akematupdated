@@ -121,6 +121,7 @@ function rowToUser(row, npRow) {
     role: row.role, address: row.address || '', organization: row.organization || '',
     dob: row.dob || '', gender: row.gender || '',
     ktpStatus: row.ktp_status || 'pending', ktpUrl: row.ktp_url || '', phoneVerified: true,
+    twoFactorEnabled: !!row.two_factor_enabled,
     bankInfo: {
       bankName: row.bank_name || '', accountNumber: row.bank_account_number || '',
       accountName: row.bank_account_name || '', verified: !!row.bank_verified,
@@ -148,6 +149,7 @@ function userUpdateToRow(data) {
   if ('gender' in data) row.gender = data.gender;
   if ('ktpStatus' in data) row.ktp_status = data.ktpStatus;
   if ('ktpUrl' in data) row.ktp_url = data.ktpUrl;
+  if ('twoFactorEnabled' in data) row.two_factor_enabled = data.twoFactorEnabled;
   if (data.bankInfo) {
     row.bank_name = data.bankInfo.bankName;
     row.bank_account_number = data.bankInfo.accountNumber;
@@ -583,15 +585,28 @@ const SupabaseAuth = {
   // rate-nya di server — lihat komentar di file itu. Token yang didapat lalu
   // dipasang ke SDK lewat setSession supaya sesi tetap dikelola/di-refresh
   // otomatis oleh SDK seperti biasa.
-  async signIn({ email, password, turnstileToken }) {
+  // twoFactorProof: kosong di percobaan pertama. Kalau akun mengaktifkan
+  // 2FA WA-OTP, server balikin { twoFactorRequired:true, phone } TANPA
+  // token sesi (lihat komentar di api/auth.js) — dilempar sebagai error
+  // bertanda khusus (bukan Error biasa) supaya renderLogin() bisa
+  // membedakan "2FA perlu diverifikasi dulu" dari "password salah", lalu
+  // panggil ulang signIn() dengan twoFactorProof (dari Otp.verify) setelah
+  // pengguna berhasil verifikasi kode OTP.
+  async signIn({ email, password, turnstileToken, twoFactorProof }) {
     if (!this.client) throw new Error('Supabase belum siap');
     const res = await fetch(`${API_BASE}/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', email, password, turnstileToken, deviceId: getDeviceId() }),
+      body: JSON.stringify({ action: 'login', email, password, turnstileToken, twoFactorProof, deviceId: getDeviceId() }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Email atau password salah.');
+    if (data.twoFactorRequired) {
+      const err = new Error('Verifikasi OTP WhatsApp diperlukan.');
+      err.twoFactorRequired = true;
+      err.phone = data.phone;
+      throw err;
+    }
     const { error } = await this.client.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
     if (error) throw new Error(error.message);
     return data.user;
@@ -655,7 +670,7 @@ const Store = {
 
   // identifier boleh email atau No. HP — Supabase Auth cuma kenal email, jadi
   // No. HP di-resolve dulu ke email terdaftar sebelum proses login sungguhan.
-  async login(identifier, password, turnstileToken) {
+  async login(identifier, password, turnstileToken, twoFactorProof) {
     const isPhone = identifier && !identifier.includes('@');
     if (this.backend === 'remote') {
       let email = identifier;
@@ -663,7 +678,7 @@ const Store = {
         email = await Cloud.getEmailByPhone(identifier);
         if (!email) throw new Error('Email atau password salah.');
       }
-      const authUser = await SupabaseAuth.signIn({ email, password, turnstileToken });
+      const authUser = await SupabaseAuth.signIn({ email, password, turnstileToken, twoFactorProof });
       this.currentUser = await Cloud.getUserById(authUser.id);
       return this.currentUser;
     }

@@ -178,6 +178,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS gender TEXT;
 ALTER TABLE users     ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS total_disbursed BIGINT DEFAULT 0;
 
+-- 2FA opsional (WA OTP) — toggle sendiri oleh pengguna di halaman Profil.
+-- Kalau aktif, login butuh kode OTP WA (ke nomor HP yang sudah terverifikasi
+-- saat registrasi) SETELAH password benar, sebelum sesi benar-benar dibuat.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT false;
+
 -- Foto sampul campaign (disimpan sebagai data URL base64 terkompresi di klien —
 -- tidak ada bucket storage terpisah, jadi kolom TEXT biasa cukup untuk ukuran
 -- yang sudah dikecilkan sebelum diunggah).

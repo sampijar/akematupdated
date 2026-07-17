@@ -1182,30 +1182,45 @@ async function renderCampaignDetail(id){
 
 // ── Auth ────────────────────────────────────────────────────
 function renderLogin(){
-  let tsToken = '';
+  let tsToken = '', ts2Token = '';
+  let identifier = '', pass = '', twoFactorPhone = '', otpRequestId = null;
   app.innerHTML = `
   <div class="auth-page">
     <div class="auth-card">
-      <h2>Masuk ke Akemat</h2>
-      <p class="lead">Masuk ke akun Akemat Foundation Anda.</p>
-      <div class="ff"><label>Email atau No. HP</label><input type="text" id="loginEmail" placeholder="email@anda.com atau 08xx…" /></div>
-      ${pwFieldHTML('loginPass','Password','••••••••')}
-      <div id="tsLogin" style="margin-top:10px"></div>
-      <div class="form-error" id="loginErr"></div>
-      <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:12px">Masuk</button>
-      <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
-        Belum punya akun? <a href="#register" style="color:var(--accent2);font-weight:700">Daftar sekarang →</a>
+      <div id="loginStep1">
+        <h2>Masuk ke Akemat</h2>
+        <p class="lead">Masuk ke akun Akemat Foundation Anda.</p>
+        <div class="ff"><label>Email atau No. HP</label><input type="text" id="loginEmail" placeholder="email@anda.com atau 08xx…" /></div>
+        ${pwFieldHTML('loginPass','Password','••••••••')}
+        <div id="tsLogin" style="margin-top:10px"></div>
+        <div class="form-error" id="loginErr"></div>
+        <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:12px">Masuk</button>
+        <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
+          Belum punya akun? <a href="#register" style="color:var(--accent2);font-weight:700">Daftar sekarang →</a>
+        </div>
+        <div style="text-align:center;margin-top:8px;font-size:.84rem">
+          <a href="#lupa-password" style="color:var(--soft)">Lupa password?</a>
+        </div>
       </div>
-      <div style="text-align:center;margin-top:8px;font-size:.84rem">
-        <a href="#lupa-password" style="color:var(--soft)">Lupa password?</a>
+      <div id="loginStep2" style="display:none">
+        <h2>Verifikasi 2 Langkah</h2>
+        <p class="lead">Akun ini mengaktifkan verifikasi 2 langkah. Kirim kode OTP ke nomor WhatsApp terdaftar Anda dulu.</p>
+        <div id="tsLogin2fa" style="margin-bottom:12px"></div>
+        <button class="btn btn-outline btn-full" id="btnLogin2faSend">Kirim Kode OTP WA</button>
+        <div class="ff" id="login2faCodeWrap" style="display:none;margin-top:12px">
+          <label>Kode OTP WhatsApp</label>
+          <input type="text" id="login2faCode" inputmode="numeric" maxlength="6" placeholder="6 digit kode" style="letter-spacing:.3em" />
+        </div>
+        <div class="form-error" id="login2faErr"></div>
+        <button class="btn btn-primary btn-full" id="btnLogin2faVerify" style="display:none;margin-top:10px">Verifikasi &amp; Masuk</button>
       </div>
     </div>
   </div>`;
   renderTurnstile('tsLogin', (t)=>{ tsToken = t; });
 
   document.getElementById('btnLogin')?.addEventListener('click',async ()=>{
-    const identifier = document.getElementById('loginEmail')?.value.trim();
-    const pass  = document.getElementById('loginPass')?.value;
+    identifier = document.getElementById('loginEmail')?.value.trim();
+    pass  = document.getElementById('loginPass')?.value;
     const err   = document.getElementById('loginErr');
     const btn   = document.getElementById('btnLogin');
     if(btn.disabled) return;
@@ -1218,10 +1233,59 @@ function renderLogin(){
       toast('Selamat datang, '+u.name.split(' ')[0]+'!','s');
       navigate('#home');
     } catch(e) {
-      err.textContent = e.message || 'Email/No. HP atau password salah.';
+      if(e.twoFactorRequired){
+        twoFactorPhone = e.phone;
+        document.getElementById('loginStep1').style.display = 'none';
+        document.getElementById('loginStep2').style.display = 'block';
+        renderTurnstile('tsLogin2fa', (t)=>{ ts2Token = t; });
+      } else {
+        err.textContent = e.message || 'Email/No. HP atau password salah.';
+      }
     } finally {
       btn.disabled = false;
       window.turnstile?.reset(); tsToken = ''; // token sekali pakai — siapkan yang baru buat percobaan berikutnya
+    }
+  });
+
+  document.getElementById('btnLogin2faSend')?.addEventListener('click', async ()=>{
+    const err = document.getElementById('login2faErr');
+    const btn = document.getElementById('btnLogin2faSend');
+    if(btn.disabled) return;
+    if(!ts2Token){ err.textContent = 'Selesaikan verifikasi keamanan di atas terlebih dahulu.'; return; }
+    err.textContent = '';
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Mengirim…';
+    try {
+      otpRequestId = await Otp.send(twoFactorPhone, ts2Token);
+      document.getElementById('login2faCodeWrap').style.display = 'block';
+      document.getElementById('btnLogin2faVerify').style.display = 'block';
+      btn.style.display = 'none';
+      toast('Kode OTP dikirim via WhatsApp.','s');
+    } catch(e){
+      err.textContent = e.message || 'Gagal mengirim OTP.';
+      btn.disabled = false; btn.textContent = orig;
+    } finally {
+      window.turnstile?.reset(); ts2Token = '';
+    }
+  });
+
+  document.getElementById('btnLogin2faVerify')?.addEventListener('click', async ()=>{
+    const err  = document.getElementById('login2faErr');
+    const code = document.getElementById('login2faCode')?.value.trim();
+    const btn  = document.getElementById('btnLogin2faVerify');
+    if(btn.disabled) return;
+    if(!code){ err.textContent = 'Masukkan kode OTP.'; return; }
+    err.textContent = '';
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Memeriksa…';
+    try {
+      const proof = await Otp.verify(otpRequestId, code, twoFactorPhone);
+      const u = await Store.login(identifier, pass, '', proof);
+      toast('Selamat datang, '+u.name.split(' ')[0]+'!','s');
+      navigate('#home');
+    } catch(e) {
+      err.textContent = e.message || 'Kode OTP salah atau kadaluarsa.';
+      btn.disabled = false; btn.textContent = orig;
     }
   });
 
@@ -2529,6 +2593,12 @@ async function renderProfile(){
       ${u.role==='nurse'?nursePayoutSection(u, nurseAvailable, nursePayouts):''}
 
       <div class="dash-section">
+        <div class="dash-sh"><h3>🔐 Keamanan</h3><span class="bank-status ${u.twoFactorEnabled?'verified':'empty'}">${u.twoFactorEnabled?'✓ Aktif':'✕ Nonaktif'}</span></div>
+        <p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Verifikasi 2 langkah — kalau aktif, tiap kali masuk butuh kode OTP WhatsApp tambahan selain password, ke nomor HP terdaftar Anda.</p>
+        <button class="btn ${u.twoFactorEnabled?'btn-outline':'btn-primary'} btn-sm" id="btnToggle2fa">${u.twoFactorEnabled?'Matikan Verifikasi 2 Langkah':'Aktifkan Verifikasi 2 Langkah'}</button>
+      </div>
+
+      <div class="dash-section">
         <div class="dash-sh"><h3>🔔 Notifikasi</h3><span class="bank-status ${pushOn?'verified':'empty'}">${pushOn?'✓ Aktif':'✕ Nonaktif'}</span></div>
         <p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Dapat pemberitahuan langsung ke HP saat status KTP berubah, janji temu dikonfirmasi/selesai, atau ada donasi baru masuk ke campaign Anda.</p>
         <button class="btn ${pushOn?'btn-outline':'btn-primary'} btn-sm" id="btnTogglePush">${pushOn?'Matikan Notifikasi':'Aktifkan Notifikasi'}</button>
@@ -2719,6 +2789,23 @@ async function renderProfile(){
     btn.disabled = true;
     const ok = pushOn ? await disablePushNotifications() : await enablePushNotifications();
     if(ok) renderProfile(); else btn.disabled = false;
+  });
+
+  document.getElementById('btnToggle2fa')?.addEventListener('click', async (ev)=>{
+    if(Store.backend !== 'remote'){ toast('Verifikasi 2 langkah belum didukung di mode lokal.','e'); return; }
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = 'Menyimpan…';
+    try {
+      await Store.updateUser(u.id, { twoFactorEnabled: !u.twoFactorEnabled });
+      toast(u.twoFactorEnabled ? 'Verifikasi 2 langkah dimatikan.' : 'Verifikasi 2 langkah diaktifkan. Login berikutnya akan minta kode OTP WA.','s');
+      renderProfile();
+    } catch(e) {
+      toast('Gagal: '+(e.message||'coba lagi.'),'e');
+      btn.disabled = false; btn.textContent = orig;
+    }
   });
 
   document.getElementById('btnDeleteAccount')?.addEventListener('click', async ()=>{

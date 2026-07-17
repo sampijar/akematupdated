@@ -87,7 +87,11 @@ async function handleLogin(req, res, body) {
   if (!email || !password) return res.status(400).json({ error: 'Email dan password wajib diisi.' });
 
   const ip = clientIp(req);
-  if (!(await verifyTurnstile(body.turnstileToken, ip))) {
+  // Kalau ini panggilan ke-2 (menyelesaikan 2FA, sudah bawa twoFactorProof),
+  // tidak perlu Turnstile lagi — proof OTP WA sendiri sudah pembuktian yang
+  // lebih kuat, dan pengiriman OTP-nya sendiri (api/fazpass-otp) sudah
+  // digerbangi Turnstile terpisah.
+  if (!body.twoFactorProof && !(await verifyTurnstile(body.turnstileToken, ip))) {
     return res.status(400).json({ error: 'Verifikasi keamanan gagal, coba lagi.' });
   }
   const limit = await checkRateLimit(`login:${email}:${ip}`, 8, 15);
@@ -104,9 +108,27 @@ async function handleLogin(req, res, body) {
       const msg = data?.error_description || data?.msg || data?.error || 'Email atau password salah.';
       return res.status(401).json({ error: /invalid/i.test(msg) ? 'Email atau password salah.' : msg });
     }
+
+    // Password sudah benar (Supabase Auth sudah keluarkan token di atas) —
+    // kalau akun ini aktifkan 2FA WA-OTP, JANGAN kembalikan token dulu
+    // sebelum proof OTP-nya diverifikasi juga. proof diperiksa terhadap
+    // nomor HP yang tersimpan di akun (bukan dari klaim klien), pola yang
+    // sama seperti verifyProof di alur registrasi/reset-password.
+    const uid = data.user?.id;
+    if (uid) {
+      const profRes = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${uid}&select=phone,two_factor_enabled`, { headers: supaHeaders() });
+      const profRows = await profRes.json().catch(() => []);
+      const account = Array.isArray(profRows) ? profRows[0] : null;
+      if (account?.two_factor_enabled) {
+        if (!verifyProof(account.phone, body.twoFactorProof)) {
+          return res.status(200).json({ twoFactorRequired: true, phone: account.phone });
+        }
+      }
+    }
+
     const deviceId = String(body.deviceId || '').trim();
-    if (deviceId && data.user?.id) {
-      await checkNewDeviceAndAlert(data.user.id, email, deviceId, req.headers['user-agent'], ip).catch(() => {});
+    if (deviceId && uid) {
+      await checkNewDeviceAndAlert(uid, email, deviceId, req.headers['user-agent'], ip).catch(() => {});
     }
     return res.status(200).json({ access_token: data.access_token, refresh_token: data.refresh_token, user: data.user });
   } catch (err) {
