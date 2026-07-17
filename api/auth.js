@@ -13,6 +13,7 @@
 const { verifyProof } = require('../lib/otpProof');
 const { checkRateLimit, clientIp } = require('../lib/rateLimit');
 const { passwordPolicyError } = require('../lib/passwordPolicy');
+const { verifyTurnstile } = require('../lib/turnstile');
 
 const SUPABASE_URL      = process.env.SUPABASE_URL?.trim();
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY?.trim();
@@ -49,6 +50,9 @@ async function handleLogin(req, res, body) {
   if (!email || !password) return res.status(400).json({ error: 'Email dan password wajib diisi.' });
 
   const ip = clientIp(req);
+  if (!(await verifyTurnstile(body.turnstileToken, ip))) {
+    return res.status(400).json({ error: 'Verifikasi keamanan gagal, coba lagi.' });
+  }
   const limit = await checkRateLimit(`login:${email}:${ip}`, 8, 15);
   if (!limit.allowed) return res.status(429).json({ error: 'Terlalu banyak percobaan login. Coba lagi dalam beberapa menit.' });
 

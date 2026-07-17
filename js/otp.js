@@ -31,10 +31,10 @@ async function fetchWithTimeout(url, opts, ms = 20000) {
   }
 }
 
-async function otpSend(phone) {
+async function otpSend(phone, turnstileToken) {
   const res  = await fetchWithTimeout(OTP_API, {
     method: 'POST', headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({ action:'send', phone }),
+    body: JSON.stringify({ action:'send', phone, turnstileToken }),
   });
   const data = await parseOtpResponse(res);
   if (!res.ok || !data.success) throw new Error(data.error || 'Gagal mengirim kode OTP');

@@ -490,6 +490,12 @@
   <!-- ── Modal: Konfirmasi Booking (dari nurse detail) ── -->
   <!-- Booking langsung diproses di halaman detail perawat, tidak butuh modal terpisah -->
 
+  <!-- ─── Cloudflare Turnstile (CAPTCHA) — render=explicit karena widget-nya
+       dipasang lewat innerHTML dinamis (SPA), bukan HTML statis saat load,
+       jadi auto-scan bawaan script ini tidak akan menemukannya. Di-render
+       manual lewat turnstile.render(...) di app.js begitu form muncul. ── -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+
   <!-- ─── Data & App Scripts ────────────────────────────── -->
   <script src="js/data.js"></script>
   <script src="js/api.js"></script>

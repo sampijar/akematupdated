@@ -569,12 +569,12 @@ const SupabaseAuth = {
   // rate-nya di server — lihat komentar di file itu. Token yang didapat lalu
   // dipasang ke SDK lewat setSession supaya sesi tetap dikelola/di-refresh
   // otomatis oleh SDK seperti biasa.
-  async signIn({ email, password }) {
+  async signIn({ email, password, turnstileToken }) {
     if (!this.client) throw new Error('Supabase belum siap');
     const res = await fetch(`${API_BASE}/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', email, password }),
+      body: JSON.stringify({ action: 'login', email, password, turnstileToken }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Email atau password salah.');
@@ -641,7 +641,7 @@ const Store = {
 
   // identifier boleh email atau No. HP — Supabase Auth cuma kenal email, jadi
   // No. HP di-resolve dulu ke email terdaftar sebelum proses login sungguhan.
-  async login(identifier, password) {
+  async login(identifier, password, turnstileToken) {
     const isPhone = identifier && !identifier.includes('@');
     if (this.backend === 'remote') {
       let email = identifier;
@@ -649,7 +649,7 @@ const Store = {
         email = await Cloud.getEmailByPhone(identifier);
         if (!email) throw new Error('Email atau password salah.');
       }
-      const authUser = await SupabaseAuth.signIn({ email, password });
+      const authUser = await SupabaseAuth.signIn({ email, password, turnstileToken });
       this.currentUser = await Cloud.getUserById(authUser.id);
       return this.currentUser;
     }

@@ -53,6 +53,28 @@ function initAnalyticsWithConsent(gaId){
   });
 }
 
+// ── CAPTCHA (Cloudflare Turnstile) — login, kirim OTP registrasi, kirim
+// OTP lupa-password. Site key aman ditaruh di frontend (bukan rahasia,
+// cuma identitas widget); verifikasi sungguhan pakai secret key di server
+// (lib/turnstile.js), token dari sini cuma "klaim", bukan bukti. ────────
+const TURNSTILE_SITE_KEY = '0x4AAAAAAD37Bj3lBSYI7N5z';
+function renderTurnstile(containerId, onToken){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  (function tryRender(){
+    if(window.turnstile?.render){
+      window.turnstile.render('#'+containerId, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: onToken,
+        'expired-callback': ()=>onToken(''),
+        'error-callback': ()=>onToken(''),
+      });
+    } else {
+      setTimeout(tryRender, 200); // script Turnstile masih loading, coba lagi
+    }
+  })();
+}
+
 // ── Aturan kekuatan password ─────────────────────────────────
 // Balikin pesan error (string) kalau password terlalu lemah, atau null
 // kalau sudah cukup kuat. Dicek lagi otoritatif di server (Supabase Auth
@@ -1136,6 +1158,7 @@ async function renderCampaignDetail(id){
 
 // ── Auth ────────────────────────────────────────────────────
 function renderLogin(){
+  let tsToken = '';
   app.innerHTML = `
   <div class="auth-page">
     <div class="auth-card">
@@ -1143,6 +1166,7 @@ function renderLogin(){
       <p class="lead">Masuk ke akun Akemat Foundation Anda.</p>
       <div class="ff"><label>Email atau No. HP</label><input type="text" id="loginEmail" placeholder="email@anda.com atau 08xx…" /></div>
       ${pwFieldHTML('loginPass','Password','••••••••')}
+      <div id="tsLogin" style="margin-top:10px"></div>
       <div class="form-error" id="loginErr"></div>
       <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:12px">Masuk</button>
       <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
@@ -1153,6 +1177,7 @@ function renderLogin(){
       </div>
     </div>
   </div>`;
+  renderTurnstile('tsLogin', (t)=>{ tsToken = t; });
 
   document.getElementById('btnLogin')?.addEventListener('click',async ()=>{
     const identifier = document.getElementById('loginEmail')?.value.trim();
@@ -1161,16 +1186,18 @@ function renderLogin(){
     const btn   = document.getElementById('btnLogin');
     if(btn.disabled) return;
     if(!identifier||!pass){ err.textContent = 'Isi email/No. HP dan password.'; return; }
+    if(!tsToken){ err.textContent = 'Selesaikan verifikasi keamanan di atas terlebih dahulu.'; return; }
     err.textContent = '';
     btn.disabled = true;
     try {
-      const u = await Store.login(identifier, pass);
+      const u = await Store.login(identifier, pass, tsToken);
       toast('Selamat datang, '+u.name.split(' ')[0]+'!','s');
       navigate('#home');
     } catch(e) {
       err.textContent = e.message || 'Email/No. HP atau password salah.';
     } finally {
       btn.disabled = false;
+      window.turnstile?.reset(); tsToken = ''; // token sekali pakai — siapkan yang baru buat percobaan berikutnya
     }
   });
 
@@ -1187,6 +1214,7 @@ function renderForgotPassword(){
   let otpRequestId = null;
   let verifiedPhone = null;
   let otpProof = null;
+  let tsToken = '';
 
   app.innerHTML = `
   <div class="auth-page">
@@ -1196,6 +1224,7 @@ function renderForgotPassword(){
 
       <div id="fpStep1">
         <div class="ff"><label>No. HP terdaftar</label><input type="tel" id="fpPhone" placeholder="08xx…" /></div>
+        <div id="tsForgot" style="margin:10px 0"></div>
         <button class="btn btn-primary btn-full" id="btnFpSendOtp" style="margin-top:8px">Kirim OTP WA</button>
       </div>
 
@@ -1219,6 +1248,7 @@ function renderForgotPassword(){
       </div>
     </div>
   </div>`;
+  renderTurnstile('tsForgot', (t)=>{ tsToken = t; });
 
   document.getElementById('btnFpSendOtp')?.addEventListener('click', async ()=>{
     const err   = document.getElementById('fpErr');
@@ -1226,13 +1256,14 @@ function renderForgotPassword(){
     const btn   = document.getElementById('btnFpSendOtp');
     err.textContent = '';
     if(!phone){ err.textContent = 'Isi nomor HP terlebih dahulu.'; return; }
+    if(!tsToken){ err.textContent = 'Selesaikan verifikasi keamanan terlebih dahulu.'; return; }
     if(btn.disabled) return; // cegah klik ganda memicu 2 request OTP sekaligus
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Memeriksa…';
     try {
       if(!(await Store.getUserByPhone(phone))){ err.textContent = 'Nomor HP tidak terdaftar.'; return; }
       btn.textContent = 'Mengirim…';
-      otpRequestId = await Otp.send(phone);
+      otpRequestId = await Otp.send(phone, tsToken);
       verifiedPhone = phone;
       document.getElementById('fpStep1').style.display = 'none';
       document.getElementById('fpStep2').style.display = 'block';
@@ -1241,6 +1272,7 @@ function renderForgotPassword(){
       err.textContent = e.message || 'Gagal mengirim OTP.';
     } finally {
       btn.disabled = false; btn.textContent = orig;
+      window.turnstile?.reset(); tsToken = ''; // token sekali pakai
     }
   });
 
@@ -1291,6 +1323,7 @@ function renderRegister(){
   let otpRequestId  = null;
   let verifiedPhone = '';
   let otpProof      = null;
+  let tsToken       = '';
   app.innerHTML = `
   <div class="auth-page">
     <div class="auth-card">
@@ -1325,6 +1358,7 @@ function renderRegister(){
           </div>
         </div>
       </div>
+      <div id="tsRegister" style="margin:6px 0"></div>
       <div class="ff" id="otpSection" style="display:none">
         <label>Kode OTP WhatsApp</label>
         <div style="display:flex;gap:8px">
@@ -1364,6 +1398,7 @@ function renderRegister(){
       </div>
     </div>
   </div>`;
+  renderTurnstile('tsRegister', (t)=>{ tsToken = t; });
 
   function updateRoleUI(){
     document.getElementById('nurseExtra').style.display  = selRole==='nurse'?'block':'none';
@@ -1393,11 +1428,12 @@ function renderRegister(){
     const btn = document.getElementById('btnSendOtp');
     err.textContent = '';
     if(!phone){ err.textContent = 'Isi nomor HP terlebih dahulu.'; return; }
+    if(!tsToken){ err.textContent = 'Selesaikan verifikasi keamanan terlebih dahulu.'; return; }
     if(btn.disabled) return; // cegah klik ganda memicu 2 request OTP sekaligus
     const orig = btn.textContent;
     btn.disabled = true; btn.textContent = 'Mengirim…';
     try {
-      otpRequestId = await Otp.send(phone);
+      otpRequestId = await Otp.send(phone, tsToken);
       verifiedPhone = phone;
       document.getElementById('otpSection').style.display = 'block';
       document.getElementById('otpStatus').textContent = 'Kode dikirim via WhatsApp ke '+phone+'.';
@@ -1406,6 +1442,7 @@ function renderRegister(){
       err.textContent = e.message || 'Gagal mengirim OTP.';
     } finally {
       btn.disabled = false; btn.textContent = orig;
+      window.turnstile?.reset(); tsToken = ''; // token sekali pakai
     }
   });
 

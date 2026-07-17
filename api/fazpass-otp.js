@@ -21,6 +21,7 @@
 
 const { issueProof } = require('../lib/otpProof');
 const { checkRateLimit, clientIp } = require('../lib/rateLimit');
+const { verifyTurnstile } = require('../lib/turnstile');
 
 const BASE = 'https://api.fazpass.com';
 
@@ -73,9 +74,14 @@ module.exports = async (req, res) => {
     const phone = normalizePhone(p.phone);
     if (!phone || phone.length < 10) return res.status(400).json({ error:'Nomor HP tidak valid' });
 
+    const ip = clientIp(req);
+    // CAPTCHA dulu SEBELUM rate limit — kirim OTP WA biaya per pesan nyata,
+    // jangan sampai bot bisa habiskan kuota rate limit orang asli.
+    if (!(await verifyTurnstile(p.turnstileToken, ip))) {
+      return res.status(400).json({ error: 'Verifikasi keamanan gagal, coba lagi.' });
+    }
     // Batasi spam kirim OTP (biaya per SMS/WA nyata, dan celah brute-force
     // kalau tidak dibatasi) — per nomor HP dan per IP, dua-duanya dicek.
-    const ip = clientIp(req);
     const [byPhone, byIp] = await Promise.all([
       checkRateLimit(`otp-send:phone:${phone}`, 3, 60),
       checkRateLimit(`otp-send:ip:${ip}`, 10, 60),
