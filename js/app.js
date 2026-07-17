@@ -178,7 +178,22 @@ const app = document.getElementById('app');
 
 function navigate(hash){ location.hash = hash; }
 
+function routeProgressStart(){
+  const bar = document.getElementById('route-progress');
+  if(!bar) return;
+  bar.classList.remove('done');
+  void bar.offsetWidth;
+  bar.classList.add('active');
+}
+function routeProgressDone(){
+  const bar = document.getElementById('route-progress');
+  if(!bar) return;
+  bar.classList.remove('active');
+  bar.classList.add('done');
+}
+
 async function route(){
+  routeProgressStart();
   const hash  = location.hash.replace('#','') || '';
   const parts = hash.split('/');
   const page  = parts[0];
@@ -207,6 +222,7 @@ async function route(){
   app.classList.add('page-transition');
   window.scrollTo(0,0);
   trackPageView();
+  routeProgressDone();
 }
 
 window.addEventListener('hashchange', route);
@@ -930,7 +946,7 @@ async function renderCampaignDetail(id){
   <div class="container cam-detail-wrap">
     <div>
       <div class="cam-story-card">
-        ${c.imageUrl?'<img src="'+c.imageUrl+'" alt="Foto campaign '+esc(c.title)+'" class="cam-cover-img" />':''}
+        ${c.imageUrl?'<img src="'+c.imageUrl+'" alt="Foto campaign '+esc(c.title)+'" class="cam-cover-img" loading="lazy" />':''}
         <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:18px">
           <div>${specBadge(c.category||'Donasi')}</div>
           ${c.verified?'<span class="badge badge-green">'+ICON.check+' Campaign Terverifikasi</span>':'<span class="badge badge-amber">Belum terverifikasi</span>'}
@@ -1542,7 +1558,7 @@ async function renderAdminDash(){
   const u = Store.getCurrentUser();
   if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
   if(!adminOtpProof){ renderAdminOtpGate(u); return; }
-  app.innerHTML = '<div class="container" style="padding:40px 20px;text-align:center"><p>Memuat…</p></div>';
+  app.innerHTML = '<div class="app-loading"><div class="app-loading-spinner"></div><p>Memuat data admin…</p></div>';
 
   async function adminApi(payload){
     try {
@@ -1578,9 +1594,9 @@ async function renderAdminDash(){
   }
 
   function ktpCard(k){
-    return '<div class="dash-section" style="margin-bottom:12px">'+
+    return '<div class="dash-section" id="ktp-row-'+k.id+'" style="margin-bottom:12px">'+
       '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+
-      (k.ktp_url?'<img src="'+k.ktp_url+'" alt="Foto KTP" style="width:160px;border-radius:var(--r-sm);border:1px solid var(--border)" />':'<div style="width:160px;height:100px;background:var(--bg-alt);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:.76rem">Tidak ada foto</div>')+
+      (k.ktp_url?'<img src="'+k.ktp_url+'" alt="Foto KTP" style="width:160px;border-radius:var(--r-sm);border:1px solid var(--border)" loading="lazy" />':'<div style="width:160px;height:100px;background:var(--bg-alt);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:.76rem">Tidak ada foto</div>')+
       '<div style="flex:1;min-width:180px">'+
       '<div style="font-family:var(--font-d);font-weight:700">'+esc(k.name)+'</div>'+
       '<div style="font-size:.8rem;color:var(--soft)">'+esc(k.email)+' · '+esc(k.phone||'—')+'</div>'+
@@ -1591,9 +1607,9 @@ async function renderAdminDash(){
       '</div></div></div></div>';
   }
   function patKtpCard(k){
-    return '<div class="dash-section" style="margin-bottom:12px">'+
+    return '<div class="dash-section" id="pkt-row-'+k.id+'" style="margin-bottom:12px">'+
       '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'+
-      (k.ktp_url?'<img src="'+k.ktp_url+'" alt="Foto KTP" style="width:160px;border-radius:var(--r-sm);border:1px solid var(--border)" />':'<div style="width:160px;height:100px;background:var(--bg-alt);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:.76rem">Tidak ada foto</div>')+
+      (k.ktp_url?'<img src="'+k.ktp_url+'" alt="Foto KTP" style="width:160px;border-radius:var(--r-sm);border:1px solid var(--border)" loading="lazy" />':'<div style="width:160px;height:100px;background:var(--bg-alt);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:.76rem">Tidak ada foto</div>')+
       '<div style="flex:1;min-width:180px">'+
       '<div style="font-family:var(--font-d);font-weight:700">'+esc(k.name)+' <span style="font-weight:400;color:var(--soft);font-size:.8rem">('+esc(k.relationship)+')</span></div>'+
       '<div style="font-size:.74rem;color:var(--soft);margin-top:4px">Diunggah: '+esc((k.created_at||'').slice(0,10))+'</div>'+
@@ -1603,7 +1619,7 @@ async function renderAdminDash(){
       '</div></div></div></div>';
   }
   function campCard(c){
-    return '<div class="dash-section" style="margin-bottom:12px">'+
+    return '<div class="dash-section" id="camp-row-'+c.id+'" style="margin-bottom:12px">'+
       '<div style="font-family:var(--font-d);font-weight:700">'+esc(c.title)+'</div>'+
       '<div style="font-size:.8rem;color:var(--soft)">oleh '+esc(c.creator_name)+' · target '+rpFmt(c.target)+'</div>'+
       '<div style="font-size:.8rem;margin-top:6px">🏦 '+esc(c.bank_name||'—')+' — '+esc(c.bank_account_number||'—')+' a.n. '+esc(c.bank_account_name||'—')+'</div>'+
@@ -1618,7 +1634,7 @@ async function renderAdminDash(){
     var usageTxt = pc.max_uses!=null ? (pc.used_count||0)+' / '+pc.max_uses+' dipakai' : (pc.used_count||0)+' dipakai (tanpa batas)';
     var statusCls = pc.active ? 'verified' : 'empty';
     var statusLbl = pc.active ? '✓ Aktif' : '✕ Nonaktif';
-    return '<div class="dash-section" style="margin-bottom:12px">'+
+    return '<div class="dash-section" id="promo-row-'+pc.id+'" style="margin-bottom:12px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'+
       '<div><div style="font-family:var(--font-d);font-weight:700">'+esc(pc.code)+'</div>'+
       '<div style="font-size:.8rem;color:var(--soft)">Potongan '+discTxt+(pc.min_amount?' · min. '+rpFmt(pc.min_amount):'')+' · berlaku untuk '+esc(pc.applies_to)+'</div>'+
@@ -1635,12 +1651,12 @@ async function renderAdminDash(){
     '<div style="max-width:760px">'+
     '<h2 style="margin-bottom:4px">Panel Admin</h2>'+
     '<p style="color:var(--soft);font-size:.86rem;margin-bottom:24px">Review manual — dipakai sampai verifikasi otomatis dibangun (kalau nanti diputuskan).</p>'+
-    '<h3 style="margin-bottom:10px">🪪 KTP Akun Menunggu Verifikasi ('+ktps.length+')</h3>'+
-    (ktps.length ? ktps.map(ktpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
-    '<h3 style="margin:24px 0 10px">🧑‍🤝‍🧑 KTP Profil Pasien Menunggu Verifikasi ('+patKtps.length+')</h3>'+
-    (patKtps.length ? patKtps.map(patKtpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
-    '<h3 style="margin:24px 0 10px">💰 Campaign Menunggu Verifikasi ('+camps.length+')</h3>'+
-    (camps.length ? camps.map(campCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+
+    '<h3 id="ktpHeading" style="margin-bottom:10px">🪪 KTP Akun Menunggu Verifikasi ('+ktps.length+')</h3>'+
+    '<div id="ktpList">'+(ktps.length ? ktps.map(ktpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+'</div>'+
+    '<h3 id="pktHeading" style="margin:24px 0 10px">🧑‍🤝‍🧑 KTP Profil Pasien Menunggu Verifikasi ('+patKtps.length+')</h3>'+
+    '<div id="pktList">'+(patKtps.length ? patKtps.map(patKtpCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+'</div>'+
+    '<h3 id="campHeading" style="margin:24px 0 10px">💰 Campaign Menunggu Verifikasi ('+camps.length+')</h3>'+
+    '<div id="campList">'+(camps.length ? camps.map(campCard).join('') : '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>')+'</div>'+
     '<h3 style="margin:24px 0 10px">🎟️ Kode Promo</h3>'+
     '<div class="dash-section" style="margin-bottom:12px">'+
     '<div class="profile-grid">'+
@@ -1653,7 +1669,7 @@ async function renderAdminDash(){
     '</div>'+
     '<button class="btn btn-accent btn-sm" id="btnCreatePromo" style="margin-top:6px">+ Buat Kode Promo</button>'+
     '</div>'+
-    (promos.length ? promos.map(promoRow).join('') : '<p style="color:var(--soft);font-size:.84rem">Belum ada kode promo.</p>')+
+    '<div id="promoList">'+(promos.length ? promos.map(promoRow).join('') : '<p style="color:var(--soft);font-size:.84rem">Belum ada kode promo.</p>')+'</div>'+
     '<h3 style="margin:24px 0 10px">📋 Log Audit (50 terakhir)</h3>'+
     '<div class="dash-section" style="max-height:320px;overflow-y:auto">'+
     (auditLog.length ? '<table style="width:100%;font-size:.78rem;border-collapse:collapse">'+
@@ -1667,9 +1683,42 @@ async function renderAdminDash(){
     '</div>'+
     '</div></div>';
 
+  // Hapus satu kartu dari layar dengan fade halus + update angka counter di
+  // heading-nya, TANPA fetch ulang seluruh Panel Admin — supaya klik
+  // approve/reject/hapus berulang kali kerasa instan, bukan kedip
+  // "Memuat…" tiap kali (log audit di bawah baru ter-update saat halaman
+  // dibuka ulang — trade-off yang wajar untuk responsivitas).
+  function removeRowSmooth(rowId, listId, headingId, label){
+    const card = document.getElementById(rowId);
+    const list = document.getElementById(listId);
+    if(!card) return;
+    card.style.transition = 'opacity .22s ease, transform .22s ease';
+    card.style.opacity = '0';
+    card.style.transform = 'scale(.97)';
+    setTimeout(()=>{
+      card.remove();
+      const remaining = list ? list.children.length : 0;
+      const heading = document.getElementById(headingId);
+      if(heading) heading.textContent = label+' ('+remaining+')';
+      if(list && remaining === 0) list.innerHTML = '<p style="color:var(--soft);font-size:.84rem;margin-bottom:24px">Tidak ada yang menunggu.</p>';
+    }, 220);
+  }
+
+  const ROW_CONFIG = {
+    approveKtp:        { row:'ktp-row-',  list:'ktpList',  heading:'ktpHeading',  label:'🪪 KTP Akun Menunggu Verifikasi' },
+    rejectKtp:         { row:'ktp-row-',  list:'ktpList',  heading:'ktpHeading',  label:'🪪 KTP Akun Menunggu Verifikasi' },
+    approvePatientKtp: { row:'pkt-row-',  list:'pktList',  heading:'pktHeading',  label:'🧑‍🤝‍🧑 KTP Profil Pasien Menunggu Verifikasi' },
+    rejectPatientKtp:  { row:'pkt-row-',  list:'pktList',  heading:'pktHeading',  label:'🧑‍🤝‍🧑 KTP Profil Pasien Menunggu Verifikasi' },
+    approveCampaign:   { row:'camp-row-', list:'campList', heading:'campHeading', label:'💰 Campaign Menunggu Verifikasi' },
+    deleteCampaign:    { row:'camp-row-', list:'campList', heading:'campHeading', label:'💰 Campaign Menunggu Verifikasi' },
+  };
   async function runAction(action, id, okMsg){
-    try { await adminApi({ action, id }); toast(okMsg,'s'); renderAdminDash(); }
-    catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
+    try {
+      await adminApi({ action, id });
+      toast(okMsg,'s');
+      const cfg = ROW_CONFIG[action];
+      if(cfg) removeRowSmooth(cfg.row+id, cfg.list, cfg.heading, cfg.label);
+    } catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
   }
   document.querySelectorAll('[data-approve-ktp]').forEach(b=>b.addEventListener('click',()=>runAction('approveKtp', b.dataset.approveKtp, 'KTP disetujui.')));
   document.querySelectorAll('[data-reject-ktp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Tolak KTP ini? Status kembali ke belum diunggah.')) runAction('rejectKtp', b.dataset.rejectKtp, 'KTP ditolak.'); }));
@@ -1679,15 +1728,35 @@ async function renderAdminDash(){
   document.querySelectorAll('[data-delete-camp]').forEach(b=>b.addEventListener('click',()=>{ if(confirm('Hapus campaign ini? Tidak bisa dibatalkan.')) runAction('deleteCampaign', b.dataset.deleteCamp, 'Campaign dihapus.'); }));
 
   document.querySelectorAll('[data-toggle-promo]').forEach(b=>b.addEventListener('click', async ()=>{
+    const id = b.dataset.togglePromo;
+    const newActive = b.dataset.active === 'true';
     try {
-      await adminApi({ action:'togglePromoCode', id:b.dataset.togglePromo, data:{ active: b.dataset.active==='true' } });
-      toast('Status kode promo diperbarui.','s'); renderAdminDash();
+      await adminApi({ action:'togglePromoCode', id, data:{ active: newActive } });
+      toast('Status kode promo diperbarui.','s');
+      const row = document.getElementById('promo-row-'+id);
+      const badge = row?.querySelector('.bank-status');
+      if(badge){ badge.className = 'bank-status '+(newActive?'verified':'empty'); badge.textContent = newActive?'✓ Aktif':'✕ Nonaktif'; }
+      b.textContent = newActive ? 'Nonaktifkan' : 'Aktifkan';
+      b.dataset.active = String(!newActive);
     } catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
   }));
   document.querySelectorAll('[data-delete-promo]').forEach(b=>b.addEventListener('click', async ()=>{
     if(!confirm('Hapus kode promo ini? Tidak bisa dibatalkan.')) return;
-    try { await adminApi({ action:'deletePromoCode', id:b.dataset.deletePromo }); toast('Kode promo dihapus.','s'); renderAdminDash(); }
-    catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
+    const id = b.dataset.deletePromo;
+    try {
+      await adminApi({ action:'deletePromoCode', id });
+      toast('Kode promo dihapus.','s');
+      const row = document.getElementById('promo-row-'+id);
+      if(row){
+        row.style.transition = 'opacity .22s ease, transform .22s ease';
+        row.style.opacity = '0'; row.style.transform = 'scale(.97)';
+        setTimeout(()=>{
+          row.remove();
+          const list = document.getElementById('promoList');
+          if(list && !list.children.length) list.innerHTML = '<p style="color:var(--soft);font-size:.84rem">Belum ada kode promo.</p>';
+        }, 220);
+      }
+    } catch(e) { toast('Gagal: '+(e.message||'coba lagi.'),'e'); }
   }));
   document.getElementById('btnCreatePromo')?.addEventListener('click', async (ev)=>{
     const btn = ev.currentTarget;
@@ -1717,13 +1786,13 @@ function patientProfilesSection(profiles){
   function card(p){
     var cls = p.ktpStatus==='verified' ? 'verified' : p.ktpStatus==='uploaded' ? 'pending' : 'empty';
     var lbl = p.ktpStatus==='verified' ? '✓ Terverifikasi' : p.ktpStatus==='uploaded' ? '⏳ Menunggu verifikasi' : p.ktpStatus==='rejected' ? '✕ Ditolak — unggah ulang' : '❌ KTP belum diunggah';
-    return '<div class="dash-section" style="margin-bottom:12px">'+
+    return '<div class="dash-section" id="pp-card-'+p.id+'" style="margin-bottom:12px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'+
       '<div><div style="font-family:var(--font-d);font-weight:700">'+esc(p.name)+'</div>'+
       '<div style="font-size:.78rem;color:var(--soft)">'+esc(p.relationship)+'</div></div>'+
       '<span class="bank-status '+cls+'">'+lbl+'</span>'+
       '</div>'+
-      (p.ktpUrl?'<img src="'+p.ktpUrl+'" alt="Foto KTP '+esc(p.name)+'" style="max-width:160px;border-radius:var(--r-sm);border:1px solid var(--border);margin-top:10px;display:block" />':'')+
+      (p.ktpUrl?'<img src="'+p.ktpUrl+'" alt="Foto KTP '+esc(p.name)+'" style="max-width:160px;border-radius:var(--r-sm);border:1px solid var(--border);margin-top:10px;display:block" loading="lazy" />':'')+
       '<label style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:.76rem;color:var(--soft);cursor:pointer">'+
       '<input type="checkbox" class="pp-ktp-consent" data-consent-for="'+p.id+'" style="margin-top:2px" />'+
       '<span>Saya menyetujui foto KTP ini digunakan untuk verifikasi identitas sesuai <a href="#privasi" target="_blank">Kebijakan Privasi</a>.</span></label>'+
@@ -1748,7 +1817,7 @@ function ktpSection(u){
   return '<div class="dash-section">'+
     '<div class="dash-sh"><h3>📎 Verifikasi Identitas (KTP)</h3><span class="bank-status '+cls+'">'+lbl+'</span></div>'+
     '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diunggah sebelum janji temu/campaign pertama Anda. Foto KTP (JPG/PNG), maks. 5MB — pastikan foto, NIK, dan alamat terbaca jelas.</p>'+
-    (u.ktpUrl?'<img src="'+u.ktpUrl+'" alt="Foto KTP tersimpan" style="max-width:220px;border-radius:var(--r-sm);border:1px solid var(--border);display:block;margin-bottom:10px" />':'')+
+    (u.ktpUrl?'<img src="'+u.ktpUrl+'" alt="Foto KTP tersimpan" style="max-width:220px;border-radius:var(--r-sm);border:1px solid var(--border);display:block;margin-bottom:10px" loading="lazy" />':'')+
     '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:var(--bg-alt)">'+
     '<span style="font-size:1.4rem">🪪</span>'+
     '<div><div style="font-family:var(--font-d);font-weight:600;font-size:.84rem;color:var(--primary)" id="ktpFilename">'+(u.ktpUrl?'KTP tersimpan — klik untuk ganti':'Pilih foto KTP')+'</div>'+
@@ -2212,7 +2281,16 @@ async function renderProfile(){
     }));
     document.querySelectorAll('[data-delete-pp]').forEach(b=>b.addEventListener('click', async ()=>{
       if(!confirm('Hapus profil pasien ini? Riwayat janji temu yang sudah ada tetap tersimpan.')) return;
-      try { await Store.deletePatientProfile(b.dataset.deletePp); toast('Profil pasien dihapus.','s'); renderProfile(); }
+      try {
+        await Store.deletePatientProfile(b.dataset.deletePp);
+        toast('Profil pasien dihapus.','s');
+        const card = document.getElementById('pp-card-'+b.dataset.deletePp);
+        if(card){
+          card.style.transition = 'opacity .22s ease, transform .22s ease';
+          card.style.opacity = '0'; card.style.transform = 'scale(.97)';
+          setTimeout(()=>card.remove(), 220);
+        }
+      }
       catch(e){ toast('Gagal menghapus: '+(e.message||'coba lagi.'),'e'); }
     }));
     document.getElementById('btnSavePatientProfile')?.addEventListener('click', async (ev)=>{

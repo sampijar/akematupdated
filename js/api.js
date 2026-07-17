@@ -61,6 +61,28 @@ async function apiFetch(endpoint, body) {
   return data;
 }
 
+// ── Cache ringan (TTL) untuk daftar yang sering dibuka bolak-balik tapi
+// jarang berubah (perawat, campaign) — supaya pindah halaman kerasa
+// instan, bukan nunggu fetch ulang tiap kali. Bukan cache "benar" (tidak
+// dipakai untuk data sensitif per-pengguna seperti booking/donasi/profil —
+// itu tetap selalu fetch fresh). Diinvalidasi manual saat pengguna sendiri
+// mengubah data terkait, supaya perubahan sendiri langsung kelihatan;
+// perubahan dari pengguna LAIN baru kelihatan dalam maks. TTL_MS.
+const _cache = new Map();
+function cacheGet(key) {
+  const hit = _cache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.data;
+  if (hit) _cache.delete(key);
+  return undefined;
+}
+function cacheSet(key, data, ttlMs) {
+  _cache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+function cacheInvalidate(prefix) {
+  for (const k of _cache.keys()) if (k.startsWith(prefix)) _cache.delete(k);
+}
+const LIST_CACHE_TTL = 30000; // 30 detik
+
 // ── Mapping: baris Supabase (snake_case) ⇄ bentuk internal app (camelCase) ──
 // Semua fungsi CloudDB di bawah SELALU menerima/mengembalikan objek berbentuk
 // persis seperti DB.* (data.js) supaya app.js tidak perlu tahu backend mana
@@ -339,25 +361,36 @@ const Cloud = {
       const npRow = npUpdateToRow(data.np);
       if (Object.keys(npRow).length) {
         await apiFetch('db', { action:'update', table:'nurse_profiles', filters:{ user_id:`eq.${id}` }, data: npRow });
+        cacheInvalidate('nurses:');
       }
     }
     return this.getUserById(id);
   },
 
   async getNurses(filters = {}) {
+    const cacheKey = 'nurses:' + JSON.stringify(filters);
+    const cached = cacheGet(cacheKey);
+    if (cached) return cached;
     const params = {};
     if (filters.specialty && filters.specialty !== 'Semua') params.specialty = `eq.${filters.specialty}`;
     if (filters.avail) params.is_available = 'eq.true';
     const d = await apiFetch('db', { action:'select', table:'nurse_profiles', filters: params });
     const nps = d.data || [];
     const users = await Promise.all(nps.map(np => this.getUserById(np.user_id)));
-    return users.filter(Boolean);
+    const result = users.filter(Boolean);
+    cacheSet(cacheKey, result, LIST_CACHE_TTL);
+    return result;
   },
 
   // Campaigns
   async getCampaigns() {
+    const cacheKey = 'campaigns:list';
+    const cached = cacheGet(cacheKey);
+    if (cached) return cached;
     const d = await apiFetch('db', { action:'select', table:'campaigns', filters:{ order:'created_at.desc' } });
-    return (d.data || []).map(rowToCampaign);
+    const result = (d.data || []).map(rowToCampaign);
+    cacheSet(cacheKey, result, LIST_CACHE_TTL);
+    return result;
   },
   async getCampaignById(id) {
     const d = await apiFetch('db', { action:'select', table:'campaigns', filters:{ id:`eq.${id}`, limit:1 } });
@@ -370,11 +403,13 @@ const Cloud = {
   async addCampaign(data) {
     const row = campaignToRow({ current:0, donorCount:0, verified:false, ...data });
     const d = await apiFetch('db', { action:'insert', table:'campaigns', data: row });
+    cacheInvalidate('campaigns:');
     return rowToCampaign(d.data?.[0]);
   },
   async updateCampaign(id, data) {
     const row = campaignToRow(data);
     await apiFetch('db', { action:'update', table:'campaigns', id, data: row });
+    cacheInvalidate('campaigns:');
     return this.getCampaignById(id);
   },
 
