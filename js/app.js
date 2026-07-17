@@ -234,10 +234,14 @@ function renderHeader(){
   // setelah nav penuh disembunyikan di HP.
   const searchRow = document.getElementById('headerSearchRow');
   if(searchRow){
+    // Toggle: dari halaman Profil, tap avatar lagi balik ke Beranda —
+    // dievaluasi tiap route() jalan (hash sudah update duluan sebelum
+    // renderHeader dipanggil), jadi selalu cerminkan halaman saat ini.
+    const onProfil = location.hash.startsWith('#profil');
     searchRow.innerHTML =
       '<a href="#perawat" class="header-search-btn">'+ICON.search+'<span>Cari perawat, layanan…</span></a>'+
       (u
-        ? '<a href="#profil" class="header-avatar-btn" aria-label="Profil saya"><div class="header-avatar">'+initials(u.name)+'</div></a>'
+        ? '<a href="'+(onProfil?'#home':'#profil')+'" class="header-avatar-btn" aria-label="'+(onProfil?'Beranda':'Profil saya')+'"><div class="header-avatar">'+initials(u.name)+'</div></a>'
         : '<a href="#login" class="header-avatar-btn" aria-label="Masuk"><div class="header-avatar">'+ICON.user+'</div></a>'
       );
   }
