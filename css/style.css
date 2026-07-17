@@ -68,7 +68,8 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .badge-orange{background:#FFEDD5;color:#9A3412}
 
 /* ── Header ──────────────────────────────────────────────── */
-.site-header{position:sticky;top:0;z-index:40;height:var(--hh);background:rgba(251,247,241,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.site-header{position:sticky;top:0;z-index:40;height:var(--hh);background:rgba(251,247,241,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);transition:transform .25s ease}
+.site-header.header-hidden{transform:translateY(-100%)}
 .header-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;height:100%;padding:0 24px;max-width:var(--w);margin:0 auto}
 .logo{display:inline-flex;align-items:center;gap:9px;font-family:var(--font-d);font-weight:600;font-size:.98rem;color:var(--primary);flex-shrink:0}
 .logo-mark{width:32px;height:32px}
@@ -94,8 +95,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .header-avatar-btn{flex-shrink:0;text-decoration:none}
 
 /* ── Baris link "Bantuan & Informasi" di halaman Profil (ala Gojek) ── */
-.help-link-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 2px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--ink)}
+.help-link-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 2px;border-bottom:1px solid var(--border);text-decoration:none;color:var(--ink);-webkit-tap-highlight-color:transparent;transition:opacity .12s ease}
 .help-link-row:last-child{border-bottom:none}
+.help-link-row:active{opacity:.6}
 .help-link-icon{display:flex;color:var(--primary);width:20px;height:20px;flex-shrink:0}
 .help-link-icon svg{width:100%;height:100%}
 .help-link-chevron{display:flex;color:var(--soft);width:16px;height:16px;flex-shrink:0}
@@ -107,6 +109,13 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .app-loading-spinner{width:42px;height:42px;border-radius:50%;border:4px solid var(--bg-alt);border-top-color:var(--primary);border-right-color:var(--accent);animation:app-spin .75s linear infinite}
 @keyframes app-spin{to{transform:rotate(360deg)}}
 .app-loading.inline{min-height:0;padding:48px 20px}
+
+/* ── Pull-to-refresh (custom — bounce browser native dimatikan lewat
+   overscroll-behavior-y:contain di body, ini penggantinya) ────── */
+#ptr-indicator{position:fixed;top:calc(var(--hh) + 10px);left:50%;transform:translate(-50%,-20px) scale(.5);opacity:0;z-index:80;width:38px;height:38px;border-radius:50%;background:var(--card);box-shadow:var(--sh-md);display:flex;align-items:center;justify-content:center;transition:opacity .15s ease;pointer-events:none}
+#ptr-indicator.visible{opacity:1}
+#ptr-indicator.refreshing #ptr-spinner{animation:app-spin .6s linear infinite}
+#ptr-spinner{width:18px;height:18px;border-radius:50%;border:3px solid var(--bg-alt);border-top-color:var(--primary)}
 
 /* ── Skeleton shimmer — placeholder kartu selagi data dimuat ────── */
 .skel{background:linear-gradient(90deg,var(--bg-alt) 25%,#e8e4da 37%,var(--bg-alt) 63%);background-size:400% 100%;animation:skel-sweep 1.4s ease infinite;border-radius:var(--r-sm)}
@@ -159,8 +168,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 
 /* ── Nurse cards ─────────────────────────────────────────── */
 .nurse-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:18px}
-.nurse-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;gap:12px;transition:box-shadow var(--tr),border-color var(--tr),transform var(--tr)}
+.nurse-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;gap:12px;transition:box-shadow var(--tr),border-color var(--tr),transform var(--tr);-webkit-tap-highlight-color:transparent}
 .nurse-card:hover{box-shadow:var(--sh-md);border-color:var(--primary-lt);transform:translateY(-2px)}
+.nurse-card:active{transform:scale(.98)}
 .nc-head{display:flex;gap:12px;align-items:flex-start}
 .nc-avatar{width:52px;height:52px;border-radius:50%;background:var(--bg-alt);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-weight:800;font-size:1.1rem;color:var(--primary);flex-shrink:0;position:relative}
 .nc-verified{position:absolute;bottom:0;right:0;width:14px;height:14px;background:var(--success);border:2px solid #fff;border-radius:50%}
@@ -182,8 +192,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 
 /* ── Campaign cards ──────────────────────────────────────── */
 .campaign-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(295px,1fr));gap:18px}
-.campaign-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column;transition:box-shadow var(--tr),transform var(--tr)}
+.campaign-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column;transition:box-shadow var(--tr),transform var(--tr);-webkit-tap-highlight-color:transparent}
 .campaign-card:hover{box-shadow:var(--sh-md);transform:translateY(-2px)}
+.campaign-card:active{transform:scale(.98)}
 .cam-banner{height:100px;display:flex;align-items:center;justify-content:center;position:relative;font-size:2.5rem}
 .cam-verified{position:absolute;top:8px;right:8px;background:var(--success);color:#fff;font-size:.66rem;font-weight:700;padding:3px 8px;border-radius:999px;font-family:var(--font-d);display:inline-flex;align-items:center;gap:3px}
 .cam-verified svg{width:10px;height:10px;flex-shrink:0}
@@ -526,7 +537,14 @@ body.modal-open #toast.vis{transform:translateX(-50%) translateY(0)}
      ada seperti biasa. */
   .wa-fab{display:none}
   #toast{bottom:calc(78px + env(safe-area-inset-bottom))!important}
+
+  /* Modal jadi bottom-sheet ala app native di HP — geser dari bawah,
+     nempel di tepi bawah layar, bukan kotak mengambang di tengah. */
+  .modal-overlay{align-items:flex-end;padding:0}
+  .modal{max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:88vh;padding:10px 22px 26px;animation:sheet-up .28s cubic-bezier(.16,1,.3,1) both;padding-bottom:calc(26px + env(safe-area-inset-bottom))}
+  .modal::before{content:'';display:block;width:36px;height:4px;border-radius:999px;background:var(--border);margin:0 auto 16px}
 }
+@keyframes sheet-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @media(max-width:480px){
   .role-pick-grid{grid-template-columns:minmax(0,1fr)}
   .amount-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

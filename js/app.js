@@ -453,7 +453,12 @@ function filterNurses(list, { q, specialty, education, avail } = {}){
   return out;
 }
 
+function skeletonGrid(gridClass, n){
+  return '<div class="'+gridClass+'">'+Array(n).fill('<div class="skel skel-card"></div>').join('')+'</div>';
+}
+
 async function renderNurseList(){
+  app.innerHTML = '<section class="pub-section"><div class="container">'+skeletonGrid('nurse-grid', 6)+'</div></section>';
   const nurses = await Store.getNurses();
   const allNurses = nurses;
   // Datang dari kartu spesialisasi di Home? Pre-filter sekali, lalu buang (link
@@ -883,6 +888,7 @@ async function renderNurseDetail(id){
 
 // ── Campaign List ───────────────────────────────────────────
 async function renderCampaignList(){
+  app.innerHTML = '<section class="pub-section"><div class="container">'+skeletonGrid('campaign-grid', 6)+'</div></section>';
   const campaigns = await Store.getCampaigns();
   app.innerHTML = `
   <section class="pub-section">
@@ -2747,4 +2753,77 @@ document.addEventListener('DOMContentLoaded',async ()=>{
     if(e.target.classList.contains('modal-overlay')) closeModal(e.target.id);
     if(e.target.classList.contains('modal-x')) closeModal(e.target.closest('.modal-overlay')?.id);
   });
+
+  // Header menyembunyikan diri pas scroll ke bawah, muncul lagi pas scroll
+  // ke atas (selalu terlihat dekat puncak halaman) — pola umum app native
+  // biar layar lebih lega buat konten pas scroll baca-baca.
+  (function(){
+    const header = document.querySelector('.site-header');
+    if(!header) return;
+    let lastY = window.scrollY, ticking = false;
+    window.addEventListener('scroll', ()=>{
+      if(ticking) return;
+      ticking = true;
+      requestAnimationFrame(()=>{
+        const y = window.scrollY;
+        if(y > lastY + 4 && y > 80) header.classList.add('header-hidden');
+        else if(y < lastY - 4 || y <= 80) header.classList.remove('header-hidden');
+        lastY = y;
+        ticking = false;
+      });
+    }, { passive: true });
+  })();
+
+  // Pull-to-refresh custom (bounce browser native sudah dimatikan lewat
+  // overscroll-behavior-y:contain di body — ini penggantinya, cuma aktif
+  // dari touch di puncak halaman & bukan pas modal terbuka).
+  (function(){
+    const indicator = document.getElementById('ptr-indicator');
+    if(!indicator) return;
+    const THRESHOLD = 64, MAX_PULL = 90;
+    let startY = null, pulling = false, refreshing = false;
+
+    document.addEventListener('touchstart', (e)=>{
+      if(refreshing || window.scrollY > 0 || document.body.classList.contains('modal-open')) { startY = null; return; }
+      startY = e.touches[0].clientY;
+      pulling = false;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e)=>{
+      if(startY == null || refreshing) return;
+      const dy = e.touches[0].clientY - startY;
+      if(dy <= 0) { pulling = false; indicator.classList.remove('visible'); return; }
+      if(window.scrollY > 0) return; // sempat scroll duluan, batalkan
+      pulling = true;
+      e.preventDefault();
+      const pull = Math.min(MAX_PULL, dy * 0.5);
+      indicator.style.transform = 'translate(-50%,'+pull+'px) scale('+(0.5+pull/MAX_PULL*0.5)+')';
+      indicator.classList.add('visible');
+    }, { passive: false });
+
+    document.addEventListener('touchend', async ()=>{
+      if(!pulling){ startY = null; return; }
+      pulling = false;
+      const dy = indicator.style.transform.match(/,([\d.]+)px/);
+      const pull = dy ? parseFloat(dy[1]) : 0;
+      startY = null;
+      if(pull >= THRESHOLD){
+        refreshing = true;
+        indicator.classList.add('refreshing');
+        indicator.style.transform = 'translate(-50%,'+THRESHOLD+'px) scale(1)';
+        cacheInvalidate('nurses:');
+        cacheInvalidate('campaigns:');
+        const started = Date.now();
+        await route();
+        const elapsed = Date.now() - started;
+        if(elapsed < 500) await new Promise(r=>setTimeout(r, 500 - elapsed));
+        indicator.classList.remove('refreshing','visible');
+        indicator.style.transform = '';
+        refreshing = false;
+      } else {
+        indicator.classList.remove('visible');
+        indicator.style.transform = '';
+      }
+    }, { passive: true });
+  })();
 });
