@@ -22,11 +22,16 @@ module.exports = async (req, res) => {
   // Kosong sampai GA_MEASUREMENT_ID diisi di Vercel — analytics baru aktif
   // begitu ID-nya di-set, tidak ada tracking terpasang secara default.
   const gaMeasurementId = process.env.GA_MEASUREMENT_ID?.trim() || null;
+  // Kunci publik VAPID buat PushManager.subscribe() di browser — aman
+  // diekspos (itu memang fungsinya), kebalikan dari VAPID_PRIVATE_KEY yang
+  // cuma dipakai server-side di lib/webPush.js.
+  const vapidPublicKey  = process.env.VAPID_PUBLIC_KEY?.trim() || null;
 
   return res.status(200).json({
     supabaseConfigured: !!(supabaseUrl && supabaseAnonKey),
     supabaseUrl,
     supabaseAnonKey,
     gaMeasurementId,
+    vapidPublicKey,
   });
 };

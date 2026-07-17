@@ -2250,6 +2250,51 @@ function renderFAQ(){
 }
 
 
+// ── Push Notification ──────────────────────────────────────
+// applicationServerKey butuh format Uint8Array, bukan string base64url
+// mentah — konversi standar sesuai dokumentasi Push API.
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+async function getPushSubscription(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    return await reg.pushManager.getSubscription();
+  } catch { return null; }
+}
+async function enablePushNotifications(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)){ toast('Browser ini tidak mendukung notifikasi push.','e'); return false; }
+  if(Store.backend !== 'remote'){ toast('Notifikasi belum didukung di mode lokal.','e'); return false; }
+  try {
+    const cfg = await (await fetch(`${API_BASE}/config`)).json();
+    if(!cfg?.vapidPublicKey){ toast('Notifikasi belum diaktifkan admin di server ini.','e'); return false; }
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){ toast('Izin notifikasi ditolak.','e'); return false; }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(cfg.vapidPublicKey) });
+    await apiFetch('push-subscribe', { action:'subscribe', subscription: sub.toJSON() });
+    toast('Notifikasi diaktifkan.','s');
+    return true;
+  } catch(e){ toast('Gagal mengaktifkan notifikasi: '+(e.message||'coba lagi.'),'e'); return false; }
+}
+async function disablePushNotifications(){
+  try {
+    const sub = await getPushSubscription();
+    if(sub){
+      await apiFetch('push-subscribe', { action:'unsubscribe', subscription: sub.toJSON() }).catch(()=>{});
+      await sub.unsubscribe();
+    }
+    toast('Notifikasi dinonaktifkan.','s');
+    return true;
+  } catch(e){ toast('Gagal menonaktifkan: '+(e.message||'coba lagi.'),'e'); return false; }
+}
+
 // ── Profile ─────────────────────────────────────────────────
 async function renderProfile(){
   const u = Store.getCurrentUser();
@@ -2262,6 +2307,8 @@ async function renderProfile(){
   }
   let patientProfiles = [];
   if (u.role === 'patient') patientProfiles = await Store.getPatientProfiles(u.id);
+  const pushSub = await getPushSubscription();
+  const pushOn  = !!pushSub && Notification?.permission === 'granted';
 
   app.innerHTML = `
   <div class="dash-wrap">
@@ -2293,6 +2340,12 @@ async function renderProfile(){
       ${u.role==='patient'?patientProfilesSection(patientProfiles):ktpSection(u)}
       ${u.role!=='patient'?bankStatusSection(u):''}
       ${u.role==='nurse'?nursePayoutSection(u, nurseAvailable, nursePayouts):''}
+
+      <div class="dash-section">
+        <div class="dash-sh"><h3>🔔 Notifikasi</h3><span class="bank-status ${pushOn?'verified':'empty'}">${pushOn?'✓ Aktif':'✕ Nonaktif'}</span></div>
+        <p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Dapat pemberitahuan langsung ke HP saat status KTP berubah, janji temu dikonfirmasi/selesai, atau ada donasi baru masuk ke campaign Anda.</p>
+        <button class="btn ${pushOn?'btn-outline':'btn-primary'} btn-sm" id="btnTogglePush">${pushOn?'Matikan Notifikasi':'Aktifkan Notifikasi'}</button>
+      </div>
 
       <div class="dash-section">
         <div class="dash-sh"><h3>💬 Bantuan & Informasi</h3></div>
@@ -2458,6 +2511,14 @@ async function renderProfile(){
     await Store.updateUser(u.id, { bankInfo:{ bankName, accountNumber:accNum, accountName:accName, verified:false }});
     toast('Data rekening disimpan. Verifikasi dalam 1×24 jam kerja.','s');
     setTimeout(()=>renderProfile(), 800);
+  });
+
+  document.getElementById('btnTogglePush')?.addEventListener('click', async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    btn.disabled = true;
+    const ok = pushOn ? await disablePushNotifications() : await enablePushNotifications();
+    if(ok) renderProfile(); else btn.disabled = false;
   });
 
   document.getElementById('btnDeleteAccount')?.addEventListener('click', async ()=>{

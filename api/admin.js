@@ -26,6 +26,7 @@
  * rekening) tidak cukup dibobol lewat password saja.
  */
 const { verifyProof } = require('../lib/otpProof');
+const { sendPushToUser } = require('../lib/webPush');
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
 const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
@@ -110,13 +111,19 @@ module.exports = async (req, res) => {
     if (action === 'approveKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`users?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'verified' });
-      if (r.ok) logAdmin(email, 'approveKtp', 'users', id);
+      if (r.ok) {
+        logAdmin(email, 'approveKtp', 'users', id);
+        sendPushToUser(id, { title: 'KTP disetujui ✓', body: 'Verifikasi identitas Anda sudah disetujui.', url: '/#profil' });
+      }
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
     if (action === 'rejectKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`users?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'rejected' });
-      if (r.ok) logAdmin(email, 'rejectKtp', 'users', id);
+      if (r.ok) {
+        logAdmin(email, 'rejectKtp', 'users', id);
+        sendPushToUser(id, { title: 'KTP ditolak', body: 'Foto KTP Anda ditolak — silakan unggah ulang di halaman Profil.', url: '/#profil' });
+      }
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 
@@ -127,13 +134,23 @@ module.exports = async (req, res) => {
     if (action === 'approvePatientKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`patient_profiles?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'verified' });
-      if (r.ok) logAdmin(email, 'approvePatientKtp', 'patient_profiles', id);
+      if (r.ok) {
+        logAdmin(email, 'approvePatientKtp', 'patient_profiles', id);
+        const accountId = r.data?.[0]?.account_id;
+        const name = r.data?.[0]?.name;
+        if (accountId) sendPushToUser(accountId, { title: 'KTP profil pasien disetujui ✓', body: 'Verifikasi identitas '+(name||'profil pasien')+' sudah disetujui.', url: '/#profil' });
+      }
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
     if (action === 'rejectPatientKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
       const r = await sb(`patient_profiles?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'rejected' });
-      if (r.ok) logAdmin(email, 'rejectPatientKtp', 'patient_profiles', id);
+      if (r.ok) {
+        logAdmin(email, 'rejectPatientKtp', 'patient_profiles', id);
+        const accountId = r.data?.[0]?.account_id;
+        const name = r.data?.[0]?.name;
+        if (accountId) sendPushToUser(accountId, { title: 'KTP profil pasien ditolak', body: 'Foto KTP '+(name||'profil pasien')+' ditolak — silakan unggah ulang di halaman Profil.', url: '/#profil' });
+      }
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 

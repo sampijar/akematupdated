@@ -31,6 +31,8 @@
  * 5. Push ke GitHub → Vercel auto-deploy
  */
 
+const { sendPushToUser } = require('../lib/webPush');
+
 const SUPABASE_URL = process.env.SUPABASE_URL?.trim();
 const SERVICE_KEY  = (process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)?.trim();
 
@@ -281,6 +283,18 @@ module.exports = async (req, res) => {
         const params = new URLSearchParams({ id: `eq.${targetId}` });
         params.set('or', `(patient_id.eq.${uid},nurse_id.eq.${uid})`);
         const r = await sbRequest(`bookings?${params}`, 'PATCH', clean);
+        if (r.ok && clean.status) {
+          // Notifikasi ke PIHAK LAIN (bukan yang barusan mengubah status
+          // sendiri) — pasien yang ubah, perawat dikabari, begitu sebaliknya.
+          const bk = r.data?.[0];
+          if (bk) {
+            const otherId = uid === bk.patient_id ? bk.nurse_id : bk.patient_id;
+            const statusLabel = { confirmed: 'dikonfirmasi', completed: 'selesai', cancelled: 'dibatalkan' }[clean.status];
+            if (otherId && statusLabel) {
+              sendPushToUser(otherId, { title: 'Status janji temu berubah', body: 'Janji temu '+(bk.service||'')+' sekarang '+statusLabel+'.', url: '/#dashboard' });
+            }
+          }
+        }
         return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
       }
       return denied();

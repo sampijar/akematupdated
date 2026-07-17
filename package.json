@@ -5,5 +5,8 @@
   "description": "Akemat Foundation — platform booking perawat & donasi kesehatan.",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
   }
 }

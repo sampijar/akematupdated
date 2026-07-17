@@ -16,6 +16,7 @@
  * 3. Push ke GitHub → Vercel auto-deploy
  */
 const { buildRequestHeaders } = require('../lib/dokuSignature');
+const { sendPushToUser } = require('../lib/webPush');
 
 const CLIENT_ID   = process.env.DOKU_CLIENT_ID?.trim();
 const SECRET_KEY  = process.env.DOKU_SECRET_KEY?.trim();
@@ -196,6 +197,16 @@ module.exports = async (req, res) => {
       });
       if (!ins.ok) return res.status(502).json({ error: 'Gagal mencatat donasi', detail: ins.data });
       await sb('rpc/increment_campaign', 'POST', { p_campaign_id: campaignId, p_amount: amount }).catch(() => {});
+      sb(`campaigns?id=eq.${encodeURIComponent(campaignId)}&select=title,created_by`, 'GET').then((camRes) => {
+        const cam = camRes.data?.[0];
+        if (cam?.created_by) {
+          sendPushToUser(cam.created_by, {
+            title: 'Donasi baru masuk 💚',
+            body: (anonymous ? 'Seseorang' : (donorName || 'Donatur')) + ' menyumbang '+'Rp'+amount.toLocaleString('id-ID')+' untuk "'+(cam.title||'campaign Anda')+'".',
+            url: '/#donasi/' + campaignId,
+          });
+        }
+      }).catch(() => {});
       return res.status(200).json({ success: true, paid: true, amount });
     }
 

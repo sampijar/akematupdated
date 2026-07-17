@@ -364,6 +364,21 @@ ALTER TABLE patient_profiles ADD CONSTRAINT patient_profiles_ktp_status_check CH
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS promo_code TEXT;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_amount BIGINT DEFAULT 0;
 
+-- ── Push notification ────────────────────────────────────────
+-- Satu pengguna bisa punya lebih dari satu langganan (HP + laptop, dst.).
+-- endpoint UNIQUE supaya subscribe ulang dari device yang sama tidak
+-- bikin baris dobel (upsert di api/push-subscribe.js).
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id    UUID REFERENCES users(id),
+  endpoint   TEXT NOT NULL UNIQUE,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+
 -- =========================================================
 -- CARA AKTIVASI:
 -- 1. Buka https://supabase.com/dashboard
