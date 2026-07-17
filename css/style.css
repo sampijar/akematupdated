@@ -29,6 +29,14 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary-
 textarea{resize:vertical}
 .container{width:100%;max-width:var(--w);margin:0 auto;padding:0 24px}
 
+/* display .wa-fab (tombol WA mengambang) SATU-SATUNYA di sini — properti
+   kosmetiknya (warna, shadow, animasi) ada di <style> inline index.html,
+   tapi display murni dikontrol dari sini supaya tidak ada dua sumber yang
+   bisa saling timpa tanpa sengaja (pernah kejadian: rule di index.html
+   menang di HP walau sudah di-disable lewat file ini). Default tampil
+   (desktop) — @media 780px di bawah mematikannya di HP. */
+.wa-fab{display:flex}
+
 /* Transisi halus tiap pindah halaman — instant hard-swap terasa seperti
    website biasa; fade+slide singkat ini yang bikin terasa seperti app. */
 #app.page-transition{animation:page-fade-in .26s cubic-bezier(.16,1,.3,1) both}
@@ -414,6 +422,9 @@ body.modal-open #toast.vis{transform:translateX(-50%) translateY(0)}
 .social-links{display:flex;gap:9px;margin-top:14px}
 .social-links a{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.25);color:#EAF2EE;transition:var(--tr)}
 .social-links a:hover{background:rgba(255,255,255,.1);border-color:var(--accent)}
+/* Ikon WA di baris sosmed cuma tampil di HP — di desktop kontak WA sudah
+   diwakili tombol mengambang (.wa-fab), jadi tidak perlu dobel. */
+.social-links a.wa-social-icon{display:none}
 .social-links svg{width:15px;height:15px}
 .f-nav h4,.f-cta h4{color:#fff;font-family:var(--font-d);font-size:.86rem;font-weight:700;margin:0 0 12px}
 .f-nav ul{display:flex;flex-direction:column;gap:8px}
@@ -534,8 +545,10 @@ body.modal-open #toast.vis{transform:translateX(-50%) translateY(0)}
   /* Di HP, tombol ini menutupi konten & terasa mengganggu (bukan pola app
      native) — kontak CS dipindah ke halaman Profil (ala Gojek: "Help &
      reports" ada di dalam profil, bukan tombol mengambang). Desktop tetap
-     ada seperti biasa. */
-  .wa-fab{display:none}
+     ada seperti biasa. Kontak WA gantinya jadi ikon kecil di baris sosmed
+     footer (lihat .wa-social-icon). */
+  .wa-fab{display:none!important}
+  .social-links a.wa-social-icon{display:inline-flex}
   #toast{bottom:calc(78px + env(safe-area-inset-bottom))!important}
 
   /* Modal jadi bottom-sheet ala app native di HP — geser dari bawah,
