@@ -376,6 +376,7 @@ export async function renderNurseDetail(id){
     if(appliedPromo) document.getElementById('bkDiscount').textContent = '-'+rpFmt(appliedPromo.discount);
   }
   updateBookCalc();
+  enterSubmits('bkPromoCode', 'btnApplyPromo');
 
   document.getElementById('btnApplyPromo')?.addEventListener('click', async ()=>{
     const input = document.getElementById('bkPromoCode');
