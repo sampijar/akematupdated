@@ -92,7 +92,7 @@ async function enablePushNotifications(){
   if(!('serviceWorker' in navigator) || !('PushManager' in window)){ toast('Browser ini tidak mendukung notifikasi push.','e'); return false; }
   if(Store.backend !== 'remote'){ toast('Notifikasi belum didukung di mode lokal.','e'); return false; }
   try {
-    const cfg = await (await fetch(`${API_BASE}/config`)).json();
+    const cfg = await (await fetchApiWithTimeout(`${API_BASE}/config`)).json();
     if(!cfg?.vapidPublicKey){ toast('Notifikasi belum diaktifkan admin di server ini.','e'); return false; }
     const perm = await Notification.requestPermission();
     if(perm !== 'granted'){ toast('Izin notifikasi ditolak.','e'); return false; }
