@@ -76,7 +76,15 @@ function urlBase64ToUint8Array(base64String){
 async function getPushSubscription(){
   if(!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
   try {
-    const reg = await navigator.serviceWorker.ready;
+    // navigator.serviceWorker.ready bisa nyangkut lama (SW baru pertama kali
+    // aktivasi, koneksi lemah, dll.) — status notifikasi cuma info sekunder
+    // di halaman Profil, JANGAN sampai bikin seluruh halaman gagal tampil
+    // gara-gara nunggu ini. Batasi maksimal 2.5 detik, anggap "belum aktif"
+    // kalau lebih lama, bukan bikin renderProfile() menggantung.
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(()=>reject(new Error('sw-ready-timeout')), 2500)),
+    ]);
     return await reg.pushManager.getSubscription();
   } catch { return null; }
 }
@@ -88,7 +96,10 @@ async function enablePushNotifications(){
     if(!cfg?.vapidPublicKey){ toast('Notifikasi belum diaktifkan admin di server ini.','e'); return false; }
     const perm = await Notification.requestPermission();
     if(perm !== 'granted'){ toast('Izin notifikasi ditolak.','e'); return false; }
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(()=>reject(new Error('Service worker belum siap, coba lagi sesaat.')), 4000)),
+    ]);
     const sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: urlBase64ToUint8Array(cfg.vapidPublicKey) });
     await apiFetch('db', { table:'push_subscriptions', action:'insert', data: sub.toJSON() });
     toast('Notifikasi diaktifkan.','s');
