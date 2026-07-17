@@ -6,6 +6,27 @@
   <title>Akemat Foundation — Layanan Perawat &amp; Donasi Kemanusiaan</title>
   <meta name="description" content="Akemat Foundation — Temukan perawat jiwa, lansia, maternitas, luka, dan paliatif yang hadir ke rumah Anda. Donasi untuk bantu keluarga yang membutuhkan." />
   <meta name="theme-color" content="#1F4D3F" />
+  <link rel="canonical" href="https://akematfoundation.org/" />
+
+  <!-- Data terstruktur schema.org — bantu Google tampilkan Akemat sebagai
+       organisasi kemanusiaan resmi di hasil pencarian (bukan cuma link
+       biasa), plus info kontak langsung. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "NGO",
+    "name": "Akemat Foundation",
+    "url": "https://akematfoundation.org/",
+    "logo": "https://akematfoundation.org/icons/icon-512.png",
+    "description": "Akemat Foundation mempertemukan keluarga dengan perawat jiwa, lansia, maternitas, luka, dan paliatif yang hadir ke rumah, seluruh layanan didukung donasi masyarakat.",
+    "areaServed": "ID",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer service",
+      "url": "https://wa.me/6285196407117"
+    }
+  }
+  </script>
 
   <!-- Open Graph / preview link saat di-share ke WhatsApp, Instagram, dst. -->
   <meta property="og:type" content="website" />
@@ -109,6 +130,16 @@
 
   <!-- ─── Banner status koneksi (diisi/ditampilkan oleh app.js) ──── -->
   <div id="offline-banner" role="status" aria-live="polite"></div>
+
+  <!-- ─── Persetujuan cookie/analytics (UU PDP) — tampil sekali sampai
+       pengguna memilih, keputusan disimpan di localStorage ──── -->
+  <div id="cookie-consent" role="dialog" aria-label="Persetujuan cookie" aria-live="polite">
+    <p>Kami memakai cookie analitik (Google Analytics) untuk memahami pemakaian situs ini. Data kunjungan tidak dijual/dibagikan ke pihak ketiga untuk iklan. Lihat <a href="#privasi">Kebijakan Privasi</a>.</p>
+    <div class="cc-actions">
+      <button type="button" class="btn btn-outline btn-sm" id="btnCookieDecline">Tolak</button>
+      <button type="button" class="btn btn-primary btn-sm" id="btnCookieAccept">Terima</button>
+    </div>
+  </div>
 
   <!-- ─── Header ────────────────────────────────────────── -->
   <header class="site-header">

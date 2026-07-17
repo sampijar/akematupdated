@@ -364,6 +364,13 @@ const DB = {
   saveReviews(r)          { localStorage.setItem(KEYS.REVIEWS, JSON.stringify(r)); },
   getReviewsByNurse(nid)  { return this.getReviews().filter(r => r.nurseId === nid); },
   getReviewsByPatient(pid){ return this.getReviews().filter(r => r.patientId === pid); },
+  // Testimoni di Beranda — cuma ulasan bagus (rating ≥4) yang ada komentarnya.
+  getTopReviews(limit=6) {
+    return this.getReviews()
+      .filter(r => r.rating >= 4 && r.comment)
+      .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, limit);
+  },
   addReview(data) {
     const all = this.getReviews();
     if (all.some(r => r.bookingId === data.bookingId)) throw new Error('Booking ini sudah pernah diulas.');

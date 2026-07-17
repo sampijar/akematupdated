@@ -180,6 +180,13 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 .section-head{margin-bottom:32px}
 .section-head h2{max-width:560px}
 
+/* ── Testimoni (Beranda tamu) ────────────────────────────── */
+.testimonial-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+.testimonial-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;gap:10px}
+.t-stars{color:#F59E0B;font-size:.95rem;letter-spacing:1px}
+.t-comment{font-size:.86rem;color:var(--ink);line-height:1.55;flex:1}
+.t-author{font-family:var(--font-d);font-weight:700;font-size:.8rem;color:var(--soft);margin:0}
+
 /* ── Nurse cards ─────────────────────────────────────────── */
 .nurse-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:18px}
 .nurse-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);padding:20px;display:flex;flex-direction:column;gap:12px;transition:box-shadow var(--tr),border-color var(--tr),transform var(--tr);-webkit-tap-highlight-color:transparent}
@@ -365,6 +372,22 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-off
 #offline-banner::before{content:'';width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#9AA0A6}
 #offline-banner.online::before{background:#3DDC84}
 @media(min-width:781px){ #offline-banner{bottom:24px} }
+
+/* ── Persetujuan cookie (UU PDP) ────────────────────────────── */
+#cookie-consent{
+  position:fixed;left:14px;right:14px;bottom:14px;z-index:210;
+  display:none;flex-direction:column;gap:12px;
+  background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);
+  padding:16px 18px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:var(--sh-md);
+  animation:sheet-up .3s cubic-bezier(.16,1,.3,1) both;
+}
+#cookie-consent.show{display:flex}
+#cookie-consent p{margin:0;font-size:.8rem;color:var(--soft);line-height:1.5}
+#cookie-consent .cc-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+@media(min-width:781px){
+  #cookie-consent{left:auto;right:24px;bottom:24px;max-width:380px;animation:none}
+}
 
 /* ── Custom select (ganti native <select>, biar tidak jadi picker gelap
    bawaan Android yang lepas dari tema app) ─────────────────────── */

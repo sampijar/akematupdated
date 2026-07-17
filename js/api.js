@@ -473,6 +473,13 @@ const Cloud = {
     const d = await apiFetch('db', { action:'select', table:'reviews', filters:{ patient_id:`eq.${patientId}` } });
     return (d.data || []).map(rowToReview);
   },
+  // Testimoni di Beranda — cuma ulasan bagus (rating ≥4) yang ada komentarnya.
+  async getTopReviews(limit=6) {
+    const d = await apiFetch('db', { action:'select', table:'reviews', filters:{
+      rating: 'gte.4', comment: 'not.is.null', order: 'created_at.desc', limit: String(limit),
+    }});
+    return (d.data || []).map(rowToReview);
+  },
   async addReview(data) {
     const d = await apiFetch('db', { action:'insert', table:'reviews', data:{ booking_id: data.bookingId, rating: data.rating, comment: data.comment } });
     return rowToReview(d.data?.[0]);
@@ -597,7 +604,7 @@ const Store = {
     let cfg = null;
     try { cfg = await (await fetch(`${API_BASE}/config`)).json(); } catch { /* config endpoint belum ada / gagal → tetap local */ }
 
-    if (cfg?.gaMeasurementId && typeof loadAnalytics === 'function') loadAnalytics(cfg.gaMeasurementId);
+    if (cfg?.gaMeasurementId && typeof initAnalyticsWithConsent === 'function') initAnalyticsWithConsent(cfg.gaMeasurementId);
 
     if (cfg?.supabaseConfigured) {
       const ready = await SupabaseAuth.init(cfg.supabaseUrl, cfg.supabaseAnonKey).catch(() => false);
@@ -711,6 +718,7 @@ const Store = {
   async getReviewsByNurse(nurseId)  { return this.backend==='remote' ? Cloud.getReviewsByNurse(nurseId) : DB.getReviewsByNurse(nurseId); },
   async getReviewsByPatient(pid)    { return this.backend==='remote' ? Cloud.getReviewsByPatient(pid) : DB.getReviewsByPatient(pid); },
   async addReview(data)             { return this.backend==='remote' ? Cloud.addReview(data) : DB.addReview(data); },
+  async getTopReviews(limit)        { return this.backend==='remote' ? Cloud.getTopReviews(limit) : DB.getTopReviews(limit); },
 
   async getDonationsByUser(uid)     { return this.backend==='remote' ? Cloud.getDonationsByUser(uid) : DB.getDonationsByUser(uid); },
   async getDonationsByCampaign(cid) { return this.backend==='remote' ? Cloud.getDonationsByCampaign(cid) : DB.getDonationsByCampaign(cid); },

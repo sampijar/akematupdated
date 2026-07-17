@@ -29,6 +29,30 @@ function trackPageView(){
   gtag('event', 'page_view', { page_location: location.href, page_path: location.hash || '#home' });
 }
 
+// ── Persetujuan cookie (UU PDP) — GA4 baru dimuat SETELAH pengguna
+// menyetujui, bukan otomatis begitu halaman dibuka. Keputusan disimpan di
+// localStorage supaya tidak ditanya ulang tiap kunjungan; "Tolak" dihormati
+// selamanya (tidak ada cara diam-diam mengaktifkan lagi).
+const COOKIE_CONSENT_KEY = 'akemat_cookie_consent';
+function initAnalyticsWithConsent(gaId){
+  if(!gaId) return;
+  const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
+  if(consent === 'granted'){ loadAnalytics(gaId); return; }
+  if(consent === 'denied') return;
+  const banner = document.getElementById('cookie-consent');
+  if(!banner) return;
+  banner.classList.add('show');
+  document.getElementById('btnCookieAccept')?.addEventListener('click', ()=>{
+    localStorage.setItem(COOKIE_CONSENT_KEY, 'granted');
+    banner.classList.remove('show');
+    loadAnalytics(gaId);
+  });
+  document.getElementById('btnCookieDecline')?.addEventListener('click', ()=>{
+    localStorage.setItem(COOKIE_CONSENT_KEY, 'denied');
+    banner.classList.remove('show');
+  });
+}
+
 // ── Aturan kekuatan password ─────────────────────────────────
 // Balikin pesan error (string) kalau password terlalu lemah, atau null
 // kalau sudah cukup kuat. Dicek lagi otoritatif di server (Supabase Auth
@@ -139,7 +163,12 @@ function fileToResizedDataUrl(file, maxDim=1000, quality=0.82){
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        // WebP biasanya 25-35% lebih kecil dari JPEG di kualitas yang sama —
+        // dicoba dulu, browser lama yang belum dukung otomatis balik ke JPEG
+        // (toDataURL diam-diam mengabaikan format yang tidak didukung dan
+        // balikin image/png, jadi deteksinya lihat prefix hasilnya).
+        const webp = canvas.toDataURL('image/webp', quality);
+        resolve(webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', quality));
       };
       img.src = reader.result;
     };
@@ -375,6 +404,8 @@ async function renderHome(){
     return;
   }
 
+  const topReviews = await Store.getTopReviews(6).catch(()=>[]);
+
   app.innerHTML = `
   <!-- Hero -->
   <section class="hero">
@@ -472,8 +503,35 @@ async function renderHome(){
     </div>
   </section>
 
+  ${testimonialsSection(topReviews)}
+
     ${renderFooterSection()}`;
   wireSpecGrid();
+}
+
+// Testimoni pengguna di Beranda (cuma tamu — pengguna yang sudah login
+// dianggap sudah "diyakinkan", lihat komentar di atas renderHome). Kosong
+// kalau belum ada ulasan bagus sama sekali — daripada tampilkan section
+// testimoni yang kosong melompong.
+function testimonialsSection(reviews){
+  if (!reviews.length) return '';
+  return `
+  <section class="pub-section">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">Kata mereka</p>
+        <h2>Dipercaya keluarga di seluruh Indonesia</h2>
+      </div>
+      <div class="testimonial-grid">
+        ${reviews.map(r=>`
+        <div class="testimonial-card">
+          <div class="t-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
+          <p class="t-comment">&ldquo;${esc(r.comment)}&rdquo;</p>
+          <p class="t-author">${esc(r.patientName || 'Pengguna Akemat')}</p>
+        </div>`).join('')}
+      </div>
+    </div>
+  </section>`;
 }
 
 // ── Nurse List ─────────────────────────────────────────────
@@ -2577,11 +2635,20 @@ function closeModal(id) { document.getElementById(id)?.classList.remove('open');
 // 'change' tetap jalan tanpa perlu diubah — cuma cara BUKANYA yang diganti
 // jadi bottom-sheet custom yang gayanya sama seperti modal lain di app ini.
 let _cselOverlay = null;
+// Fokus dikembalikan ke tombol trigger yang membuka sheet begitu sheet
+// ditutup (klik opsi, backdrop, atau Esc) — supaya pengguna keyboard/screen
+// reader tidak "kehilangan tempat" setelah sheet hilang dari DOM visual.
+let _sheetLastTrigger = null;
+document.addEventListener('keydown', (e)=>{
+  if(e.key !== 'Escape') return;
+  if(_cselOverlay?.classList.contains('open')) closeCselSheet();
+  else if(_cdateOverlay?.classList.contains('open')) closeCdateSheet();
+});
 function ensureCselOverlay(){
   if(_cselOverlay) return _cselOverlay;
   const el = document.createElement('div');
   el.className = 'csel-overlay';
-  el.innerHTML = '<div class="csel-sheet"><div class="csel-handle"></div><div class="csel-title" id="cselTitle"></div><div class="csel-options" id="cselOptions"></div></div>';
+  el.innerHTML = '<div class="csel-sheet" role="dialog" aria-modal="true" aria-labelledby="cselTitle"><div class="csel-handle"></div><div class="csel-title" id="cselTitle"></div><div class="csel-options" id="cselOptions" role="listbox"></div></div>';
   document.body.appendChild(el);
   el.addEventListener('click', (e)=>{ if(e.target === el) closeCselSheet(); });
   _cselOverlay = el;
@@ -2592,13 +2659,16 @@ function closeCselSheet(){
   _cselOverlay.classList.remove('open');
   document.body.style.overflow = '';
   document.body.classList.remove('modal-open');
+  _sheetLastTrigger?.setAttribute('aria-expanded', 'false');
+  _sheetLastTrigger?.focus();
+  _sheetLastTrigger = null;
 }
 function openCselSheet(selectEl, title, onPick){
   const overlay = ensureCselOverlay();
   document.getElementById('cselTitle').textContent = title;
   const optsWrap = document.getElementById('cselOptions');
   optsWrap.innerHTML = [...selectEl.options].map(o=>
-    '<button type="button" class="csel-opt'+(o.value===selectEl.value?' active':'')+'" data-value="'+esc(o.value)+'">'+
+    '<button type="button" class="csel-opt'+(o.value===selectEl.value?' active':'')+'" role="option" aria-selected="'+(o.value===selectEl.value)+'" data-value="'+esc(o.value)+'">'+
     '<span>'+esc(o.textContent)+'</span>'+(o.value===selectEl.value?'<span class="csel-check">'+ICON.check+'</span>':'')+
     '</button>'
   ).join('');
@@ -2613,6 +2683,7 @@ function openCselSheet(selectEl, title, onPick){
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
   document.body.classList.add('modal-open');
+  optsWrap.querySelector('.csel-opt.active, .csel-opt')?.focus();
 }
 function enhanceSelect(selectEl, title){
   if(!selectEl || selectEl.dataset.cselEnhanced) return;
@@ -2621,13 +2692,19 @@ function enhanceSelect(selectEl, title){
   const trigger = document.createElement('button');
   trigger.type = 'button';
   trigger.className = 'csel-trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
   selectEl.insertAdjacentElement('afterend', trigger);
   function render(){
     const label = selectEl.options[selectEl.selectedIndex]?.textContent || '';
     trigger.innerHTML = '<span>'+esc(label)+'</span><span class="csel-chevron">'+ICON.chevronDown+'</span>';
   }
   render();
-  trigger.addEventListener('click', ()=>openCselSheet(selectEl, title, render));
+  trigger.addEventListener('click', ()=>{
+    _sheetLastTrigger = trigger;
+    trigger.setAttribute('aria-expanded', 'true');
+    openCselSheet(selectEl, title, render);
+  });
   selectEl.addEventListener('change', render); // jaga-jaga ada kode lain yang set .value lalu dispatch 'change' manual
 }
 
@@ -2646,7 +2723,7 @@ function ensureCdateOverlay(){
   if(_cdateOverlay) return _cdateOverlay;
   const el = document.createElement('div');
   el.className = 'csel-overlay cdate-overlay';
-  el.innerHTML = '<div class="csel-sheet cdate-sheet"><div class="csel-handle"></div>'+
+  el.innerHTML = '<div class="csel-sheet cdate-sheet" role="dialog" aria-modal="true" aria-labelledby="cdateTitle"><div class="csel-handle"></div>'+
     '<div class="csel-title" id="cdateTitle"></div>'+
     '<div class="cdate-nav">'+
       '<button type="button" class="cdate-navbtn" id="cdatePrev" aria-label="Sebelumnya">'+ICON.chevronLeft+'</button>'+
@@ -2665,6 +2742,9 @@ function closeCdateSheet(){
   _cdateOverlay.classList.remove('open');
   document.body.style.overflow = '';
   document.body.classList.remove('modal-open');
+  _sheetLastTrigger?.setAttribute('aria-expanded', 'false');
+  _sheetLastTrigger?.focus();
+  _sheetLastTrigger = null;
 }
 function openCdateSheet(inputEl, title, onPick){
   const overlay = ensureCdateOverlay();
@@ -2743,13 +2823,19 @@ function enhanceDateInput(inputEl, title){
   const trigger = document.createElement('button');
   trigger.type = 'button';
   trigger.className = 'csel-trigger cdate-trigger';
+  trigger.setAttribute('aria-haspopup', 'dialog');
+  trigger.setAttribute('aria-expanded', 'false');
   inputEl.insertAdjacentElement('afterend', trigger);
   function render(){
     const has = !!inputEl.value;
     trigger.innerHTML = '<span'+(has?'':' style="color:var(--soft)"')+'>'+esc(has?fmtIdDate(inputEl.value):'Pilih tanggal')+'</span><span class="csel-chevron">'+ICON.chevronDown+'</span>';
   }
   render();
-  trigger.addEventListener('click', ()=>openCdateSheet(inputEl, title, render));
+  trigger.addEventListener('click', ()=>{
+    _sheetLastTrigger = trigger;
+    trigger.setAttribute('aria-expanded', 'true');
+    openCdateSheet(inputEl, title, render);
+  });
   inputEl.addEventListener('change', render);
 }
 
