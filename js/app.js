@@ -174,6 +174,16 @@ function togglePwField(btn){
   btn.setAttribute('aria-label', showing ? 'Lihat password' : 'Sembunyikan password');
 }
 
+// Tekan Enter/Go di keyboard HP dari satu input langsung memicu tombol
+// "langkah berikutnya" yang berdekatan — form multi-langkah (OTP, dst.)
+// gampang kerasa aneh kalau cuma bisa lanjut lewat tap tombol manual,
+// padahal keyboard native selalu punya tombol Enter/Go yang jalan.
+function enterSubmits(inputId, btnId){
+  document.getElementById(inputId)?.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); document.getElementById(btnId)?.click(); }
+  });
+}
+
 // ── Helper: render pay button without nested template literals ──
 function payBtnHTML(status, id){
   if(status==='pending' || status==='confirmed'){

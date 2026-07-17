@@ -165,6 +165,9 @@ export function renderForgotPassword(){
     </div>
   </div>`;
   renderTurnstile('tsForgot', (t)=>{ tsToken = t; });
+  enterSubmits('fpPhone', 'btnFpSendOtp');
+  enterSubmits('fpOtpCode', 'btnFpVerifyOtp');
+  enterSubmits('fpNewPass2', 'btnFpSavePass');
 
   document.getElementById('btnFpSendOtp')?.addEventListener('click', async ()=>{
     const err   = document.getElementById('fpErr');
@@ -315,6 +318,9 @@ export function renderRegister(){
     </div>
   </div>`;
   renderTurnstile('tsRegister', (t)=>{ tsToken = t; });
+  enterSubmits('regPhone', 'btnSendOtp');
+  enterSubmits('regOtpCode', 'btnVerifyOtp');
+  enterSubmits('regPass', 'btnRegister');
 
   function updateRoleUI(){
     document.getElementById('nurseExtra').style.display  = selRole==='nurse'?'block':'none';
