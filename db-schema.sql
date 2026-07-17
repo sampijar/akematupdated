@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   role        TEXT NOT NULL CHECK (role IN ('patient','nurse','donor')),
   address     TEXT,
   organization TEXT,
-  ktp_status  TEXT DEFAULT 'pending' CHECK (ktp_status IN ('pending','uploaded','verified')),
+  ktp_status  TEXT DEFAULT 'pending' CHECK (ktp_status IN ('pending','uploaded','verified','rejected')),
   ktp_url     TEXT,
   bank_name   TEXT,
   bank_account_number TEXT,
@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS patient_profiles (
   phone        TEXT,
   address      TEXT,
   notes        TEXT,
-  ktp_status   TEXT DEFAULT 'pending' CHECK (ktp_status IN ('pending','uploaded','verified')),
+  ktp_status   TEXT DEFAULT 'pending' CHECK (ktp_status IN ('pending','uploaded','verified','rejected')),
   ktp_url      TEXT,
   created_at   TIMESTAMPTZ DEFAULT NOW(),
   updated_at   TIMESTAMPTZ DEFAULT NOW()
@@ -298,6 +298,15 @@ BEGIN
   WHERE id = p_campaign_id;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ── Migrasi: tambah status 'rejected' untuk ktp_status ─────
+-- (Aman dijalankan berkali-kali — untuk database yang sudah ada sebelum
+-- status 'rejected' ditambahkan. Kalau baru CREATE TABLE dari nol, baris
+-- di atas sudah termasuk 'rejected' jadi ini tidak akan mengubah apa-apa.)
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_ktp_status_check;
+ALTER TABLE users ADD CONSTRAINT users_ktp_status_check CHECK (ktp_status IN ('pending','uploaded','verified','rejected'));
+ALTER TABLE patient_profiles DROP CONSTRAINT IF EXISTS patient_profiles_ktp_status_check;
+ALTER TABLE patient_profiles ADD CONSTRAINT patient_profiles_ktp_status_check CHECK (ktp_status IN ('pending','uploaded','verified','rejected'));
 
 -- =========================================================
 -- CARA AKTIVASI:

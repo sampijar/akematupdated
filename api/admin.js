@@ -88,7 +88,7 @@ module.exports = async (req, res) => {
     }
     if (action === 'rejectKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
-      const r = await sb(`users?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'pending' });
+      const r = await sb(`users?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'rejected' });
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 
@@ -103,7 +103,7 @@ module.exports = async (req, res) => {
     }
     if (action === 'rejectPatientKtp') {
       if (!id) return res.status(400).json({ error: 'id wajib' });
-      const r = await sb(`patient_profiles?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'pending' });
+      const r = await sb(`patient_profiles?id=eq.${encodeURIComponent(id)}`, 'PATCH', { ktp_status: 'rejected' });
       return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
     }
 

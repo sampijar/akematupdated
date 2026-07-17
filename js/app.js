@@ -501,7 +501,7 @@ async function renderNurseDetail(id){
   const currentUser = Store.getCurrentUser();
   const patientProfiles = currentUser?.role==='patient' ? await Store.getPatientProfiles(currentUser.id) : [];
   const reviews = await Store.getReviewsByNurse(n.id);
-  const bookableProfiles = patientProfiles.filter(pp => pp.ktpStatus !== 'pending');
+  const bookableProfiles = patientProfiles.filter(pp => pp.ktpStatus === 'uploaded' || pp.ktpStatus === 'verified');
 
   app.innerHTML = `
   <div class="container nurse-detail-wrap">
@@ -1458,7 +1458,7 @@ async function renderAdminDash(){
 function patientProfilesSection(profiles){
   function card(p){
     var cls = p.ktpStatus==='verified' ? 'verified' : p.ktpStatus==='uploaded' ? 'pending' : 'empty';
-    var lbl = p.ktpStatus==='verified' ? '✓ Terverifikasi' : p.ktpStatus==='uploaded' ? '⏳ Menunggu verifikasi' : '❌ KTP belum diunggah';
+    var lbl = p.ktpStatus==='verified' ? '✓ Terverifikasi' : p.ktpStatus==='uploaded' ? '⏳ Menunggu verifikasi' : p.ktpStatus==='rejected' ? '✕ Ditolak — unggah ulang' : '❌ KTP belum diunggah';
     return '<div class="dash-section" style="margin-bottom:12px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">'+
       '<div><div style="font-family:var(--font-d);font-weight:700">'+esc(p.name)+'</div>'+
@@ -1483,7 +1483,7 @@ function patientProfilesSection(profiles){
 function ktpSection(u){
   var status = u.ktpStatus || 'pending';
   var cls    = status==='verified' ? 'verified' : status==='uploaded' ? 'pending' : 'empty';
-  var lbl    = status==='verified' ? '✓ Terverifikasi' : status==='uploaded' ? '⏳ Menunggu verifikasi' : '❌ Belum diunggah';
+  var lbl    = status==='verified' ? '✓ Terverifikasi' : status==='uploaded' ? '⏳ Menunggu verifikasi' : status==='rejected' ? '✕ Ditolak — unggah ulang' : '❌ Belum diunggah';
   return '<div class="dash-section">'+
     '<div class="dash-sh"><h3>📎 Verifikasi Identitas (KTP)</h3><span class="bank-status '+cls+'">'+lbl+'</span></div>'+
     '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Wajib diunggah sebelum janji temu/campaign pertama Anda. Foto KTP (JPG/PNG), maks. 5MB — pastikan foto, NIK, dan alamat terbaca jelas.</p>'+
@@ -1577,7 +1577,7 @@ async function renderPatientDash(u){
   bookings.forEach(b=>{ b.reviewed = reviewedBookingIds.has(b.id); });
   const campaignIds = [...new Set(donations.map(d=>d.campaignId).filter(Boolean))];
   const campaignMap = new Map((await Promise.all(campaignIds.map(cid=>Store.getCampaignById(cid)))).filter(Boolean).map(c=>[c.id,c]));
-  const needsPatientProfile = !patientProfiles.some(p=>p.ktpStatus!=='pending');
+  const needsPatientProfile = !patientProfiles.some(p=>p.ktpStatus==='uploaded' || p.ktpStatus==='verified');
 
   app.innerHTML = `
   <div class="dash-wrap">
