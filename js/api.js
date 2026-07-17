@@ -37,6 +37,26 @@ function getDeviceId() {
   return id;
 }
 
+// Dipakai di HAMPIR SEMUA panggilan server (lewat apiFetch di bawah) — kalau
+// endpoint-nya lambat/menggantung (cold start Vercel, Supabase lagi
+// bermasalah, dll.), fetch tanpa timeout bisa bikin SELURUH aksi (login,
+// buat janji temu, donasi, simpan profil, dst.) macet selamanya di tombol
+// "Memproses…" tanpa pesan error. Pola yang sama seperti sudah dipakai lebih
+// dulu di otp.js dan payment.js — batasi 20 detik, lempar Error biasa
+// (ketangkap try/catch yang sudah ada di semua titik panggilan) kalau lewat.
+async function fetchApiWithTimeout(url, opts, ms = 20000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Server tidak merespons. Periksa koneksi internet Anda dan coba lagi.');
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 // ── Generic fetch helper ────────────────────────────────────
 // Endpoint 'db' butuh token sesi Supabase Auth supaya api/db.js bisa
 // memverifikasi siapa yang memanggil (lihat keamanan di api/db.js) — token
@@ -50,7 +70,7 @@ async function apiFetch(endpoint, body) {
       if (data?.session?.access_token) headers['Authorization'] = 'Bearer ' + data.session.access_token;
     } catch { /* tetap lanjut tanpa token — request publik masih boleh jalan */ }
   }
-  const res  = await fetch(`${API_BASE}/${endpoint}`, {
+  const res  = await fetchApiWithTimeout(`${API_BASE}/${endpoint}`, {
     method:  'POST',
     headers,
     body:    JSON.stringify(body),
@@ -308,7 +328,7 @@ function payoutToRow(data) {
 const Cloud = {
   async isAvailable() {
     try {
-      const r = await fetch(`${API_BASE}/db`, {
+      const r = await fetchApiWithTimeout(`${API_BASE}/db`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'select', table: 'campaigns', filters: { limit: 1 } }),
@@ -607,7 +627,7 @@ const SupabaseAuth = {
   // pengguna berhasil verifikasi kode OTP.
   async signIn({ email, password, turnstileToken, twoFactorProof }) {
     if (!this.client) throw new Error('Supabase belum siap');
-    const res = await fetch(`${API_BASE}/auth`, {
+    const res = await fetchApiWithTimeout(`${API_BASE}/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'login', email, password, turnstileToken, twoFactorProof, deviceId: getDeviceId() }),
@@ -644,7 +664,7 @@ const Store = {
 
   async init() {
     let cfg = null;
-    try { cfg = await (await fetch(`${API_BASE}/config`)).json(); } catch { /* config endpoint belum ada / gagal → tetap local */ }
+    try { cfg = await (await fetchApiWithTimeout(`${API_BASE}/config`)).json(); } catch { /* config endpoint belum ada/gagal/lambat → tetap local, JANGAN sampai boot app nyangkut selamanya nunggu ini */ }
 
     if (cfg?.gaMeasurementId && typeof initAnalyticsWithConsent === 'function') initAnalyticsWithConsent(cfg.gaMeasurementId);
 
