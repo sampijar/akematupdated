@@ -1543,7 +1543,7 @@ function renderFooterSection(){
   var html = '<footer class="site-footer">';
   html += '<div class="container footer-inner">';
   html += '<div class="footer-brand">';
-  html += '<a href="#" class="logo"><svg class="logo-mark" viewBox="0 0 48 48"><rect width="48" height="48" rx="10" fill="#F2A541"/><path d="M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z" fill="#FBF7F1"/></svg><span>Akemat <strong>Foundation</strong></span></a>';
+  html += '<a href="#" class="logo" aria-label="Akemat Foundation, kembali ke beranda"><svg class="logo-mark" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="10" fill="#F2A541"/><path d="M24 36c-7-5.5-13-10.8-13-17A8 8 0 0 1 24 13a8 8 0 0 1 13 6c0 6.2-6 11.5-13 17z" fill="#FBF7F1"/></svg><span>Akemat <strong>Foundation</strong></span></a>';
   html += '<p>Menghadirkan perawat tepercaya bagi keluarga yang membutuhkan, didukung oleh donasi masyarakat.</p>';
   html += '<div class="social-links">';
   html += '<a href="https://wa.me/6285196407117?text=Halo%20Akemat%20Foundation%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20Anda." target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" class="wa-social-icon">'+ICON.whatsapp+'</a>';
@@ -1566,7 +1566,7 @@ function renderFooterSection(){
   html += '</div>';
   html += '<div class="container footer-bottom">';
   html += '<p>&copy; '+new Date().getFullYear()+' Akemat Foundation. Semua hak cipta dilindungi.</p>';
-  html += '<p><a href="#tnc" style="color:#90A89E">Syarat &amp; Ketentuan</a> &middot; <a href="#privasi" style="color:#90A89E">Kebijakan Privasi</a> &middot; <a href="#faq" style="color:#90A89E">FAQ</a></p>';
+  html += '<p><a href="#tnc" style="color:#A9BEB6">Syarat &amp; Ketentuan</a> &middot; <a href="#privasi" style="color:#A9BEB6">Kebijakan Privasi</a> &middot; <a href="#faq" style="color:#A9BEB6">FAQ</a></p>';
   html += '</div></footer>';
   return html;
 }
