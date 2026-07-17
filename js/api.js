@@ -438,6 +438,19 @@ const Cloud = {
     const d = await apiFetch('db', { action:'select', table:'bookings', filters:{ nurse_id:`eq.${uid}`, order:'created_at.desc' } });
     return (d.data || []).map(rowToBooking);
   },
+  async getBookingById(id) {
+    const d = await apiFetch('db', { action:'select', table:'bookings', filters:{ id:`eq.${id}`, limit:1 } });
+    return rowToBooking(d.data?.[0]);
+  },
+  async getMessages(bookingId) {
+    const d = await apiFetch('db', { action:'select', table:'messages', filters:{ booking_id:`eq.${bookingId}` } });
+    return (d.data || []).map(m => ({ id:m.id, bookingId:m.booking_id, senderId:m.sender_id, body:m.body, createdAt:m.created_at }));
+  },
+  async sendMessage(bookingId, body) {
+    const d = await apiFetch('db', { action:'insert', table:'messages', data:{ booking_id:bookingId, body } });
+    const m = d.data?.[0];
+    return m ? { id:m.id, bookingId:m.booking_id, senderId:m.sender_id, body:m.body, createdAt:m.created_at } : null;
+  },
   async getBookings() {
     const d = await apiFetch('db', { action:'select', table:'bookings', filters:{ order:'created_at.desc' } });
     return (d.data || []).map(rowToBooking);
@@ -726,6 +739,15 @@ const Store = {
   async getBookingsByNurse(uid)     { return this.backend==='remote' ? Cloud.getBookingsByNurse(uid) : DB.getBookingsByNurse(uid); },
   async getBookings()               { return this.backend==='remote' ? Cloud.getBookings() : DB.getBookings(); },
   async addBooking(data)            { return this.backend==='remote' ? Cloud.addBooking(data) : DB.addBooking(data); },
+  async getBookingById(id)          { return this.backend==='remote' ? Cloud.getBookingById(id) : DB.getBookingById(id); },
+  async getMessages(bookingId) {
+    if (this.backend !== 'remote') throw new Error('Chat belum didukung di mode lokal.');
+    return Cloud.getMessages(bookingId);
+  },
+  async sendMessage(bookingId, body) {
+    if (this.backend !== 'remote') throw new Error('Chat belum didukung di mode lokal.');
+    return Cloud.sendMessage(bookingId, body);
+  },
   async checkPromo(code, amount, type) {
     if (this.backend !== 'remote') throw new Error('Kode promo belum didukung di mode lokal.');
     return Cloud.checkPromo(code, amount, type);

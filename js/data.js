@@ -322,6 +322,7 @@ const DB = {
   saveBookings(b)           { localStorage.setItem(KEYS.BOOKINGS, JSON.stringify(b)); },
   getBookingsByPatient(uid) { return this.getBookings().filter(b => b.patientId === uid); },
   getBookingsByNurse(uid)   { return this.getBookings().filter(b => b.nurseId === uid); },
+  getBookingById(id)        { return this.getBookings().find(b => b.id === id) || null; },
   addBooking(data) {
     const bs = this.getBookings();
     const totalCost   = data.totalCost || 0;

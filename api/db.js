@@ -102,6 +102,22 @@ function evaluatePromo(promo, amount, type) {
   return { valid: true, discount, finalAmount: amount - discount };
 }
 
+// Dipakai oleh table:'messages' action:'insert' — tolak pesan yang
+// mengandung nomor HP, email, link, atau ajakan hubungi WA di luar
+// aplikasi, supaya pasien & perawat tidak bisa pindah bertransaksi di
+// luar Akemat lewat chat ini. Sengaja TOLAK total (bukan sensor sebagian)
+// supaya tidak ada info yang bocor sebagian & pesannya jelas ke pengirim.
+function detectContactInfo(text) {
+  const patterns = [
+    /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,       // email
+    /(?:\+?62|0)[\s.-]?8[\s.-]?\d(?:[\s.-]?\d){7,11}/,       // no. HP Indonesia (08xx / +628xx)
+    /\b\d(?:[\s.-]?\d){9,}\b/,                                // deret 10+ digit apa pun (jaga-jaga format lain)
+    /https?:\/\/\S+/i,                                        // link
+    /\b(wa|whatsapp|telegram|ig|instagram)\b[\s:=-]{0,3}(?:saya|aku|ku)?[\s:=-]{0,3}(?:\d|@)/i, // "wa saya 08..", "ig: @user"
+  ];
+  return patterns.some((p) => p.test(text));
+}
+
 const PUBLIC_USER_FIELDS = 'id,name,role,created_at';
 const OWN_USER_FIELDS    = 'id,name,email,phone,role,address,organization,dob,gender,ktp_status,ktp_url,bank_name,bank_account_number,bank_account_name,bank_verified,two_factor_enabled,created_at';
 // Dipakai KHUSUS pencarian berdasarkan nomor HP (login/lupa-password pakai
@@ -348,6 +364,43 @@ module.exports = async (req, res) => {
           }
         }
         return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied();
+    }
+
+    // ── messages (chat pasien-perawat, terikat ke satu booking) ────
+    // Cuma patient_id/nurse_id dari booking itu sendiri yang boleh baca/
+    // kirim — dicek ulang ke tabel bookings di server, bukan dipercaya
+    // dari filters/data yang dikirim klien.
+    if (table === 'messages') {
+      if (!uid) return authRequired();
+      if (action === 'select') {
+        const bookingId = filters?.booking_id?.replace(/^eq\./, '');
+        if (!bookingId) return res.status(400).json({ error: 'booking_id wajib' });
+        const bk = await sbRequest(`bookings?id=eq.${bookingId}&select=id,patient_id,nurse_id`, 'GET');
+        const booking = bk.data?.[0];
+        if (!booking || (booking.patient_id !== uid && booking.nurse_id !== uid)) return denied();
+        const r = await sbRequest(`messages?booking_id=eq.${bookingId}&select=*&order=created_at.asc`, 'GET');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      if (action === 'insert') {
+        const bookingId = data?.booking_id;
+        const bodyText = String(data?.body || '').trim();
+        if (!bookingId || !bodyText) return res.status(400).json({ error: 'booking_id dan body wajib' });
+        if (bodyText.length > 1000) return res.status(400).json({ error: 'Pesan maksimal 1000 karakter.' });
+        const bk = await sbRequest(`bookings?id=eq.${bookingId}&select=id,patient_id,nurse_id,service`, 'GET');
+        const booking = bk.data?.[0];
+        if (!booking || (booking.patient_id !== uid && booking.nurse_id !== uid)) return denied();
+        if (detectContactInfo(bodyText)) {
+          return res.status(400).json({ error: 'Pesan tidak bisa dikirim — dilarang membagikan nomor HP, email, atau kontak lain di sini. Semua janji temu & pembayaran wajib lewat Akemat Foundation.' });
+        }
+        const ins = await sbRequest('messages', 'POST', { booking_id: bookingId, sender_id: uid, body: bodyText });
+        if (!ins.ok) return res.status(ins.status).json({ error: ins.data });
+        const otherId = uid === booking.patient_id ? booking.nurse_id : booking.patient_id;
+        if (otherId) {
+          sendPushToUser(otherId, { title: 'Pesan baru', body: bodyText.slice(0, 80), url: '/#chat/' + bookingId });
+        }
+        return res.status(200).json({ success: true, data: ins.data });
       }
       return denied();
     }

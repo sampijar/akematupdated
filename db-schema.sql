@@ -403,6 +403,22 @@ CREATE TABLE IF NOT EXISTS known_devices (
 CREATE INDEX IF NOT EXISTS idx_known_devices_user ON known_devices(user_id);
 ALTER TABLE known_devices ENABLE ROW LEVEL SECURITY;
 
+-- ── Chat pasien-perawat per janji temu ──────────────────────────────────
+-- Terikat ke satu booking (bukan "percakapan" bebas) — akses & pengiriman
+-- pesan divalidasi di api/db.js (harus jadi patient_id/nurse_id booking
+-- itu), termasuk filter otomatis yang menolak pesan berisi nomor HP/email/
+-- link (cegah transaksi di luar aplikasi, lihat komentar detectContactInfo
+-- di api/db.js).
+CREATE TABLE IF NOT EXISTS messages (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id UUID NOT NULL REFERENCES bookings(id),
+  sender_id  UUID REFERENCES users(id),
+  body       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_messages_booking ON messages(booking_id);
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
 -- =========================================================
 -- CARA AKTIVASI:
 -- 1. Buka https://supabase.com/dashboard
