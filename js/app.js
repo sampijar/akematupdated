@@ -767,8 +767,9 @@ function bookingActionsFor(b, viewerRole){
   if(viewerRole === 'patient'){
     if(b.paymentStatus !== 'paid') return payBtnHTML(b.status, id);
     if(b.status === 'completed'){
-      if(b.reviewed) return '<span style="color:var(--success);font-size:.8rem">✓ Sudah dinilai</span>'+chatLink;
-      return '<button class="btn btn-xs btn-accent" onclick="openRateModal(\''+id+'\',\''+esc(b.nurseName||'')+'\')">⭐ Beri Rating</button>'+chatLink;
+      var rateBtn = b.reviewed ? '<span style="color:var(--success);font-size:.8rem">✓ Dinilai</span>' : '<button class="btn btn-xs btn-accent" onclick="openRateModal(\''+id+'\',\''+esc(b.nurseName||'')+'\')">⭐ Rating</button>';
+      var tipBtn  = b.tipped   ? '<span style="color:var(--success);font-size:.8rem">✓ Tip diberikan</span>' : '<button class="btn btn-xs btn-outline" onclick="openTipModal(\''+id+'\',\''+esc(b.nurseId||'')+'\',\''+esc(b.nurseName||'')+'\')">🎁 Tip</button>';
+      return rateBtn+' '+tipBtn+chatLink;
     }
     return '<span style="color:#9CA3AF">—</span>'+chatLink;
   }
@@ -942,9 +943,10 @@ function sidebarHTML(u, activePage){
 function afterDash(){ document.getElementById('btnLogout')?.addEventListener('click',async ()=>{ await Store.logout(); toast('Berhasil keluar.'); navigate('#'); }); }
 
 async function renderPatientDash(u){
-  const [bookings, donations, patientProfiles, reviews] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id), Store.getPatientProfiles(u.id), Store.getReviewsByPatient(u.id)]);
+  const [bookings, donations, patientProfiles, reviews, tips] = await Promise.all([Store.getBookingsByPatient(u.id), Store.getDonationsByUser(u.id), Store.getPatientProfiles(u.id), Store.getReviewsByPatient(u.id), Store.getTipsByPatient(u.id)]);
   const reviewedBookingIds = new Set(reviews.map(r=>r.bookingId));
-  bookings.forEach(b=>{ b.reviewed = reviewedBookingIds.has(b.id); });
+  const tippedBookingIds = new Set(tips.map(t=>t.bookingId));
+  bookings.forEach(b=>{ b.reviewed = reviewedBookingIds.has(b.id); b.tipped = tippedBookingIds.has(b.id); });
   const campaignIds = [...new Set(donations.map(d=>d.campaignId).filter(Boolean))];
   const campaignMap = new Map((await Promise.all(campaignIds.map(cid=>Store.getCampaignById(cid)))).filter(Boolean).map(c=>[c.id,c]));
   const needsPatientProfile = !patientProfiles.some(p=>p.ktpStatus==='uploaded' || p.ktpStatus==='verified');
@@ -982,8 +984,9 @@ async function renderPatientDash(u){
 }
 
 async function renderNurseDash(u){
-  const bookings = await Store.getBookingsByNurse(u.id);
+  const [bookings, tips] = await Promise.all([Store.getBookingsByNurse(u.id), Store.getTipsByNurse(u.id)]);
   const earned   = bookings.filter(b=>b.status==='completed').reduce((s,b)=>s+(b.nursePay||0),0);
+  const tipTotal = tips.filter(t=>t.paymentStatus==='paid').reduce((s,t)=>s+(t.amount||0),0);
   const p        = u.np || {};
 
   app.innerHTML = `
@@ -995,10 +998,14 @@ async function renderNurseDash(u){
         <p>Kelola profil, jadwal, dan penghasilan Anda.</p>
         ${!u.bankInfo?.accountNumber?'<div class="bank-warning" style="margin-top:10px;max-width:500px">&#9888;&#65039; <strong>Penting!</strong> Isi data rekening di <a href="#profil" style="text-decoration:underline">Profil</a> agar penghasilan bisa dicairkan.</div>':''}
       </div>
-      <div class="stat-row">
+      <div class="stat-row" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
         <div class="stat-card">
           <div class="stat-icon" style="background:#F0FDF4"><svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/></svg></div>
           <div><div class="stat-val">${rpFmt(earned)}</div><div class="stat-lbl">Total penghasilan (80%)</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#FFFBEB"><svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6M12 2v13M8 6l4-4 4 4"/></svg></div>
+          <div><div class="stat-val">${rpFmt(tipTotal)}</div><div class="stat-lbl">🎁 Tip diterima (100%)</div></div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:#EEF2FF"><svg viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
@@ -1529,12 +1536,69 @@ function openRateModal(bookingId, nurseName){
   };
 }
 
+function openTipModal(bookingId, nurseId, nurseName){
+  const u = Store.getCurrentUser();
+  if(!u){ toast('Silakan login terlebih dahulu.','e'); navigate('#login'); return; }
+  let selAmt = 0;
+
+  document.getElementById('tipNurseLabel').textContent = nurseName ? 'Apresiasi ekstra untuk '+nurseName+' — 100% tip masuk ke perawat, tanpa potongan.' : 'Apresiasi ekstra untuk perawat Anda — 100% tip masuk ke perawat, tanpa potongan.';
+  document.getElementById('tipBookingId').value = bookingId;
+  document.getElementById('tipNurseId').value   = nurseId || '';
+  document.getElementById('tipNurseName').value = nurseName || '';
+  document.getElementById('tipCustomAmt').value = '';
+  document.getElementById('tipMessage').value   = '';
+  document.querySelectorAll('.tip-amt-btn').forEach(b=>b.classList.remove('active'));
+  updateTipTotal();
+  openModal('modalTip');
+
+  document.querySelectorAll('.tip-amt-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      document.querySelectorAll('.tip-amt-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      selAmt = parseInt(btn.dataset.amt);
+      document.getElementById('tipCustomAmt').value='';
+      updateTipTotal();
+    };
+  });
+  document.getElementById('tipCustomAmt')?.addEventListener('input',()=>{
+    document.querySelectorAll('.tip-amt-btn').forEach(b=>b.classList.remove('active'));
+    selAmt = parseInt(document.getElementById('tipCustomAmt')?.value)||0;
+    updateTipTotal();
+  });
+
+  function updateTipTotal(){
+    const amt = selAmt || parseInt(document.getElementById('tipCustomAmt')?.value)||0;
+    document.getElementById('tipTotalDisp').textContent = rpFmt(amt);
+  }
+
+  document.getElementById('btnSubmitTip').onclick = async ()=>{
+    const amt = selAmt || parseInt(document.getElementById('tipCustomAmt')?.value)||0;
+    if(amt < 5000){ toast('Minimal tip Rp 5.000.','e'); return; }
+    const btn = document.getElementById('btnSubmitTip');
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Memproses…';
+    try {
+      await Payment.payTip({
+        bookingId, nurseId: document.getElementById('tipNurseId')?.value,
+        nurseName: document.getElementById('tipNurseName')?.value,
+        amount: amt, message: document.getElementById('tipMessage')?.value.trim(),
+        buyerName: u.name, buyerEmail: u.email, buyerPhone: u.phone||'',
+      });
+      // Jika berhasil, browser sudah diarahkan ke halaman pembayaran DOKU.
+    } catch(err) {
+      toast('Gagal membuat transaksi tip: '+(err.message||'coba lagi.'), 'e');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  };
+}
+
 // Global helpers
 window.openDonateModal        = openDonateModal;
 window.openBookingModal       = openBookingModal;
 window.openCreateCampaignModal= openCreateCampaignModal;
 window.openEditCampaignModal  = openEditCampaignModal;
 window.openRateModal          = openRateModal;
+window.openTipModal           = openTipModal;
 window.updateBooking = async (id, status)=>{
   if(status==='confirmed'||status==='completed'){
     const bookings = await Store.getBookings();

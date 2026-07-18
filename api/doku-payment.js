@@ -24,7 +24,7 @@ const SECRET_KEY  = process.env.DOKU_SECRET_KEY?.trim();
 const ENV         = process.env.DOKU_ENV?.trim() || 'sandbox';
 const BASE        = ENV === 'production' ? 'https://api.doku.com' : 'https://api-sandbox.doku.com';
 
-// Dipakai action:'confirm' buat mengkreditkan donasi/booking LANGSUNG di sini
+// Dipakai action:'confirm' buat mengkreditkan donasi/booking/tip LANGSUNG di sini
 // (bukan lewat api/db.js) setelah verifikasi ulang ke DOKU — supaya status
 // "paid" tidak pernah bisa dipalsukan dari klien (lihat catatan keamanan di
 // api/db.js, yang sekarang menolak semua tulis payment_status).
@@ -156,7 +156,7 @@ module.exports = async (req, res) => {
   // klien), lalu kreditkan donasi/booking pakai amount asli dari respons
   // DOKU (bukan amount yang dikirim klien). Idempoten: aman dipanggil ulang.
   if (p.action === 'confirm') {
-    const { type, referenceId, campaignId, donorId, donorName, anonymous, bookingId } = p;
+    const { type, referenceId, campaignId, donorId, donorName, anonymous, bookingId, message } = p;
     if (!type || !referenceId) return res.status(400).json({ error: 'type dan referenceId wajib' });
     if (!SUPABASE_URL || !SERVICE_KEY) return res.status(500).json({ error: 'Database belum dikonfigurasi (SUPABASE_URL / SUPABASE_SERVICE_KEY).' });
 
@@ -179,6 +179,38 @@ module.exports = async (req, res) => {
       });
       if (!upd.ok) return res.status(502).json({ error: 'Gagal mengkreditkan booking', detail: upd.data });
       return res.status(200).json({ success: true, paid: true, amount: orderAmount });
+    }
+
+    // Tip 100% masuk ke perawat, TANPA potongan platform — bookingId dan
+    // nurse_id/patient_id-nya diambil ULANG dari tabel bookings di sini
+    // (bukan dipercaya dari klien) supaya tip tidak bisa "dialihkan" ke
+    // perawat lain lewat body request yang dimanipulasi; amount tetap dari
+    // orderAmount hasil verifikasi DOKU di atas, bukan dari klien.
+    if (type === 'tip') {
+      if (!bookingId) return res.status(400).json({ error: 'bookingId wajib untuk kasih tip' });
+      const existing = await sb(`tips?reference_id=eq.${encodeURIComponent(referenceId)}&select=id&limit=1`, 'GET');
+      if (existing.data?.[0]) return res.status(200).json({ success: true, paid: true, amount: orderAmount, alreadyCredited: true });
+
+      const bk = await sb(`bookings?id=eq.${encodeURIComponent(bookingId)}&select=id,nurse_id,patient_id,status&limit=1`, 'GET');
+      const booking = bk.data?.[0];
+      if (!booking || booking.status !== 'completed') return res.status(400).json({ error: 'Janji temu tidak ditemukan atau belum selesai.' });
+
+      const amount = orderAmount;
+      const ins = await sb('tips', 'POST', {
+        booking_id: bookingId, nurse_id: booking.nurse_id, patient_id: booking.patient_id || null,
+        patient_name: donorName || 'Pasien', amount,
+        message: message ? String(message).slice(0, 300) : null,
+        reference_id: referenceId, payment_status: 'paid',
+      });
+      if (!ins.ok) return res.status(502).json({ error: 'Gagal mencatat tip', detail: ins.data });
+      if (booking.nurse_id) {
+        sendPushToUser(booking.nurse_id, {
+          title: 'Tip diterima 🎁',
+          body: (donorName || 'Seorang pasien') + ' memberi tip Rp' + amount.toLocaleString('id-ID') + ' untuk pelayanan Anda.',
+          url: '/#dashboard',
+        });
+      }
+      return res.status(200).json({ success: true, paid: true, amount });
     }
 
     if (type === 'donation') {
@@ -231,7 +263,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({ success: true, paid: true, amount });
     }
 
-    return res.status(400).json({ error: 'type tidak dikenal (harus "donation" atau "booking")' });
+    return res.status(400).json({ error: 'type tidak dikenal (harus "donation", "booking", atau "tip")' });
   }
 
   return res.status(400).json({ error: `action tidak dikenal: ${p.action}` });

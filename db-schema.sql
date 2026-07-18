@@ -417,6 +417,31 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_messages_booking ON messages(booking_id);
+
+-- ── Tip untuk perawat ────────────────────────────────────────────────────
+-- Pasien bisa kasih tip (apresiasi ekstra, di luar tarif booking) ke
+-- perawat SETELAH janji temu berstatus 'completed' — tombol "Kasih Tip"
+-- muncul di dashboard pasien begitu status berubah selesai. Beda dari
+-- booking/donasi, tip 100% masuk ke perawat, TANPA potongan platform,
+-- murni apresiasi. Sama seperti donations/bookings, baris "paid" cuma
+-- pernah dibuat oleh api/doku-payment.js action:'confirm' setelah
+-- verifikasi ulang ke DOKU — insert/update langsung lewat api/db.js
+-- ditolak (lihat komentar di file itu).
+CREATE TABLE IF NOT EXISTS tips (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id     UUID REFERENCES bookings(id),
+  nurse_id       UUID REFERENCES users(id),
+  patient_id     UUID REFERENCES users(id),
+  patient_name   TEXT NOT NULL,
+  amount         BIGINT NOT NULL CHECK (amount > 0),
+  message        TEXT,
+  reference_id   TEXT UNIQUE,
+  payment_status TEXT DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid','paid')),
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tips_nurse   ON tips(nurse_id);
+CREATE INDEX IF NOT EXISTS idx_tips_booking ON tips(booking_id);
+ALTER TABLE tips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- =========================================================

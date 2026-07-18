@@ -116,6 +116,24 @@ async function payBooking({ bookingId, totalCost, nurseName, service, buyerName,
   redirectToPayment(url);
 }
 
+// ── Tip Perawat ─────────────────────────────────────────────
+// Apresiasi ekstra ke perawat SETELAH janji temu selesai — beda dari
+// payBooking (yang bayar tarif layanan), ini murni bonus dari pasien.
+// 100% masuk ke perawat, tidak ada potongan platform (lihat api/doku-payment.js).
+async function payTip({ bookingId, nurseId, nurseName, amount, message, buyerName, buyerEmail, buyerPhone }){
+  const refId = genRef('TIP');
+  const url   = await createPayment({
+    amount,
+    productName: `Tip untuk ${(nurseName||'').split(',')[0]}`,
+    description: 'Tip apresiasi perawat',
+    referenceId: refId,
+    buyerName, buyerEmail, buyerPhone,
+  });
+  const tx = JSON.parse(sessionStorage.getItem('akemat_tx') || '{}');
+  sessionStorage.setItem('akemat_tx', JSON.stringify({ ...tx, type:'tip', bookingId, nurseId, message: (message||'').slice(0,300) }));
+  redirectToPayment(url);
+}
+
 // ── Check status ───────────────────────────────────────────
 async function checkStatus(transactionId){
   const res  = await fetchPaymentWithTimeout(PAYMENT_API, {
@@ -126,4 +144,4 @@ async function checkStatus(transactionId){
   return data?.data || null;
 }
 
-window.Payment = { createPayment, payDonation, payBooking, checkStatus };
+window.Payment = { createPayment, payDonation, payBooking, payTip, checkStatus };

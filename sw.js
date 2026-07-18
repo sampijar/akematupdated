@@ -7,7 +7,7 @@
 // index.html — ini satu-satunya cara memaksa pengguna PWA/TWA (terutama di
 // HP, yang jarang hard-refresh) mengambil versi terbaru. Lupa menaikkan ini
 // = pengguna lama bisa terjebak di versi lama tanpa batas waktu.
-const CACHE_NAME = 'akemat-v78';
+const CACHE_NAME = 'akemat-v79';
 
 // File yang di-cache untuk offline pertama kali dibuka. Sengaja cuma aset
 // SAMA-ORIGIN (bukan Google Fonts) — cache.addAll() ini menggerbang

@@ -452,6 +452,23 @@ module.exports = async (req, res) => {
       return denied();
     }
 
+    // ── tips (apresiasi ekstra ke perawat, di luar tarif booking) ──
+    // Baca-saja untuk pemiliknya (perawat penerima ATAU pasien pemberi) —
+    // insert/update TIDAK diizinkan lewat endpoint ini sama sekali, sama
+    // seperti donations: baris "paid" cuma boleh dibuat oleh
+    // api/doku-payment.js action:'confirm' setelah verifikasi ulang ke DOKU.
+    if (table === 'tips') {
+      if (!uid) return authRequired();
+      if (action === 'select') {
+        const params = new URLSearchParams(filters || {});
+        params.delete('nurse_id'); params.delete('patient_id');
+        params.set('or', `(nurse_id.eq.${uid},patient_id.eq.${uid})`);
+        const r = await sbRequest(`tips?${params}`, 'GET');
+        return res.status(r.ok ? 200 : r.status).json(r.ok ? { success: true, data: r.data } : { error: r.data });
+      }
+      return denied();
+    }
+
     // ── payouts ────────────────────────────────────────────
     if (table === 'payouts') {
       if (!uid) return authRequired();

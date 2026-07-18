@@ -112,7 +112,7 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
             action:'confirm', type: stored.type, referenceId: trxId,
             campaignId: stored.campaignId, donorId: stored.donorId,
             donorName: stored.buyerName || buyer, anonymous: !!stored.anonymous,
-            bookingId: stored.bookingId,
+            bookingId: stored.bookingId, message: stored.message,
           }),
         });
         const d = await r.json();
@@ -134,6 +134,8 @@ p{color:var(--soft);font-size:.92rem;line-height:1.6;margin:0 0 6px}
           await Store.addDonation({ campaignId: stored.campaignId, donorId: stored.donorId||'guest', donorName: stored.buyerName||buyer||'Donatur', amount: Number(stored.amount||d?.data?.order?.amount||amt)||0, anonymous: !!stored.anonymous, referenceId: ref, transactionId: trxId, paymentStatus:'paid' });
         } else if (stored.type === 'booking' && stored.bookingId) {
           await Store.updateBooking(stored.bookingId, { paymentStatus:'paid', transactionId: trxId });
+        } else if (stored.type === 'tip' && stored.bookingId) {
+          await Store.addTip({ bookingId: stored.bookingId, patientId: Store.getCurrentUser()?.id || null, patientName: stored.buyerName || buyer || 'Pasien', amount: Number(stored.amount||d?.data?.order?.amount||amt)||0, message: stored.message||'', referenceId: ref, transactionId: trxId });
         }
       }
       if(paidLocal) return ok(trxId, d?.data?.order?.amount||amt);

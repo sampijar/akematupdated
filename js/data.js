@@ -52,6 +52,7 @@ const KEYS = {
   PAYOUTS:  'ak3_payouts',
   PATIENT_PROFILES: 'ak3_patient_profiles',
   REVIEWS:  'ak3_reviews',
+  TIPS:     'ak3_tips',
   SEEDED:   'ak3_v3_seeded',
 };
 
@@ -391,6 +392,32 @@ const DB = {
     return r;
   },
 
+  // Tips (apresiasi ekstra ke perawat, di luar tarif booking — 100% masuk
+  // ke perawat, tanpa potongan platform). Hanya boleh diberikan setelah
+  // booking berstatus 'completed', sama seperti addReview di atas.
+  getTips()               { return JSON.parse(localStorage.getItem(KEYS.TIPS) || '[]'); },
+  saveTips(t)              { localStorage.setItem(KEYS.TIPS, JSON.stringify(t)); },
+  getTipsByNurse(nid)      { return this.getTips().filter(t => t.nurseId === nid); },
+  getTipsByPatient(pid)    { return this.getTips().filter(t => t.patientId === pid); },
+  // Dipanggil HANYA setelah pembayaran DOKU terkonfirmasi (lihat payment-return.html),
+  // sama seperti addDonation — referenceId mencegah tip tercatat dobel kalau
+  // halaman return di-refresh.
+  addTip(data) {
+    if (data.referenceId && this.getTips().some(t => t.referenceId === data.referenceId)) {
+      return this.getTips().find(t => t.referenceId === data.referenceId);
+    }
+    const booking = this.getBookings().find(b => b.id === data.bookingId);
+    if (!booking || booking.status !== 'completed') throw new Error('Janji temu tidak ditemukan atau belum selesai.');
+    const all = this.getTips();
+    const t = {
+      id: uid(), bookingId: data.bookingId, nurseId: booking.nurseId, patientId: data.patientId || null,
+      patientName: data.patientName || 'Pasien', amount: data.amount || 0, message: data.message || '',
+      referenceId: data.referenceId || null, transactionId: data.transactionId || null,
+      paymentStatus: 'paid', createdAt: dStr(),
+    };
+    all.push(t); this.saveTips(all); return t;
+  },
+
   // Donations
   getDonations()            { return JSON.parse(localStorage.getItem(KEYS.DONATIONS) || '[]'); },
   saveDonations(d)          { localStorage.setItem(KEYS.DONATIONS, JSON.stringify(d)); },
@@ -431,12 +458,16 @@ const DB = {
   // Saldo yang sudah dicairkan/diajukan (pending+processing+completed dianggap "terpakai")
   payoutUsed(list) { return list.filter(p=>p.status!=='rejected').reduce((s,p)=>s+p.amount,0); },
 
-  // Saldo tersedia perawat = penghasilan booking selesai+lunas − yang sudah diajukan/dicairkan
+  // Saldo tersedia perawat = penghasilan booking selesai+lunas + tip (100%,
+  // tanpa potongan) − yang sudah diajukan/dicairkan
   getNurseAvailablePayout(uid) {
     const earned = this.getBookingsByNurse(uid)
       .filter(b => b.status==='completed' && b.paymentStatus==='paid')
       .reduce((s,b)=>s+(b.nursePay||0),0);
-    return Math.max(0, earned - this.payoutUsed(this.getPayoutsByUser(uid)));
+    const tips = this.getTipsByNurse(uid)
+      .filter(t => t.paymentStatus==='paid')
+      .reduce((s,t)=>s+(t.amount||0),0);
+    return Math.max(0, earned + tips - this.payoutUsed(this.getPayoutsByUser(uid)));
   },
 
   // Saldo tersedia campaign = donasi bersih (95%) yang sudah lunas − yang sudah diajukan/dicairkan

@@ -306,6 +306,15 @@ function donationToRow(data) {
   };
 }
 
+function rowToTip(row) {
+  if (!row) return null;
+  return {
+    id: row.id, bookingId: row.booking_id, nurseId: row.nurse_id, patientId: row.patient_id,
+    patientName: row.patient_name, amount: row.amount, message: row.message || '',
+    referenceId: row.reference_id, paymentStatus: row.payment_status, createdAt: shortDate(row.created_at),
+  };
+}
+
 function rowToPayout(row) {
   if (!row) return null;
   return {
@@ -534,6 +543,32 @@ const Cloud = {
     return rowToReview(d.data?.[0]);
   },
 
+  // Tips (apresiasi ekstra ke perawat) — sama seperti addReview/addDonation,
+  // insert lewat endpoint umum ('db') ditolak (lihat api/db.js): tip "paid"
+  // cuma dibuat oleh api/doku-payment.js action:'confirm'. addTip di sini
+  // dibiarkan ada untuk konsistensi bentuk dengan DB.addTip (backend 'local').
+  async getTipsByNurse(nurseId) {
+    const d = await apiFetch('db', { action:'select', table:'tips', filters:{ nurse_id:`eq.${nurseId}`, order:'created_at.desc' } });
+    return (d.data || []).map(rowToTip);
+  },
+  async getTipsByPatient(patientId) {
+    const d = await apiFetch('db', { action:'select', table:'tips', filters:{ patient_id:`eq.${patientId}`, order:'created_at.desc' } });
+    return (d.data || []).map(rowToTip);
+  },
+  async addTip(data) {
+    if (data.referenceId) {
+      const existing = await apiFetch('db', { action:'select', table:'tips', filters:{ reference_id:`eq.${data.referenceId}`, limit:1 } });
+      if (existing.data?.[0]) return rowToTip(existing.data[0]);
+    }
+    const row = {
+      booking_id: data.bookingId, nurse_id: data.nurseId, patient_id: data.patientId || null,
+      patient_name: data.patientName || 'Pasien', amount: data.amount || 0, message: data.message || null,
+      reference_id: data.referenceId || null, payment_status: 'paid',
+    };
+    const d = await apiFetch('db', { action:'insert', table:'tips', data: row });
+    return rowToTip(d.data?.[0]);
+  },
+
   // Donations
   async getDonationsByUser(uid) {
     const d = await apiFetch('db', { action:'select', table:'donations', filters:{ donor_id:`eq.${uid}`, order:'created_at.desc' } });
@@ -584,8 +619,9 @@ const Cloud = {
   async getNurseAvailablePayout(uid) {
     const bookings = await this.getBookingsByNurse(uid);
     const earned = bookings.filter(b => b.status==='completed' && b.paymentStatus==='paid').reduce((s,b)=>s+(b.nursePay||0),0);
+    const tips = (await this.getTipsByNurse(uid)).filter(t => t.paymentStatus==='paid').reduce((s,t)=>s+(t.amount||0),0);
     const payouts = await this.getPayoutsByUser(uid);
-    return Math.max(0, earned - this.payoutUsed(payouts));
+    return Math.max(0, earned + tips - this.payoutUsed(payouts));
   },
   async getCampaignAvailablePayout(cid) {
     const donations = await this.getDonationsByCampaign(cid);
@@ -790,6 +826,10 @@ const Store = {
   async getReviewsByPatient(pid)    { return this.backend==='remote' ? Cloud.getReviewsByPatient(pid) : DB.getReviewsByPatient(pid); },
   async addReview(data)             { return this.backend==='remote' ? Cloud.addReview(data) : DB.addReview(data); },
   async getTopReviews(limit)        { return this.backend==='remote' ? Cloud.getTopReviews(limit) : DB.getTopReviews(limit); },
+
+  async getTipsByNurse(nurseId)     { return this.backend==='remote' ? Cloud.getTipsByNurse(nurseId) : DB.getTipsByNurse(nurseId); },
+  async getTipsByPatient(pid)       { return this.backend==='remote' ? Cloud.getTipsByPatient(pid) : DB.getTipsByPatient(pid); },
+  async addTip(data)                { return this.backend==='remote' ? Cloud.addTip(data) : DB.addTip(data); },
 
   async getDonationsByUser(uid)     { return this.backend==='remote' ? Cloud.getDonationsByUser(uid) : DB.getDonationsByUser(uid); },
   async getDonationsByCampaign(cid) { return this.backend==='remote' ? Cloud.getDonationsByCampaign(cid) : DB.getDonationsByCampaign(cid); },
