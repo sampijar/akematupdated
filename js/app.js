@@ -1631,6 +1631,7 @@ function renderFooterSection(){
   html += '<li><a href="#dashboard">Dashboard</a></li>';
   html += '</ul></nav>';
   html += '<div class="f-cta"><h4>Informasi</h4><ul class="f-nav" style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px">';
+  html += '<li><a href="/tentang-layanan.html" style="color:#C5D8CD;font-size:.84rem">Tentang &amp; Cara Kerja</a></li>';
   html += '<li><a href="#faq" style="color:#C5D8CD;font-size:.84rem">FAQ</a></li>';
   html += '<li><a href="#tnc" style="color:#C5D8CD;font-size:.84rem">Syarat &amp; Ketentuan</a></li>';
   html += '<li><a href="#privasi" style="color:#C5D8CD;font-size:.84rem">Kebijakan Privasi</a></li>';

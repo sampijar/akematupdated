@@ -20,10 +20,18 @@
     "logo": "https://akematfoundation.org/icons/icon-512.png",
     "description": "Akemat Foundation mempertemukan keluarga dengan perawat jiwa, lansia, maternitas, luka, dan paliatif yang hadir ke rumah, seluruh layanan didukung donasi masyarakat.",
     "areaServed": "ID",
+    "slogan": "Menghadirkan perawat tepercaya bagi keluarga yang membutuhkan, didukung oleh donasi masyarakat.",
+    "sameAs": [
+      "https://www.instagram.com/akemat.foundation",
+      "https://www.linkedin.com/company/akemat-foundation/"
+    ],
     "contactPoint": {
       "@type": "ContactPoint",
       "contactType": "customer service",
-      "url": "https://wa.me/6285196407117"
+      "url": "https://wa.me/6285196407117",
+      "email": "customercare@akematfoundation.org",
+      "areaServed": "ID",
+      "availableLanguage": "Indonesian"
     }
   }
   </script>
@@ -213,6 +221,26 @@
         <p>Memuat…</p>
       </div>
     </div>
+    <!-- Akemat adalah aplikasi web (SPA) yang butuh JavaScript untuk fitur
+         interaktif (cari perawat, booking, donasi, login) — div#app di atas
+         sengaja kosong sampai JS jalan. Blok ini HANYA dirender browser saat
+         JavaScript benar-benar mati (bukan disembunyikan dari pengguna lewat
+         CSS/JS), jadi bukan trik SEO/GEO — murni fallback asli supaya
+         pengunjung tanpa JS (atau crawler yang tidak menjalankan JS) tetap
+         dapat ringkasan & tautan yang berguna, bukan halaman kosong. -->
+    <noscript>
+      <div style="max-width:680px;margin:0 auto;padding:48px 24px;font-family:'Work Sans',sans-serif;color:#20302A">
+        <h1 style="font-family:'Sora',sans-serif;color:#1F4D3F">Akemat Foundation</h1>
+        <p>Yayasan kemanusiaan yang mempertemukan pasien/keluarga dengan perawat home care terverifikasi (Perawat Jiwa, Anak &amp; Bayi, Lansia, Medical Bedah, Luka, Maternitas, Paliatif), dan menyediakan kampanye donasi transparan untuk membantu biaya perawatan.</p>
+        <p>Halaman ini butuh JavaScript untuk fitur interaktif (cari perawat, booking, donasi, login). Baca dulu penjelasan lengkap layanan dan pertanyaan umum di tautan berikut:</p>
+        <ul>
+          <li><a href="/tentang-layanan.html">Tentang &amp; Cara Kerja Layanan</a></li>
+          <li><a href="/faq.html">FAQ — Pertanyaan yang Sering Ditanyakan</a></li>
+          <li><a href="https://wa.me/6285196407117">Hubungi kami via WhatsApp</a></li>
+          <li><a href="mailto:customercare@akematfoundation.org">customercare@akematfoundation.org</a></li>
+        </ul>
+      </div>
+    </noscript>
   </main>
 
   <!-- ─── Bottom Tab Bar (HP saja) — diisi dinamis oleh app.js → renderMobileTabbar() ── -->

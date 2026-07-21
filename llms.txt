@@ -1,0 +1,39 @@
+# Akemat Foundation
+
+> Yayasan kemanusiaan di Indonesia yang mempertemukan pasien/keluarga dengan perawat home care (perawatan di rumah) yang terverifikasi, dan menyediakan platform donasi transparan untuk membantu biaya perawatan keluarga yang membutuhkan.
+
+Akemat Foundation (akematfoundation.org) adalah platform web berbasis yayasan. Layanan utama:
+1. Mempertemukan pasien dengan perawat home care terverifikasi di 7 spesialisasi.
+2. Kampanye donasi untuk membantu pembiayaan perawatan keluarga yang membutuhkan.
+3. Tip apresiasi langsung dari pasien ke perawat setelah janji temu selesai.
+
+## Layanan Perawat (Home Care)
+- Spesialisasi: Perawat Jiwa, Perawat Anak & Bayi, Perawat Lansia, Perawat Medical Bedah, Perawat Luka, Perawat Maternitas, Perawat Paliatif.
+- Jenjang pendidikan perawat: D3 Keperawatan, D4 Keperawatan, Ners (Profesi), Spesialis Keperawatan.
+- Struktur biaya: pasien membayar tarif per jam × durasi; perawat menerima 80%, 20% adalah biaya platform.
+- Perawat diverifikasi lewat dokumen identitas, ijazah keperawatan, dan STR (Surat Tanda Registrasi) sebelum diberi lencana Terverifikasi.
+- Pembayaran diproses via DOKU, payment gateway berlisensi Bank Indonesia.
+- Tip: pasien bisa memberi tip tambahan ke perawat setelah janji temu selesai — 100% tip masuk ke perawat, tanpa potongan platform.
+- Pencairan penghasilan perawat dilakukan setiap minggu untuk janji temu yang sudah selesai.
+
+## Donasi
+- Siapa pun yang terverifikasi sebagai Penggalang Dana bisa membuat kampanye donasi.
+- Struktur biaya: 95% donasi disalurkan ke campaign, 5% adalah biaya layanan platform.
+- Pencairan dana campaign dilakukan setelah kampanye berakhir/mencapai target dan diverifikasi tim Akemat.
+
+## Halaman
+- [Tentang & Cara Kerja](https://akematfoundation.org/tentang-layanan.html): penjelasan lengkap layanan, struktur biaya, dan cara kerja platform (booking perawat + donasi).
+- [FAQ](https://akematfoundation.org/faq.html): pertanyaan yang sering ditanyakan seputar janji temu perawat, donasi, rekening pencairan, dan akun.
+- [Aplikasi](https://akematfoundation.org/): cari perawat, lihat kampanye donasi, daftar sebagai pasien/perawat/penggalang dana.
+
+## Kontak
+- WhatsApp: +62 851-9640-7117 (https://wa.me/6285196407117)
+- Email: customercare@akematfoundation.org
+- Instagram: https://www.instagram.com/akemat.foundation
+- LinkedIn: https://www.linkedin.com/company/akemat-foundation/
+- Jam layanan: Senin–Sabtu, 08.00–17.00 WIB
+- Cakupan wilayah: Indonesia
+
+## Optional
+- [Syarat & Ketentuan](https://akematfoundation.org/#tnc)
+- [Kebijakan Privasi](https://akematfoundation.org/#privasi)
