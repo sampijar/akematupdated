@@ -243,7 +243,14 @@ async function handleList(req, res) {
   const authUser = await getAuthUser(req);
   if (!authUser) return res.status(401).json({ error: 'Silakan login terlebih dahulu.' });
   const r = await sb(`webauthn_credentials?user_id=eq.${authUser.id}&select=id,device_name,created_at,last_used_at&order=created_at.desc`, 'GET');
-  return res.status(200).json({ success: true, data: r.data || [] });
+  // PENTING: kalau query gagal (mis. tabel webauthn_credentials belum
+  // dibuat karena db-schema.sql belum dijalankan ulang di Supabase), r.data
+  // berisi OBJEK error dari PostgREST, bukan array — kalau ini lolos ke
+  // klien sebagai "data", biometricSection() di profile.js akan crash
+  // (credentials.map bukan fungsi) dan bikin SELURUH halaman Profil gagal
+  // render sama sekali. Wajib cek r.ok dulu, balikin list kosong kalau gagal.
+  if (!r.ok) return res.status(200).json({ success: true, data: [] });
+  return res.status(200).json({ success: true, data: Array.isArray(r.data) ? r.data : [] });
 }
 
 async function handleDelete(req, res, body) {

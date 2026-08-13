@@ -121,6 +121,10 @@ async function disablePushNotifications(){
 // ── Profile ─────────────────────────────────────────────────
 // ── Login biometric (Face ID/Touch ID/Windows Hello/fingerprint) ─────────
 function biometricSection(credentials, supported){
+  // Jaga-jaga kalau backend gagal balikin array (mis. tabelnya belum ada) —
+  // JANGAN sampai satu fitur opsional ini bikin seluruh halaman Profil
+  // gagal render gara-gara .map() dipanggil ke non-array.
+  if(!Array.isArray(credentials)) credentials = [];
   if(!supported && !credentials.length) return ''; // tidak relevan di perangkat ini, jangan tampilkan sama sekali
   var rows = credentials.map(function(c){
     var created = new Date(c.created_at).toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'});
@@ -161,7 +165,13 @@ export async function renderProfile(){
   if (u.role === 'patient') patientProfiles = await Store.getPatientProfiles(u.id);
   const pushSub = await getPushSubscription();
   const pushOn  = !!pushSub && typeof Notification !== 'undefined' && Notification.permission === 'granted';
-  const [bioCredentials, bioSupported] = await Promise.all([Store.getBiometricCredentials(), Store.isBiometricSupported()]);
+  // .catch(()=>[]/false) — biometric cuma fitur tambahan opsional, kalau
+  // gagal fetch (jaringan lambat, dsb.) TIDAK BOLEH sampai bikin seluruh
+  // halaman Profil (KTP, rekening, payout) ikut gagal render.
+  const [bioCredentials, bioSupported] = await Promise.all([
+    Store.getBiometricCredentials().catch(()=>[]),
+    Store.isBiometricSupported().catch(()=>false),
+  ]);
 
   app.innerHTML = `
   <div class="dash-wrap">
