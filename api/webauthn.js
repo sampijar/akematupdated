@@ -71,8 +71,19 @@ async function getAuthUser(req) {
 // hardcode satu domain — supaya opsi generate & verify selalu pakai RP ID
 // yang identik (syarat mutlak WebAuthn), termasuk saat diuji dari
 // localhost/preview deployment, bukan cuma domain produksi.
+// PENTING: RP ID harus SAMA PERSIS antara saat kredensial didaftarkan dan
+// saat dipakai login lagi — kalau tidak, browser bilang "No passkeys
+// available" walau kredensialnya sebenarnya ada (WebAuthn menganggapnya
+// situs yang beda). Situs ini bisa diakses lewat "akematfoundation.org"
+// ATAU "www.akematfoundation.org" — keduanya harus dianggap RP ID yang
+// SAMA, jadi awalan "www." selalu dibuang di sini. Ini aman menurut spec
+// WebAuthn: RP ID boleh berupa domain induk (root domain) dari origin
+// aslinya (www.akematfoundation.org tetap valid pakai RP ID
+// akematfoundation.org), tapi TIDAK BOLEH beda-beda tiap request.
 function rpIdFromReq(req) {
-  return String(req.headers.host || 'akematfoundation.org').split(':')[0];
+  let host = String(req.headers.host || 'akematfoundation.org').split(':')[0];
+  if (host.startsWith('www.')) host = host.slice(4);
+  return host;
 }
 function originFromReq(req, rpId) {
   return req.headers.origin || `https://${rpId}`;
