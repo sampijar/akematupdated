@@ -23,6 +23,12 @@ export function renderLogin(){
         <div id="tsLogin" style="margin-top:10px"></div>
         <div class="form-error" id="loginErr"></div>
         <button class="btn btn-primary btn-full" id="btnLogin" style="margin-top:12px">Masuk</button>
+        <div id="bioLoginWrap" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--soft);font-size:.74rem">
+            <div style="flex:1;height:1px;background:var(--border)"></div>ATAU<div style="flex:1;height:1px;background:var(--border)"></div>
+          </div>
+          <button type="button" class="btn btn-outline btn-full" id="btnLoginBiometric">🔓 Masuk dengan Biometric</button>
+        </div>
         <div style="text-align:center;margin-top:14px;font-size:.84rem;color:var(--soft)">
           Belum punya akun? <a href="#register" style="color:var(--accent2);font-weight:700">Daftar sekarang →</a>
         </div>
@@ -45,6 +51,32 @@ export function renderLogin(){
     </div>
   </div>`;
   renderTurnstile('tsLogin', (t)=>{ tsToken = t; });
+
+  // Tombol biometric cuma ditampilkan kalau browser+perangkat benar-benar
+  // punya platform authenticator aktif (Face ID/Touch ID/Windows Hello/
+  // fingerprint) DAN backend Supabase aktif — daripada nampilkan tombol
+  // yang ujung-ujungnya selalu gagal di perangkat yang tidak mendukung.
+  Store.isBiometricSupported().then((ok)=>{
+    if(ok) document.getElementById('bioLoginWrap').style.display = '';
+  });
+
+  document.getElementById('btnLoginBiometric')?.addEventListener('click', async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Menunggu biometric…';
+    try {
+      const u = await Store.loginWithBiometric();
+      toast('Selamat datang, '+u.name.split(' ')[0]+'!','s');
+      navigate('#home');
+    } catch(e) {
+      // Pembatalan prompt OS oleh pengguna itu wajar, bukan error yang
+      // perlu ditakut-takuti dengan toast merah.
+      if(e.name === 'NotAllowedError') toast('Login biometric dibatalkan.');
+      else toast(e.message || 'Login biometric gagal. Coba masuk dengan password.','e');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  });
 
   document.getElementById('btnLogin')?.addEventListener('click',async ()=>{
     identifier = document.getElementById('loginEmail')?.value.trim();

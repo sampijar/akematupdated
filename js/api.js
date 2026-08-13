@@ -64,7 +64,7 @@ async function fetchApiWithTimeout(url, opts, ms = 20000) {
 // manual, jadi selalu ikut ter-refresh mengikuti siklus sesi Supabase.
 async function apiFetch(endpoint, body) {
   const headers = { 'Content-Type': 'application/json' };
-  if ((endpoint === 'db' || endpoint === 'admin' || endpoint === 'auth') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
+  if ((endpoint === 'db' || endpoint === 'admin' || endpoint === 'auth' || endpoint === 'webauthn') && typeof SupabaseAuth !== 'undefined' && SupabaseAuth.client) {
     try {
       const { data } = await SupabaseAuth.client.auth.getSession();
       if (data?.session?.access_token) headers['Authorization'] = 'Bearer ' + data.session.access_token;
@@ -693,6 +693,52 @@ const SupabaseAuth = {
   },
 };
 
+// ── Login/pendaftaran biometric (WebAuthn/passkey) ──────────
+// Kripto (bikin & parsing kredensial) dilakukan oleh @simplewebauthn/browser
+// (open-source, sama seperti @simplewebauthn/server di sisi server) — dimuat
+// lewat dynamic import() dari CDN jsdelivr (izin CSP-nya sudah ada, dipakai
+// pola sama seperti SDK Supabase). Hanya dimuat saat benar-benar dipakai
+// (halaman Login/Profil), tidak menambah beban di boot app.
+const WebAuthnClient = {
+  _mod: null,
+  async _lib() {
+    if (!this._mod) this._mod = await import('https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@13/+esm');
+    return this._mod;
+  },
+
+  // Deteksi dukungan browser + ada authenticator platform (Face ID/Touch ID/
+  // Windows Hello/fingerprint) yang aktif di perangkat ini — dipakai buat
+  // sembunyikan tombol biometric sama sekali kalau tidak relevan, bukan
+  // menampilkan tombol yang ujung-ujungnya selalu gagal.
+  async isSupported() {
+    if (typeof window === 'undefined' || !window.PublicKeyCredential) return false;
+    try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
+    catch { return false; }
+  },
+
+  async register(deviceName) {
+    const { startRegistration } = await this._lib();
+    const { options, challengeToken } = await apiFetch('webauthn', { action: 'reg-options' });
+    const credential = await startRegistration({ optionsJSON: options });
+    return apiFetch('webauthn', { action: 'reg-verify', challengeToken, credential, deviceName });
+  },
+
+  async login() {
+    const { startAuthentication } = await this._lib();
+    const { options, challengeToken } = await apiFetch('webauthn', { action: 'auth-options' });
+    const credential = await startAuthentication({ optionsJSON: options });
+    return apiFetch('webauthn', { action: 'auth-verify', challengeToken, credential });
+  },
+
+  async list() {
+    const d = await apiFetch('webauthn', { action: 'list' });
+    return d.data || [];
+  },
+  async remove(id) {
+    return apiFetch('webauthn', { action: 'delete', id });
+  },
+};
+
 // ── Store: pilih backend sekali di boot, ekspos API seragam ─
 const Store = {
   backend: 'local',        // 'local' | 'remote'
@@ -756,6 +802,39 @@ const Store = {
     DB.setSession(u.id);
     this.currentUser = u;
     return u;
+  },
+
+  // Login pakai biometric (Face ID/Touch ID/Windows Hello/fingerprint) —
+  // tidak ada password untuk ditukar, jadi hasil verifikasi WebAuthn di
+  // server dibridge jadi sesi Supabase Auth ASLI (lihat komentar lengkap di
+  // api/webauthn.js), lalu dipasang ke SDK persis seperti signIn() password
+  // biasa. Butuh kredensial yang sudah didaftarkan lewat Store.enableBiometric().
+  async loginWithBiometric() {
+    if (this.backend !== 'remote') throw new Error('Login biometric belum didukung di mode lokal.');
+    const data = await WebAuthnClient.login();
+    const { error } = await SupabaseAuth.client.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+    if (error) throw new Error(error.message);
+    this.currentUser = await Cloud.getUserById(data.user.id);
+    return this.currentUser;
+  },
+
+  // Daftarkan biometric perangkat ini ke akun yang SEDANG login (dipanggil
+  // dari halaman Profil, bukan Login — perlu sesi aktif dulu).
+  async enableBiometric(deviceName) {
+    if (this.backend !== 'remote') throw new Error('Login biometric belum didukung di mode lokal.');
+    return WebAuthnClient.register(deviceName);
+  },
+  async getBiometricCredentials() {
+    if (this.backend !== 'remote') return [];
+    return WebAuthnClient.list();
+  },
+  async removeBiometricCredential(id) {
+    if (this.backend !== 'remote') throw new Error('Login biometric belum didukung di mode lokal.');
+    return WebAuthnClient.remove(id);
+  },
+  async isBiometricSupported() {
+    if (this.backend !== 'remote') return false;
+    return WebAuthnClient.isSupported();
   },
 
   async logout() {
@@ -845,4 +924,5 @@ const Store = {
 // ── Export global ──────────────────────────────────────────
 window.CloudDB  = Cloud;
 window.AuthAPI  = SupabaseAuth;
+window.WebAuthn = WebAuthnClient;
 window.Store    = Store;

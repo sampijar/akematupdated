@@ -442,6 +442,29 @@ CREATE TABLE IF NOT EXISTS tips (
 CREATE INDEX IF NOT EXISTS idx_tips_nurse   ON tips(nurse_id);
 CREATE INDEX IF NOT EXISTS idx_tips_booking ON tips(booking_id);
 ALTER TABLE tips ENABLE ROW LEVEL SECURITY;
+
+-- ── Login biometric (WebAuthn/passkey) ──────────────────────────────────
+-- Kredensial platform authenticator (Face ID/Touch ID/Windows Hello/
+-- fingerprint Android) yang didaftarkan pengguna lewat halaman Profil,
+-- dipakai buat login tanpa password di perangkat itu. Hanya menyimpan
+-- credential_id (pengenal publik) + public_key (kunci PUBLIK, bukan
+-- rahasia — private key tidak pernah meninggalkan perangkat/secure
+-- enclave pengguna) + counter (pencegah replay attack, lihat api/webauthn.js).
+-- Tanpa password/biometric asli tersimpan di sini sama sekali.
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id       UUID REFERENCES users(id) ON DELETE CASCADE,
+  credential_id TEXT UNIQUE NOT NULL,
+  public_key    TEXT NOT NULL,
+  counter       BIGINT NOT NULL DEFAULT 0,
+  transports    TEXT[],
+  device_name   TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  last_used_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_webauthn_user      ON webauthn_credentials(user_id);
+CREATE INDEX IF NOT EXISTS idx_webauthn_credid    ON webauthn_credentials(credential_id);
+ALTER TABLE webauthn_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- =========================================================

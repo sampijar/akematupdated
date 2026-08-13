@@ -4,12 +4,13 @@
   "version": "1.0.0",
   "description": "Akemat Foundation — platform booking perawat & donasi kesehatan.",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "preflight": "node scripts/preflight.js"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^13.3.2",
     "web-push": "^3.6.7"
   }
 }

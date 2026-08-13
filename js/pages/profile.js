@@ -119,6 +119,35 @@ async function disablePushNotifications(){
 }
 
 // ── Profile ─────────────────────────────────────────────────
+// ── Login biometric (Face ID/Touch ID/Windows Hello/fingerprint) ─────────
+function biometricSection(credentials, supported){
+  if(!supported && !credentials.length) return ''; // tidak relevan di perangkat ini, jangan tampilkan sama sekali
+  var rows = credentials.map(function(c){
+    var created = new Date(c.created_at).toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'});
+    var lastUsed = c.last_used_at ? new Date(c.last_used_at).toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'}) : 'Belum pernah dipakai';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">'+
+      '<div><div style="font-size:.86rem;font-weight:600">'+esc(c.device_name||'Perangkat tidak dikenal')+'</div>'+
+      '<div style="font-size:.74rem;color:var(--soft)">Didaftarkan '+created+' &middot; Terakhir dipakai: '+lastUsed+'</div></div>'+
+      '<button class="btn btn-xs btn-danger" data-remove-bio="'+c.id+'">Hapus</button></div>';
+  }).join('');
+  return '<div class="dash-section">'+
+    '<div class="dash-sh"><h3>👆 Login Biometric</h3><span class="bank-status '+(credentials.length?'verified':'empty')+'">'+(credentials.length?credentials.length+' perangkat':'Belum ada')+'</span></div>'+
+    '<p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Masuk tanpa password pakai Face ID/Touch ID/Windows Hello/fingerprint di perangkat ini. Kunci biometric Anda tidak pernah meninggalkan perangkat — server cuma menyimpan kunci publiknya.</p>'+
+    (rows || '')+
+    (supported ? '<button class="btn btn-primary btn-sm" id="btnAddBiometric" style="margin-top:'+(rows?'12px':'0')+'">+ Aktifkan di Perangkat Ini</button>' : '<p style="font-size:.76rem;color:var(--soft)">Perangkat/browser ini tidak mendukung biometric.</p>')+
+    '</div>';
+}
+
+// Tebak label perangkat dari User-Agent — cuma buat memudahkan pengguna
+// membedakan baris di daftar kalau punya lebih dari satu perangkat, bukan
+// fingerprinting (tidak dikirim/disimpan selain sebagai label bebas ini).
+function guessDeviceName(){
+  var ua = navigator.userAgent || '';
+  var os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Macintosh/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Perangkat';
+  var browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox\//.test(ua) ? 'Firefox' : '';
+  return (os+' '+browser).trim();
+}
+
 export async function renderProfile(){
   const u = Store.getCurrentUser();
   if(!u){ navigate('#login'); return; }
@@ -132,6 +161,7 @@ export async function renderProfile(){
   if (u.role === 'patient') patientProfiles = await Store.getPatientProfiles(u.id);
   const pushSub = await getPushSubscription();
   const pushOn  = !!pushSub && typeof Notification !== 'undefined' && Notification.permission === 'granted';
+  const [bioCredentials, bioSupported] = await Promise.all([Store.getBiometricCredentials(), Store.isBiometricSupported()]);
 
   app.innerHTML = `
   <div class="dash-wrap">
@@ -169,6 +199,8 @@ export async function renderProfile(){
         <p style="font-size:.78rem;color:var(--soft);margin:0 0 12px">Verifikasi 2 langkah — kalau aktif, tiap kali masuk butuh kode OTP WhatsApp tambahan selain password, ke nomor HP terdaftar Anda.</p>
         <button class="btn ${u.twoFactorEnabled?'btn-outline':'btn-primary'} btn-sm" id="btnToggle2fa">${u.twoFactorEnabled?'Matikan Verifikasi 2 Langkah':'Aktifkan Verifikasi 2 Langkah'}</button>
       </div>
+
+      ${biometricSection(bioCredentials, bioSupported)}
 
       <div class="dash-section">
         <div class="dash-sh"><h3>🔔 Notifikasi</h3><span class="bank-status ${pushOn?'verified':'empty'}">${pushOn?'✓ Aktif':'✕ Nonaktif'}</span></div>
@@ -379,6 +411,30 @@ export async function renderProfile(){
       btn.disabled = false; btn.textContent = orig;
     }
   });
+
+  document.getElementById('btnAddBiometric')?.addEventListener('click', async (ev)=>{
+    const btn = ev.currentTarget;
+    if(btn.disabled) return;
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Menunggu biometric…';
+    try {
+      await Store.enableBiometric(guessDeviceName());
+      toast('Biometric berhasil diaktifkan di perangkat ini.','s');
+      renderProfile();
+    } catch(e) {
+      if(e.name === 'NotAllowedError') toast('Pendaftaran biometric dibatalkan.');
+      else toast('Gagal mengaktifkan biometric: '+(e.message||'coba lagi.'),'e');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  });
+  document.querySelectorAll('[data-remove-bio]').forEach(b=>b.addEventListener('click', async ()=>{
+    if(!(await customConfirm('Hapus kredensial biometric ini? Perangkat ini tidak bisa lagi dipakai login tanpa password setelah dihapus.', {danger:true, okLabel:'Hapus'}))) return;
+    try {
+      await Store.removeBiometricCredential(b.dataset.removeBio);
+      toast('Kredensial biometric dihapus.','s');
+      renderProfile();
+    } catch(e) { toast('Gagal menghapus: '+(e.message||'coba lagi.'),'e'); }
+  }));
 
   document.getElementById('btnDeleteAccount')?.addEventListener('click', async ()=>{
     const ok = await customConfirm('Tindakan ini PERMANEN dan tidak bisa dibatalkan. Ketik HAPUS AKUN (huruf besar semua) untuk konfirmasi.', { danger:true, okLabel:'Hapus Akun', requireText:'HAPUS AKUN' });
