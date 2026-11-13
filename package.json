@@ -11,6 +11,6 @@
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.3.2",
-    "web-push": "^3.6.7"
+    "web-push": "^4.0.0"
   }
 }
